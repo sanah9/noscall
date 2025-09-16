@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/contacts/user_avatar.dart';
 import '../utils/toast.dart';
 import '../auth/auth_service.dart';
 import '../core/account/account.dart';
@@ -168,22 +169,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileAvatar(ThemeData theme, ColorScheme colorScheme) {
-    return CircleAvatar(
+    return UserAvatar(
+      user: _user!,
       radius: 60,
-      backgroundColor: colorScheme.surface,
-      backgroundImage: _user!.picture != null && _user!.picture!.isNotEmpty
-          ? NetworkImage(_user!.picture!)
-          : null,
-      child: _user!.picture == null || _user!.picture!.isEmpty
-          ? Text(
-              _user!.getUserShowName()[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: colorScheme.primary,
-              ),
-            )
-          : null,
     );
   }
 
