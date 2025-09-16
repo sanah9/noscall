@@ -1,0 +1,274 @@
+import 'dart:async';
+import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import '../core/common/utils/log_utils.dart';
+import '../core/account/account.dart';
+import '../core/account/model/userDB_isar.dart';
+import '../core/common/database/db_isar.dart';
+import '../core/common/thread/threadPoolManager.dart';
+import '../core/account/relays.dart';
+import '../core/call/messages/messages.dart';
+import '../core/core-manager.dart';
+import '../core/common/config/call_core_init_config.dart';
+import '../call/call_manager.dart';
+import 'package:nostr/nostr.dart';
+
+class AuthService {
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal();
+
+  static const String _userKey = 'noscall_user_pubkey';
+  static const String _isAuthenticatedKey = 'noscall_authenticated';
+
+  String? _currentUserPubkey;
+  String? _currentUserNpub;
+  bool _isAuthenticated = false;
+
+  final StreamController<bool> _authStateController = StreamController<bool>.broadcast();
+
+  // Getters
+  String? get currentUserPubkey => _currentUserPubkey;
+  String? get currentUserNpub => _currentUserNpub;
+  bool get isAuthenticated => _isAuthenticated;
+  Stream<bool> get authStateStream => _authStateController.stream;
+
+  Future<void> initialize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final pubkey = prefs.getString(_userKey);
+      if (pubkey == null) return;
+
+      _isAuthenticated = prefs.getBool(_isAuthenticatedKey) ?? false;
+      _currentUserPubkey = pubkey;
+      _currentUserNpub = _pubkeyToNpub(_currentUserPubkey!);
+      await _initDatabase(pubkey);
+      await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
+      await _initChatCore(pubkey);
+
+      LogUtils.i(() => 'Auth service initialized. Authenticated: $_isAuthenticated');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to initialize auth service: $e');
+    }
+  }
+
+  Future<bool> loginWithPrivateKey(String privateKey) async {
+    try {
+      String actualPrivateKey = privateKey;
+
+      if (privateKey.startsWith('nsec')) {
+        actualPrivateKey = _decodeNsec(privateKey);
+        if (actualPrivateKey.isEmpty) {
+          throw Exception('Failed to decode nsec format');
+        }
+      }
+
+      if (actualPrivateKey.length != 64) {
+        throw Exception('Private key must be 64 characters long');
+      }
+
+      final pubkey = Account.getPublicKey(actualPrivateKey);
+      if (pubkey.isEmpty) {
+        throw Exception('Failed to generate public key from private key');
+      }
+
+      await _cleanupCurrentSession();
+
+      await _initDatabase(pubkey);
+
+      final userDB = await Account.sharedInstance.loginWithPriKey(actualPrivateKey);
+      if (userDB == null) {
+        throw Exception('Login failed');
+      }
+
+      await _initChatCore(pubkey);
+
+      await _saveUserInfo(pubkey);
+
+      LogUtils.i(() => 'Successfully logged in with private key. Pubkey: ${pubkey.substring(0, 8)}...');
+      return true;
+    } catch (e) {
+      LogUtils.e(() => 'Private key login failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> _initDatabase(String pubkey) async {
+    try {
+      if (pubkey.isEmpty) return;
+
+      await ThreadPoolManager.sharedInstance.initialize();
+
+      await DBISAR.sharedInstance.open(pubkey);
+
+      Relays.sharedInstance.recommendGeneralRelays = [
+        'wss://relay.0xchat.com',
+      ];
+      Relays.sharedInstance.recommendDMRelays = [
+        'wss://relay.0xchat.com',
+      ];
+
+      await Relays.sharedInstance.init();
+
+      Messages.sharedInstance.init();
+
+      LogUtils.i(() => 'Database and services initialized for pubkey: ${pubkey.substring(0, 8)}...');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to initialize database: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _initChatCore(String pubkey) async {
+    try {
+      final appDir = await getApplicationDocumentsDirectory();
+      final databasePath = '${appDir.path}/noscall_$pubkey';
+
+      final config = ChatCoreInitConfig(
+        pubkey: pubkey,
+        databasePath: databasePath,
+        encryptionPassword: _generateEncryptionPassword(pubkey),
+        isLite: false,
+        contactUpdatedCallBack: _onContactUpdated,
+        allowSendNotification: true,
+        allowReceiveNotification: true,
+      );
+      await ChatCoreManager().initChatCoreWithConfig(config);
+
+      await CallKitManager().initRTC();
+
+      LogUtils.i(() => 'Chat core initialized successfully for pubkey: ${pubkey.substring(0, 8)}...');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to initialize chat core: $e');
+      rethrow;
+    }
+  }
+
+  String _generateEncryptionPassword(String pubkey) {
+    return 'noscall_${pubkey.substring(0, 16)}';
+  }
+
+  void _onContactUpdated() {
+    LogUtils.i(() => 'Contact list updated');
+  }
+
+  String generatePrivateKey() {
+    try {
+      final random = Random.secure();
+      final randomBytes = List<int>.generate(32, (i) => random.nextInt(256));
+      return randomBytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+    } catch (e) {
+      LogUtils.e(() => 'Failed to generate private key: $e');
+      return 'a'.padRight(64, '0');
+    }
+  }
+
+  Future<void> _saveUserInfo(String pubkey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userKey, pubkey);
+      await prefs.setBool(_isAuthenticatedKey, true);
+
+      _currentUserPubkey = pubkey;
+      _currentUserNpub = _pubkeyToNpub(pubkey);
+      _isAuthenticated = true;
+
+      _authStateController.add(true);
+
+      LogUtils.i(() => 'User info saved successfully');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to save user info: $e');
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _logout();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      await prefs.remove(_isAuthenticatedKey);
+
+      _currentUserPubkey = null;
+      _currentUserNpub = null;
+      _isAuthenticated = false;
+
+      _authStateController.add(false);
+
+      LogUtils.i(() => 'User logged out successfully');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to logout: $e');
+    }
+  }
+
+  /// Clean up current session state (used before login)
+  Future<void> _cleanupCurrentSession() async {
+    try {
+      if (_isAuthenticated) {
+        await Account.sharedInstance.logout();
+        // Connect.sharedInstance.stopHeartBeat();
+      }
+      LogUtils.i(() => 'Current session cleaned up');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to cleanup current session: $e');
+    }
+  }
+
+  /// Internal logout method
+  Future<void> _logout() async {
+    try {
+      await Account.sharedInstance.logout();
+
+      // Connect.sharedInstance.stopHeartBeat();
+
+      LogUtils.i(() => 'Internal logout completed');
+    } catch (e) {
+      LogUtils.e(() => 'Failed to perform internal logout: $e');
+    }
+  }
+
+  String _decodeNsec(String nsec) {
+    try {
+      if (nsec.startsWith('nsec1') && nsec.length > 5) {
+        return Nip19.decodePrivkey(nsec);
+      }
+      return '';
+    } catch (e) {
+      LogUtils.e(() => 'Failed to decode nsec: $e');
+      return '';
+    }
+  }
+
+  String _pubkeyToNpub(String pubkey) {
+    try {
+      return Nip19.encodePubkey(pubkey);
+    } catch (e) {
+      LogUtils.e(() => 'Failed to convert pubkey to npub: $e');
+      return pubkey;
+    }
+  }
+
+  Map<String, String> getUserInfo() {
+    return {
+      'pubkey': _currentUserPubkey ?? '',
+      'npub': _currentUserNpub ?? '',
+      'isAuthenticated': _isAuthenticated.toString(),
+    };
+  }
+
+  UserDBISAR? getCurrentUserDB() {
+    return Account.sharedInstance.me;
+  }
+
+  bool get isUserLoggedIn => Account.sharedInstance.me != null;
+
+  String? getCurrentPubkey() {
+    return Account.sharedInstance.currentPubkey;
+  }
+
+  void dispose() {
+    _authStateController.close();
+  }
+}

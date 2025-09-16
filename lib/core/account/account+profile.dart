@@ -1,0 +1,338 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:nostr/nostr.dart';
+
+import '../call/contacts/contacts.dart';
+import '../common/network/connect.dart';
+import '../core-manager.dart';
+import 'account.dart';
+import 'model/userDB_isar.dart';
+import 'relays.dart';
+
+extension AccountProfile on Account {
+  Future<void> loginSuccess() async {
+    Connect.sharedInstance.addConnectStatusListener((relay, status, relayKinds) async {
+      if (status == 1 &&
+          Account.sharedInstance.me != null &&
+          relayKinds.contains(RelayKind.general)) {
+        reloadMyProfileFromRelay(relay: relay);
+      }
+    });
+    await Future.delayed(const Duration(seconds: 1));
+    reloadMyProfileFromRelay();
+  }
+
+  Future<UserDBISAR> reloadMyProfileFromRelay({String? relay}) async {
+    Completer<UserDBISAR> completer = Completer<UserDBISAR>();
+    Filter f = Filter(kinds: ChatCoreManager().myProfileKinds(), authors: [currentPubkey]);
+    List<Event> events = [];
+    Connect.sharedInstance.addSubscription([f], relays: relay == null ? null : [relay],
+        eventCallBack: (event, relay) async {
+          events.add(event);
+        }, eoseCallBack: (requestId, ok, relay, unRelays) async {
+          if (unRelays.isEmpty) {
+            for (var event in events) {
+              switch (event.kind) {
+                case 0:
+                  me = handleKind0Event(me, event);
+                  break;
+                case 3:
+                  me = _handleKind3Event(me, event);
+                  break;
+                case 10000:
+                  me = await _handleKind10000Event(me, event);
+                  break;
+                case 10002:
+                  me = _handleKind10002Event(me, event);
+                  break;
+                case 10050:
+                  me = _handleKind10050Event(me, event);
+                  break;
+                case 30000:
+                  me = await _handleKind30000Event(me, event);
+                  break;
+              }
+            }
+            updateOrCreateUserNotifier(currentPubkey, me!);
+            syncMe();
+            if (!completer.isCompleted) completer.complete(me);
+          }
+        });
+    return completer.future;
+  }
+
+  Future<UserDBISAR> reloadProfileFromRelay(String pubkey, {List<String>? relays}) async {
+    Completer<UserDBISAR> completer = Completer<UserDBISAR>();
+    UserDBISAR? db = await getUserInfo(pubkey);
+    List<Filter> filters = [Filter(kinds: ChatCoreManager().userProfileKinds(), authors: [pubkey])];
+
+    Connect.sharedInstance.addSubscription(filters, relays: relays, eventCallBack: (event, relay) async {
+      switch (event.kind) {
+        case 0:
+          db = handleKind0Event(db, event);
+          break;
+        case 10002:
+          db = _handleKind10002Event(db, event);
+          break;
+        case 10050:
+          db = _handleKind10050Event(db, event);
+          break;
+      }
+    }, eoseCallBack: (requestId, ok, relay, unRelays) async {
+      if (unRelays.isEmpty) {
+        updateOrCreateUserNotifier(pubkey, db!);
+        if (pubkey == currentPubkey) me = db;
+        Account.saveUserToDB(db!);
+        if (!completer.isCompleted) completer.complete(db);
+      }
+    });
+    return completer.future;
+  }
+
+  /// sync profile from relays
+  Future<void> syncProfilesFromRelay() async {
+    if (pQueue.isEmpty) return;
+    Completer<void> completer = Completer<void>();
+
+    Map<String, UserDBISAR> users = {};
+    // init users from cache & DB
+    List<String> pQueueTemp = List.from(pQueue);
+    for (var key in pQueueTemp) {
+      UserDBISAR? db = userCache[key]?.value;
+      db ??= await getUserFromDB(pubkey: key);
+      if (db != null && db.lastUpdatedTime > 0) {
+        pQueue.remove(db.pubKey);
+        continue;
+      }
+      if (db == null) {
+        db = UserDBISAR();
+        db.pubKey = key;
+      }
+      if (db.name == null || db.name!.isEmpty) {
+        db.name = db.shortEncodedPubkey;
+      }
+      users[key] = db;
+    }
+
+    Filter f = Filter(
+      kinds: ChatCoreManager().userProfileKinds(),
+      authors: users.keys.toList(),
+    );
+
+    Connect.sharedInstance.addSubscription([f], eventCallBack: (event, relay) async {
+      String p = event.pubkey;
+      UserDBISAR db = users[p] ?? UserDBISAR(pubKey: p);
+      if (event.kind == 0) {
+        users[p] = handleKind0Event(db, event)!;
+      }
+      if (event.kind == 10050) {
+        users[p] = _handleKind10050Event(db, event)!;
+      }
+      if (event.kind == 10002) {
+        users[p] = _handleKind10002Event(db, event)!;
+      }
+      if (userCache.containsKey(p)) {
+        userCache[p]!.value = users[p]!;
+        userCache[p]!.notifyListeners();
+      } else {
+        updateOrCreateUserNotifier(p, users[p]!);
+      }
+      pQueue.remove(p);
+      Account.saveUserToDB(users[p]!);
+    }, eoseCallBack: (requestId, ok, relay, unRelays) async {
+      if (unRelays.isEmpty) {
+        pQueue.removeWhere((key) => users.keys.contains(key));
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+    return completer.future;
+  }
+
+  Future<UserDBISAR?> updateProfile(UserDBISAR updateDB) async {
+    Completer<UserDBISAR?> completer = Completer<UserDBISAR?>();
+
+    UserDBISAR db = await getUserFromDB(pubkey: currentPubkey) ?? UserDBISAR();
+    db.name = updateDB.name;
+    db.gender = updateDB.gender;
+    db.area = updateDB.area;
+    db.about = updateDB.about;
+    db.picture = updateDB.picture;
+    db.banner = updateDB.banner;
+    db.dns = updateDB.dns;
+    db.lnurl = updateDB.lnurl;
+    db.mute = updateDB.mute;
+    await Account.saveUserToDB(db);
+
+    /// send metadata event
+    Map map = {
+      'name': updateDB.name ?? '',
+      'about': updateDB.about ?? '',
+      'gender': updateDB.gender ?? '',
+      'area': updateDB.area ?? '',
+      'picture': updateDB.picture ?? '',
+      'banner': updateDB.banner ?? '',
+      'nip05': updateDB.dns ?? '',
+      'lud16': updateDB.lnurl ?? ''
+    };
+    Map additionMap = jsonDecode(db.otherField ?? '{}');
+    map.addAll(additionMap);
+    Event event = await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
+    Connect.sharedInstance.sendEvent(event, sendCallBack: (ok, relay) {
+      if (ok.status) {
+        Account.sharedInstance.updateOrCreateUserNotifier(db.pubKey, db);
+        completer.complete(db);
+      } else {
+        completer.complete(null);
+      }
+    });
+    return completer.future;
+  }
+
+  Future<Event?> getMyMetadataEvent() async {
+    UserDBISAR? db = await getUserFromDB(pubkey: currentPubkey);
+    if (db == null) return null;
+    /// send metadata event
+    Map map = {
+      'name': db.name ?? '',
+      'about': db.about ?? '',
+      'gender': db.gender ?? '',
+      'area': db.area ?? '',
+      'picture': db.picture ?? '',
+      'banner': db.banner ?? '',
+      'nip05': db.dns ?? '',
+      'lud16': db.lnurl ?? ''
+    };
+    Map additionMap = jsonDecode(db.otherField ?? '{}');
+    map.addAll(additionMap);
+    Event event = await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
+    return event;
+  }
+
+  UserDBISAR? handleKind0Event(UserDBISAR? db, Event event) {
+    if (event.content.isEmpty) return db;
+    Map map = jsonDecode(event.content);
+    if (db != null && db.lastUpdatedTime < event.createdAt) {
+      db.name = map['name']?.toString();
+      db.gender = map['gender']?.toString();
+      db.area = map['area']?.toString();
+      db.about = map['about']?.toString();
+      db.picture = map['picture']?.toString();
+      db.banner = map['banner']?.toString();
+      db.dns = map['nip05']?.toString();
+      db.lnurl = map['lnurl']?.toString();
+      if (db.lnurl == null || db.lnurl == 'null' || db.lnurl!.isEmpty) {
+        db.lnurl = null;
+      }
+      db.lnurl ??= map['lud06']?.toString();
+      db.lnurl ??= map['lud16']?.toString();
+      db.lastUpdatedTime = event.createdAt;
+      if (db.name == null || db.name!.isEmpty) {
+        db.name = map['display_name']?.toString();
+      }
+      if (db.name == null || db.name!.isEmpty) {
+        db.name = map['username']?.toString();
+      }
+      if (db.name == null || db.name!.isEmpty) {
+        db.name = db.shortEncodedPubkey;
+      }
+      var keysToRemove = {
+        'name',
+        'display_name',
+        'username',
+        'gender',
+        'area',
+        'about',
+        'picture',
+        'banner',
+        'nip05',
+        'lnurl',
+        'lud16',
+        'lud06'
+      };
+      Map filteredMap = Map.from(map)..removeWhere((key, value) => keysToRemove.contains(key));
+      db.otherField = jsonEncode(filteredMap);
+    } else {
+      if (db?.lnurl == null || db?.lnurl == 'null' || db!.lnurl!.isEmpty) {
+        db?.lnurl = null;
+      }
+      db?.lnurl ??= map['lud16'];
+      db?.lnurl ??= map['lud06'];
+    }
+    return db;
+  }
+
+  // following list
+  UserDBISAR? _handleKind3Event(UserDBISAR? db, Event event) {
+    if (db != null && db.lastFollowingListUpdatedTime < event.createdAt) {
+      db.lastFollowingListUpdatedTime = event.createdAt;
+      // following list
+      List<Profile> profiles = Nip2.decode(event);
+      db.followingList = profiles.map((e) => e.key).toList();
+    }
+    return db;
+  }
+
+  // mute&block list
+  Future<UserDBISAR?> _handleKind10000Event(UserDBISAR? db, Event event) async {
+    if (db != null && db.lastBlockListUpdatedTime < event.createdAt) {
+      db.lastBlockListUpdatedTime = event.createdAt;
+      Lists result = await Nip51.getLists(event, currentPubkey, currentPrivkey);
+      Set<String> blockedList = Set.from(db.blockedList ?? []);
+      blockedList.addAll(result.people.map((p) => p.pubkey).toList());
+      db.blockedList = blockedList.toList();
+      db.blockedWords = result.words;
+      db.blockedHashTags = result.hashTags;
+      db.blockedThreads = result.bookmarks;
+    }
+    return db;
+  }
+
+  // relay list
+  UserDBISAR? _handleKind10002Event(UserDBISAR? db, Event event) {
+    if (db != null) {
+      db.lastRelayListUpdatedTime = event.createdAt;
+      List<Relay> result = Nip65.decode(event);
+      db.inboxRelayList ??= [];
+      db.outboxRelayList ??= [];
+      for (var relay in result) {
+        if ((relay.r == 'read' || relay.r == null) && !db.inboxRelayList!.contains(relay.url)) {
+          db.inboxRelayList!.add(relay.url);
+        }
+        if ((relay.r == 'write' || relay.r == null) && !db.outboxRelayList!.contains(relay.url)) {
+          db.outboxRelayList!.add(relay.url);
+        }
+      }
+      if (db.pubKey == currentPubkey) {
+        Relays.sharedInstance.connectInboxOutboxRelays();
+        relayListUpdateCallback?.call();
+      }
+    }
+    return db;
+  }
+
+  // dm relay list
+  UserDBISAR? _handleKind10050Event(UserDBISAR? db, Event event) {
+    if (db != null && db.lastDMRelayListUpdatedTime < event.createdAt) {
+      db.lastDMRelayListUpdatedTime = event.createdAt;
+      List<String> relayList = Nip17.decodeDMRelays(event);
+      db.dmRelayList = relayList;
+      Relays.sharedInstance.connectDMRelays();
+      if (db.pubKey == currentPubkey) dmRelayListUpdateCallback?.call();
+    }
+    return db;
+  }
+
+  // contact list
+  Future<UserDBISAR?> _handleKind30000Event(UserDBISAR? db, Event event) async {
+    if (db == null) return null;
+    if (db.lastFriendsListUpdatedTime >= event.createdAt) return db;
+    Lists result = await Nip51.getLists(event, currentPubkey, currentPrivkey);
+    if (result.identifier == Contacts.identifier) {
+      // contact list
+      db.lastFriendsListUpdatedTime = event.createdAt;
+      db.friendsList = await Nip51.peoplesToContent(result.people, currentPrivkey, currentPubkey);
+      contactListUpdateCallback?.call();
+    }
+    return db;
+  }
+}

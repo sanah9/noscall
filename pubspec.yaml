@@ -1,0 +1,57 @@
+name: noscall
+description: Flutter Voice Calling App.
+
+version: 1.3.5+69
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.29.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_localizations:
+    sdk: flutter
+
+  # third
+  uuid: ^4.3.3
+  encrypt: ^5.0.3
+  path_provider: 2.1.3
+  isar_flutter_libs: ^3.1.0+1
+  connectivity_plus: 6.1.3
+  flutter_socks_proxy: ^0.0.3
+  go_router: ^14.2.7
+  fluttertoast: ^8.2.8
+  flutter_easyloading: ^3.0.5
+  shared_preferences: ^2.2.2
+  permission_handler: ^11.3.1
+  
+  # calling
+  callkeep:
+    git:
+      url: https://github.com/flutter-webrtc/callkeep.git
+      ref: 20eadd73d8727566da14225d5d608f1ef0a9e2f1
+  flutter_webrtc: ^0.12.10
+
+  nostr:
+    path: packages/nostr
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.9
+  isar_generator: ^3.1.0+1
+  json_serializable: ^6.1.5
+  watcher: ^1.1.0
+#  flutter_socks_proxy: ^0.0.3
+
+flutter:
+
+  uses-material-design: true
+
+  assets:
+   - assets/images/
+   - assets/sounds/classic/
