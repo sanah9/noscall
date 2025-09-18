@@ -2,13 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
 import 'package:flutter/widgets.dart';
+import 'package:noscall/call_history/controller/call_history_manager.dart';
+import 'package:noscall/core/core.dart' as ChatCore;
 import 'package:noscall/utils/router.dart';
 
 import 'package:nostr/nostr.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../core/core.dart' as ChatCore;
 import 'constant/call_type.dart';
 import 'callkeep_manager.dart';
 import 'calling_controller.dart';
@@ -35,22 +36,18 @@ class CallKitManager with WidgetsBindingObserver {
   StreamSubscription? deviceChangeSubscription;
   ValueNotifier<bool> isBluetoothHeadsetConnected = ValueNotifier(false);
 
-  // CallKeep integration
+  CallHistoryManager? callHistoryManager;
   final CallKeepManager _callKeepManager = CallKeepManager();
 
-  // Call state
-  CallingType? callType;
+  CallType? callType;
   bool get getInCallIng => hasActiveCalling;
 
-  // Video renderer
   RTCVideoRenderer? remoteRenderer;
 
-  // Call state tracking
   CallingState? callState;
   int counter = 0;
 
-  // Permission handling
-  Future<bool> _checkPermissions(CallingType callType) async {
+  Future<bool> _checkPermissions(CallType callType) async {
     try {
       // Check microphone permission (required for all calls)
       final microphoneStatus = await Permission.microphone.request();
@@ -149,7 +146,7 @@ class CallKitManager with WidgetsBindingObserver {
 
   Future<CallingController?> startCall({
     required String peerId,
-    required CallingType callType,
+    required CallType callType,
   }) async {
     try {
       // Check if we can start a new call
@@ -166,12 +163,12 @@ class CallKitManager with WidgetsBindingObserver {
       }
 
       final user = ChatCore.Account.sharedInstance.getUserNotifier(peerId).value;
-      // User will always be available from getUserNotifier
-
+      final callId = _generateCallId();
       final controller = await openCallModule(
         user: user,
         callType: callType,
         role: CallingRole.caller,
+        callId: callId,
       );
 
       LogUtils.i(() => 'Call started to $peerId with type ${callType.value}');
@@ -218,7 +215,7 @@ class CallKitManager with WidgetsBindingObserver {
     required SignalingState state,
     required String offerId,
     String data = '',
-    CallingType? mediaType,
+    CallType? mediaType,
   }) async {
     if (disconnectOfferId.contains(offerId)) {
       LogUtils.i(() => 'offerId($offerId) has been disconnected');
@@ -262,13 +259,15 @@ class CallKitManager with WidgetsBindingObserver {
       } catch (_) {}
 
       var media = dataMap['media'];
-      mediaType ??= CallingTypeEx.fromValue(media);
+      mediaType ??= CallTypeEx.fromValue(media);
       if (mediaType == null) {
         LogUtils.e(() => 'Call type is null, ${StackTrace.current}');
         return;
       }
 
       final user = ChatCore.Account.sharedInstance.getUserNotifier(friend).value;
+
+      final incomingCallId = _generateCallId();
 
       // await _callKeepManager.displayIncomingCall(
       //   offerId,
@@ -281,6 +280,7 @@ class CallKitManager with WidgetsBindingObserver {
         callType: mediaType,
         role: CallingRole.callee,
         offerId: offerId,
+        callId: incomingCallId,
       );
 
       controller.signalingCallbackHandler(
@@ -292,10 +292,11 @@ class CallKitManager with WidgetsBindingObserver {
 
   Future<CallingController> openCallModule({
     required ChatCore.UserDBISAR user,
-    required CallingType callType,
+    required CallType callType,
     required CallingRole role,
     String? sessionId,
     String? offerId,
+    String? callId,
   }) async {
     final cmp = Completer<CallingController>();
     activeControllerCmp = cmp;
@@ -312,6 +313,7 @@ class CallKitManager with WidgetsBindingObserver {
       isRecordOn: true,
       isFrontCamera: false,
       disposeCallback: callControllerDisposeHandler,
+      callHistoryManager: callHistoryManager,
     );
 
     if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
@@ -353,6 +355,10 @@ class CallKitManager with WidgetsBindingObserver {
 
     // End call in CallKeep
     // _callKeepManager.endCall(offerId);
+  }
+
+  String _generateCallId() {
+    return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
   void presentPageWithController(CallingController controller) {
@@ -404,14 +410,14 @@ extension NativeCallKitEx on CallKitManager {
       state: SignalingState.offer,
       offerId: offerId,
       data: '',
-      mediaType: CallingType.audio,
+      mediaType: CallType.audio,
     );
   }
 }
 
 extension CallManagerDefaultEx on CallKitManager {
 
-  AudioOutputType defaultOutputType(CallingType callType) {
+  AudioOutputType defaultOutputType(CallType callType) {
     if (isBluetoothHeadsetConnected.value) return AudioOutputType.bluetooth;
 
     if (callType.isVideo) return AudioOutputType.speaker;

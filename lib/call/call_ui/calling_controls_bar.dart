@@ -89,22 +89,22 @@ class CallingControlsBarState extends State<CallingControlsBar> {
     final isConnected = [CallingState.connected, CallingState.ended].contains(state);
 
     switch ((isConnected, role, type)) {
-      case (false, CallingRole.callee, CallingType.audio):
+      case (false, CallingRole.callee, CallType.audio):
       // Audio - Invited
         return controlsForInvitedAudio();
-      case (false, CallingRole.callee, CallingType.video):
+      case (false, CallingRole.callee, CallType.video):
       // Video - Invited
         return controlsForInvitedVideo();
-      case (false, CallingRole.caller, CallingType.audio):
+      case (false, CallingRole.caller, CallType.audio):
       // Audio - Inviting
         return controlsForInvitingAudio();
-      case (false, CallingRole.caller, CallingType.video):
+      case (false, CallingRole.caller, CallType.video):
       // Video - Inviting
         return controlsForInvitingVideo();
-      case (true, _, CallingType.audio):
+      case (true, _, CallType.audio):
       // Audio - Connected
         return controlsForConnectedAudio();
-      case (true, _, CallingType.video):
+      case (true, _, CallType.video):
       // Video - Connected
         return controlsForConnectedVideo();
     }

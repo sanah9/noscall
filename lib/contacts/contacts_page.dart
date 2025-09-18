@@ -43,7 +43,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
       final controller = await _callKitManager.startCall(
         peerId: peerId,
-        callType: CallingType.audio,
+        callType: CallType.audio,
       );
 
       if (controller == null) {
@@ -83,7 +83,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
       final controller = await _callKitManager.startCall(
         peerId: peerId,
-        callType: CallingType.video,
+        callType: CallType.video,
       );
 
       if (controller == null) {
@@ -180,7 +180,7 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildContactCard(BuildContext context, dynamic contact, ThemeData theme, ColorScheme colorScheme) {
-    final displayName = contact.getUserShowName();
+    final displayName = contact.displayName();
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       elevation: 1,

@@ -16,8 +16,8 @@ class UserAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final displayName = user.getUserShowName();
-    final radius = this.radius ?? 20.0;
+    final displayName = user.displayName();
+    final radius = this.radius ?? 22.0;
     final pictureUrl = user.picture;
 
     Widget avatarWidget;
@@ -71,7 +71,7 @@ class UserAvatar extends StatelessWidget {
       child: Text(
         displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
         style: TextStyle(
-          fontSize: radius / 2,
+          fontSize: radius,
           color: colorScheme.onPrimary,
           fontWeight: FontWeight.bold,
         ),

@@ -8,6 +8,8 @@ import 'package:nostr/nostr.dart';
 import '../core/core.dart';
 import 'constant/call_type.dart';
 import 'web_rtc_handler.dart';
+import '../call_history/controller/call_history_manager.dart';
+import '../call_history/constants/call_enums.dart';
 
 ///                          Start
 /// ------------------------------------------------------------
@@ -34,6 +36,7 @@ class CallingController {
     bool isRecordOn = true,
     bool isFrontCamera = false,
     this.disposeCallback,
+    this.callHistoryManager,
   }) :
         state = ValueNotifier(state),
         speakerType = ValueNotifier(speakerType),
@@ -44,7 +47,7 @@ class CallingController {
         sessionId = sessionId.isNotEmpty ? sessionId : user.pubKey;
 
   UserDBISAR user;
-  CallingType callType;
+  CallType callType;
   String get peerId => user.pubKey;
   // '${Contacts.sharedInstance.pubkey}-${user.pubKey}'
   String sessionId;
@@ -68,10 +71,13 @@ class CallingController {
 
   late WebRTCHandler webRTCHandler;
 
+  late DateTime callStartTime;
+  final CallHistoryManager? callHistoryManager;
+
   static Future<CallingController> create({
     required UserDBISAR user,
     required CallingRole role,
-    required CallingType callType,
+    required CallType callType,
     String sessionId = '',
     String offerId = '',
     CallingState state = CallingState.ringing,
@@ -80,6 +86,7 @@ class CallingController {
     bool isRecordOn = true,
     bool isFrontCamera = false,
     Function(String offerId)? disposeCallback,
+    CallHistoryManager? callHistoryManager,
   }) async {
     final controller = CallingController._(
       user: user,
@@ -92,6 +99,7 @@ class CallingController {
       isRecordOn: isRecordOn,
       isFrontCamera: isFrontCamera,
       disposeCallback: disposeCallback,
+      callHistoryManager: callHistoryManager,
     );
 
     if (offerId.isNotEmpty) {
@@ -113,14 +121,66 @@ class CallingController {
       controller.connectedDuration.value = controller.connectedStopwatch.elapsed;
     });
 
+    controller.callStartTime = DateTime.now();
+
     return controller;
   }
 
   void _dispose() async {
-
     connectedTimer.cancel();
     webRTCHandler.dispose();
     disposeCallback?.call(await offerId);
+  }
+
+  Future<void> _recordCallHistory(String reason) async {
+    final callId = await offerId;
+    final duration = connectedStopwatch.isRunning
+        ? connectedStopwatch.elapsed
+        : connectedDuration.value;
+
+    CallDirection direction;
+    CallStatus status;
+
+    direction = role == CallingRole.caller
+        ? CallDirection.outgoing
+        : CallDirection.incoming;
+
+    switch (reason.toLowerCase()) {
+      case 'reject':
+        status = CallStatus.declined;
+        break;
+      case 'ice server connection failed':
+      case 'ice server disconnected':
+      case 'failed':
+        status = CallStatus.failed;
+        break;
+      case 'timeout':
+      case 'hangup':
+      case 'disconnect':
+        status = state.value == CallingState.connected
+            ? CallStatus.completed
+            : CallStatus.cancelled;
+        break;
+      default:
+        status = CallStatus.cancelled;
+        break;
+    }
+
+    callHistoryManager?.addCallRecord(
+      callId: callId,
+      peerPubkey: peerId,
+      direction: direction,
+      type: callType,
+      status: status,
+      startTime: callStartTime,
+      duration: duration.inSeconds > 0 ? duration : null,
+    );
+
+    LogUtils.info(
+      className: 'CallingController',
+      funcName: '_recordCallHistory',
+      message: 'Call history recorded: $callId, $direction, $status, duration: ${duration.inSeconds}s',
+    );
   }
 }
 
@@ -164,6 +224,7 @@ extension CallingControllerSignalingEx on CallingController {
     Future.delayed(const Duration(seconds: 60), () {
       if (state.value != CallingState.connected && state.value != CallingState.ended) {
         timeoutHandler?.call();
+        _recordCallHistory('timeout');
       }
     });
 
@@ -185,8 +246,11 @@ extension CallingControllerSignalingEx on CallingController {
     if (reason.toLowerCase() == 'hangup') {
       reason = [CallingState.ringing, CallingState.connecting].contains(state.value) ? 'hangUp': 'disconnect';
     }
+
     connectedStopwatch.stop();
+    await _recordCallHistory(reason);
     state.value = CallingState.ended;
+
     await _sendDisconnect(reason);
     await webRTCHandler.close();
     _dispose();
@@ -528,7 +592,9 @@ extension CallingControllerNostrSignalingEx on CallingController {
       message: '[receive disconnect]',
     );
     connectedStopwatch.stop();
+    await _recordCallHistory('disconnect');
     state.value = CallingState.ended;
+
     await webRTCHandler.close();
     _dispose();
   }

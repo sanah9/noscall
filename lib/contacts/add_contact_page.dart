@@ -216,7 +216,7 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildUserCard(BuildContext context, UserDBISAR user, ThemeData theme, ColorScheme colorScheme) {
-    final displayName = user.getUserShowName();
+    final displayName = user.displayName();
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 1,

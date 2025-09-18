@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:isar/isar.dart';
+import 'package:noscall/call_history/models/call_entry.dart';
+import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../account/model/relayDB_isar.dart';
@@ -29,6 +31,8 @@ class DBISAR {
     RelayDBISARSchema,
     ConfigDBISARSchema,
     EventDBISARSchema,
+    CallEntrySchema,
+    CallLogGroupSchema,
   ];
 
   // Store encryption key after first open so subsequent opens re-use it.

@@ -179,7 +179,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         Text(
-          _user!.getUserShowName(),
+          _user!.displayName(),
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             color: colorScheme.onPrimary,

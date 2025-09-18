@@ -212,7 +212,7 @@ class UserDBISAR {
     return [];
   }
 
-  String getUserShowName() {
+  String displayName() {
     final nickName = (this.nickName ?? '').trim();
     final name = (this.name ?? '').trim();
     if (nickName.isNotEmpty) return nickName;

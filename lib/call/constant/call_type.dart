@@ -1,20 +1,20 @@
-enum CallingType {
+enum CallType {
   audio('audio'),
   video('video');
 
   final String value;
-  const CallingType(this.value);
+  const CallType(this.value);
 }
 
-extension CallingTypeEx on CallingType {
-  static CallingType? fromValue(dynamic value) =>
-      CallingType.values.where((e) => e.value == value).firstOrNull;
+extension CallTypeEx on CallType {
+  static CallType? fromValue(dynamic value) =>
+      CallType.values.where((e) => e.value == value).firstOrNull;
 
   bool get isVideo {
     switch (this) {
-      case CallingType.audio:
+      case CallType.audio:
         return false;
-      case CallingType.video:
+      case CallType.video:
         return true;
     }
   }

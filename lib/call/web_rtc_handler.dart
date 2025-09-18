@@ -31,7 +31,7 @@ class WebRTCHandler {
   Function(RTCIceConnectionState candidate)? onIceConnectionStateCallback;
 
   // State
-  CallingType callType;
+  CallType callType;
   ValueNotifier<CallingState>? state;
   ValueNotifier<AudioOutputType>? speakerType;
   ValueNotifier<bool>? isCameraOn;
@@ -39,7 +39,7 @@ class WebRTCHandler {
   ValueNotifier<bool>? isFrontCamera;
 
   static Future<WebRTCHandler> create({
-    required CallingType callType,
+    required CallType callType,
     ValueNotifier<CallingState>? state,
     ValueNotifier<AudioOutputType>? speakerType,
     ValueNotifier<bool>? isCameraOn,

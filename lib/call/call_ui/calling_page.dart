@@ -197,7 +197,7 @@ class CallingPageState extends State<CallingPage> {
   }
 
   Widget _buildHeadName() {
-    String showName = controller.user.getUserShowName();
+    String showName = controller.user.displayName();
     return Text(
       showName,
       style: TextStyle(
@@ -221,7 +221,7 @@ class CallingPageState extends State<CallingPage> {
         final duration = controller.connectedDuration.value;
         String showHint = 'Calling...';
         if (state == CallingState.ringing && controller.role == CallingRole.callee) {
-          showHint = controller.callType == CallingType.audio
+          showHint = controller.callType == CallType.audio
               ? 'Invites you to a call...'
               : 'Invites you to a video call...';
         } else if (state == CallingState.connecting) {
