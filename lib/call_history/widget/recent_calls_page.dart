@@ -194,7 +194,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   Widget _buildErrorState(String error) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -230,7 +230,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -270,17 +270,13 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   Widget _buildCallGroupItem(BuildContext context, CallLogGroup group) {
     final statusColor = _getCallStatusColor(group);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      elevation: 1,
-      child: ListTile(
-        leading: _buildUserAvatar(group.peerPubkey, group.type, statusColor),
-        title: _buildCallGroupTitle(group),
-        subtitle: _buildCallGroupSubtitle(group),
-        trailing: _buildCallGroupTrailing(group, statusColor),
-        onTap: () => _callBackFromGroup(group),
-        onLongPress: () => _showCallGroupDetailsDialog(group),
-      ),
+    return ListTile(
+      leading: _buildUserAvatar(group.peerPubkey, group.type, statusColor),
+      title: _buildCallGroupTitle(group),
+      subtitle: _buildCallGroupSubtitle(group),
+      trailing: _buildCallGroupTrailing(group, statusColor),
+      onTap: () => _callBackFromGroup(group),
+      onLongPress: () => _showCallGroupDetailsDialog(group),
     );
   }
 
@@ -306,7 +302,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   Widget _buildCallGroupSubtitle(CallLogGroup group) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Text(
       _formatNpub(group.peerPubkey),
       style: theme.textTheme.bodySmall?.copyWith(
@@ -328,7 +324,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   Widget _buildTimeAndDirectionColumn(CallLogGroup group, Color statusColor) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -467,16 +463,9 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _callBackFromGroup(group);
-            },
-            child: const Text('Call Back'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
               _deleteCallGroup(group);
             },
-            child: const Text('Delete Group'),
+            child: const Text('Delete'),
           ),
         ],
       ),

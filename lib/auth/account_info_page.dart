@@ -29,116 +29,120 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
 
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
-    AppToast.showSuccess('$label copied to clipboard');
+    AppToast.showSuccess(context, '$label copied to clipboard');
   }
 
   void _showNpubDetails() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Nostr Public Key (npub)',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This is your Nostr public key in bech32 format. You can share this with others to receive calls.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+
+        return AlertDialog(
+          title: Text(
+            'Nostr Public Key (npub)',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
-              ),
-              child: SelectableText(
-                _userInfo['npub'] ?? '',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This is your Nostr public key in bech32 format. You can share this with others to receive calls.',
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+                ),
+                child: SelectableText(
+                  _userInfo['npub'] ?? '',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => _copyToClipboard(_userInfo['npub'] ?? '', 'npub'),
+              child: const Text('Copy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => _copyToClipboard(_userInfo['npub'] ?? '', 'npub'),
-            child: const Text('Copy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _showPubkeyDetails() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Raw Public Key',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This is your raw public key in hexadecimal format. This is the internal representation used by the app.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+
+        return AlertDialog(
+          title: Text(
+            'Raw Public Key',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
-              ),
-              child: SelectableText(
-                _userInfo['pubkey'] ?? '',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This is your raw public key in hexadecimal format. This is the internal representation used by the app.',
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+                ),
+                child: SelectableText(
+                  _userInfo['pubkey'] ?? '',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => _copyToClipboard(_userInfo['pubkey'] ?? '', 'Public Key'),
+              child: const Text('Copy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => _copyToClipboard(_userInfo['pubkey'] ?? '', 'Public Key'),
-            child: const Text('Copy'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -159,70 +163,105 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Account Status Card
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.account_circle,
-                      size: 64,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Account Status',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Logged In',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      body: ListView(
+        children: [
+          // Account Status Header
+          _buildAccountStatusHeader(context),
+
+          // Public Key Information Section
+          _buildPublicKeySection(context),
+
+          // Account Actions Section
+          _buildAccountActionsSection(context),
+
+          // Info Section
+          _buildInfoSection(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAccountStatusHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.primary,
+            colorScheme.primary.withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.account_circle,
+            size: 80,
+            color: colorScheme.onPrimary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Account Status',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: colorScheme.onPrimary,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Logged In',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 24),
+  Widget _buildPublicKeySection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-            // Public Key Information
-            Text(
-              'Public Key Information',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text(
+            'Public Key Information',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
             ),
-            const SizedBox(height: 16),
-
-            // Nostr Public Key (npub)
-            Card(
-              elevation: 1,
-              child: ListTile(
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              ListTile(
                 leading: Icon(Icons.public, color: colorScheme.tertiary),
                 title: Text(
                   'Nostr Public Key (npub)',
@@ -258,14 +297,13 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                   ],
                 ),
               ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Raw Public Key
-            Card(
-              elevation: 1,
-              child: ListTile(
+              Divider(
+                height: 1,
+                color: colorScheme.outline.withOpacity(0.1),
+                indent: 16,
+                endIndent: 16,
+              ),
+              ListTile(
                 leading: Icon(Icons.key, color: colorScheme.primary),
                 title: Text(
                   'Raw Public Key',
@@ -301,24 +339,39 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountActionsSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text(
+            'Account Actions',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
             ),
-
-            const SizedBox(height: 24),
-
-            // Account Actions
-            Text(
-              'Account Actions',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Refresh Info Button
-            Card(
-              elevation: 1,
-              child: ListTile(
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              ListTile(
                 leading: Icon(Icons.refresh, color: colorScheme.primary),
                 title: Text(
                   'Refresh Account Info',
@@ -335,17 +388,16 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                 trailing: Icon(Icons.arrow_forward_ios, color: colorScheme.onSurfaceVariant),
                 onTap: () {
                   _loadUserInfo();
-                  AppToast.showInfo('Account info refreshed');
+                  AppToast.showInfo(context, 'Account info refreshed');
                 },
               ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Logout Button
-            Card(
-              elevation: 1,
-              child: ListTile(
+              Divider(
+                height: 1,
+                color: colorScheme.outline.withOpacity(0.1),
+                indent: 16,
+                endIndent: 16,
+              ),
+              ListTile(
                 leading: Icon(Icons.logout, color: colorScheme.error),
                 title: Text(
                   'Logout',
@@ -365,95 +417,100 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                   _showLogoutDialog();
                 },
               ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Info Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, color: colorScheme.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        'About Your Account',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '• Your npub is your public identifier that others can use to call you\n'
-                    '• Your raw public key is the internal representation used by the app\n'
-                    '• Keep your private key secure and never share it with anyone\n'
-                    '• You can share your npub with trusted contacts to receive calls',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildInfoSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'About Your Account',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '• Your npub is your public identifier that others can use to call you\n'
+            '• Your raw public key is the internal representation used by the app\n'
+            '• Keep your private key secure and never share it with anyone\n'
+            '• You can share your npub with trusted contacts to receive calls',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   void _showLogoutDialog() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Logout',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to logout? You will need to enter your private key again to sign back in.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              final router = GoRouter.of(context);
-              navigator.pop();
-              await _authService.logout();
-              AppToast.showSuccess('Logged out successfully');
-              if (mounted) {
-                router.go('/login');
-              }
-            },
-            child: Text(
-              'Logout',
-              style: TextStyle(color: colorScheme.error),
+      builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+
+        return AlertDialog(
+          title: Text(
+            'Logout',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
           ),
-        ],
-      ),
+          content: Text(
+            'Are you sure you want to logout? You will need to enter your private key again to sign back in.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final router = GoRouter.of(context);
+                navigator.pop();
+                await _authService.logout();
+                AppToast.showSuccess(context, 'Logged out successfully');
+                if (mounted) {
+                  router.go('/login');
+                }
+              },
+              child: Text(
+                'Logout',
+                style: TextStyle(color: colorScheme.error),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

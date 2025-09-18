@@ -25,20 +25,20 @@ class _AddContactPageState extends State<AddContactPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Scaffold(
-      appBar: _buildAppBar(context, colorScheme),
+      appBar: _buildAppBar(context),
       body: Column(
         children: [
-          _buildSearchSection(context, theme, colorScheme),
-          _buildSearchResults(context, theme, colorScheme),
+          _buildSearchSection(context),
+          _buildSearchResults(context),
         ],
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AppBar(
       title: const Text('Add Contact'),
       centerTitle: true,
@@ -52,19 +52,12 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildSearchSection(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildSearchSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -76,25 +69,27 @@ class _AddContactPageState extends State<AddContactPage> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildSearchInputRow(context, theme, colorScheme),
+          _buildSearchInputRow(context),
         ],
       ),
     );
   }
 
-  Widget _buildSearchInputRow(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildSearchInputRow(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _buildSearchTextField(theme, colorScheme),
+          child: _buildSearchTextField(context),
         ),
         const SizedBox(width: 12),
-        _buildSearchButton(colorScheme),
+        _buildSearchButton(context),
       ],
     );
   }
 
-  Widget _buildSearchTextField(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildSearchTextField(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
@@ -139,7 +134,9 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildSearchButton(ColorScheme colorScheme) {
+  Widget _buildSearchButton(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ElevatedButton(
       onPressed: _isSearching
           ? null
@@ -167,15 +164,18 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildSearchResults(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildSearchResults(BuildContext context) {
     return Expanded(
       child: _searchResults.isEmpty
-          ? _buildEmptyState(theme, colorScheme)
-          : _buildResultsList(context, theme, colorScheme),
+          ? _buildEmptyState(context)
+          : _buildResultsList(context),
     );
   }
 
-  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -204,47 +204,47 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildResultsList(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildResultsList(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final user = _searchResults[index];
-        return _buildUserCard(context, user, theme, colorScheme);
+        return _buildUserCard(context, user);
       },
     );
   }
 
-  Widget _buildUserCard(BuildContext context, UserDBISAR user, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildUserCard(BuildContext context, UserDBISAR user) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final displayName = user.displayName();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 1,
-      child: ListTile(
-        leading: _buildUserAvatar(displayName, colorScheme),
-        title: Text(
-          displayName,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+
+    return ListTile(
+      leading: _buildUserAvatar(context, displayName),
+      title: Text(
+        displayName,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w500,
         ),
-        subtitle: _buildUserSubtitle(user, theme, colorScheme),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          color: colorScheme.onSurfaceVariant,
-          size: 16,
-        ),
-        onTap: () {
-          context.push(
-            '/user-detail',
-            extra: user.pubKey,
-          );
-        },
       ),
+      subtitle: _buildUserSubtitle(context, user),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        color: colorScheme.onSurfaceVariant,
+        size: 16,
+      ),
+      onTap: () {
+        context.push(
+          '/user-detail',
+          extra: user.pubKey,
+        );
+      },
     );
   }
 
-  Widget _buildUserAvatar(String displayName, ColorScheme colorScheme) {
+  Widget _buildUserAvatar(BuildContext context, String displayName) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return CircleAvatar(
       backgroundColor: colorScheme.primary,
       child: Text(
@@ -257,31 +257,18 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildUserSubtitle(UserDBISAR user, ThemeData theme, ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          user.encodedPubkey,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: 'monospace',
-            color: colorScheme.onSurfaceVariant,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (user.dns?.isNotEmpty == true) ...[
-          const SizedBox(height: 4),
-          Text(
-            user.dns!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ],
+  Widget _buildUserSubtitle(BuildContext context, UserDBISAR user) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Text(
+      user.encodedPubkey,
+      style: theme.textTheme.bodySmall?.copyWith(
+        fontFamily: 'monospace',
+        color: colorScheme.onSurfaceVariant,
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -289,7 +276,7 @@ class _AddContactPageState extends State<AddContactPage> {
   void _searchUser(String query) async {
     query = query.trim();
     if (query.isEmpty) {
-      AppToast.showError('Please enter a valid npub or DNS');
+      AppToast.showError(context, 'Please enter a valid npub or DNS');
       return;
     }
 
@@ -298,7 +285,7 @@ class _AddContactPageState extends State<AddContactPage> {
     final isDnsFormat = query.contains('@');
 
     if (!isPubkeyFormat && !isDnsFormat) {
-      AppToast.showError('Please enter a valid npub or DNS format');
+      AppToast.showError(context, 'Please enter a valid npub or DNS format');
       return;
     }
 
@@ -323,7 +310,7 @@ class _AddContactPageState extends State<AddContactPage> {
         setState(() {
           _isSearching = false;
         });
-        AppToast.showError('Invalid npub or DNS format');
+        AppToast.showError(context, 'Invalid npub or DNS format');
         return;
       }
 
@@ -332,7 +319,7 @@ class _AddContactPageState extends State<AddContactPage> {
         setState(() {
           _isSearching = false;
         });
-        AppToast.showError('Invalid pubkey format');
+        AppToast.showError(context, 'Invalid pubkey format');
         return;
       }
 
@@ -352,9 +339,9 @@ class _AddContactPageState extends State<AddContactPage> {
       });
 
       if (_searchResults.isEmpty) {
-        AppToast.showInfo('No user found');
+        AppToast.showInfo(context, 'No user found');
       } else {
-        AppToast.showSuccess('User found');
+        AppToast.showSuccess(context, 'User found');
       }
     } catch (e) {
       setState(() {
@@ -362,9 +349,9 @@ class _AddContactPageState extends State<AddContactPage> {
       });
 
       if (e.toString().contains('timeout')) {
-        AppToast.showError('Search timeout - please try again');
+        AppToast.showError(context, 'Search timeout - please try again');
       } else {
-        AppToast.showError('Search failed: $e');
+        AppToast.showError(context, 'Search failed: $e');
       }
     }
   }

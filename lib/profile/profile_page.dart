@@ -6,6 +6,20 @@ import '../auth/auth_service.dart';
 import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 
+class _MenuItem {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final Color? textColor;
+
+  _MenuItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.textColor,
+  });
+}
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -39,39 +53,39 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _isLoading = false;
       });
-      AppToast.showError('Failed to load user data: $e');
+      AppToast.showError(context, 'Failed to load user data: $e');
     }
   }
 
   Future<void> _logout() async {
     try {
       await _authService.logout();
-      AppToast.showSuccess('Logged out successfully');
+      AppToast.showSuccess(context, 'Logged out successfully');
       if (mounted) {
         context.go('/login');
       }
     } catch (e) {
-      AppToast.showError('Logout failed: $e');
+      AppToast.showError(context, 'Logout failed: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     if (_isLoading) {
-      return _buildLoadingState(theme, colorScheme);
+      return _buildLoadingState(context);
     }
 
     if (_user == null) {
-      return _buildErrorState(theme, colorScheme);
+      return _buildErrorState(context);
     }
 
-    return _buildProfileContent(context, theme, colorScheme);
+    return _buildProfileContent(context);
   }
 
-  Widget _buildLoadingState(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildLoadingState(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       body: Center(
         child: Column(
@@ -93,7 +107,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildErrorState(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildErrorState(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
       body: Center(
         child: Column(
@@ -129,22 +146,23 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildProfileContent(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildProfileContent(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(context, theme, colorScheme),
-            _buildMenuSection(context, theme, colorScheme),
-          ],
-        ),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _buildProfileHeader(context),
+          _buildMenuSection(context),
+        ],
       ),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildProfileHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -159,23 +177,26 @@ class _ProfilePageState extends State<ProfilePage> {
       child: SafeArea(
         child: Column(
           children: [
-            _buildProfileAvatar(theme, colorScheme),
+            _buildProfileAvatar(context),
             const SizedBox(height: 16),
-            _buildProfileInfo(theme, colorScheme),
+            _buildProfileInfo(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProfileAvatar(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildProfileAvatar(BuildContext context) {
     return UserAvatar(
       user: _user!,
       radius: 60,
     );
   }
 
-  Widget _buildProfileInfo(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildProfileInfo(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Column(
       children: [
         Text(
@@ -205,12 +226,15 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 8),
         ],
-        _buildOnlineStatus(theme, colorScheme),
+        _buildOnlineStatus(context),
       ],
     );
   }
 
-  Widget _buildOnlineStatus(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildOnlineStatus(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
@@ -227,69 +251,59 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildMenuSection(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          _buildMenuTile(
-            context: context,
-            icon: Icons.person_outline,
-            title: 'Account Info',
-            subtitle: 'View account details',
-            onTap: () {
-              context.push('/account-info');
-            },
-          ),
-          const Divider(),
-          _buildMenuTile(
-            context: context,
-            icon: Icons.settings,
-            title: 'Settings',
-            subtitle: 'App preferences',
-            onTap: () {
-              AppToast.showInfo('Settings feature coming soon');
-            },
-          ),
-          const Divider(),
-          _buildMenuTile(
-            context: context,
-            icon: Icons.security,
-            title: 'Privacy & Security',
-            subtitle: 'Manage your privacy',
-            onTap: () {
-              AppToast.showInfo('Privacy settings coming soon');
-            },
-          ),
-          const Divider(),
-          _buildMenuTile(
-            context: context,
-            icon: Icons.help_outline,
-            title: 'Help & Support',
-            subtitle: 'Get help and support',
-            onTap: () {
-              AppToast.showInfo('Help center coming soon');
-            },
-          ),
-          const Divider(),
-          _buildMenuTile(
-            context: context,
-            icon: Icons.info_outline,
-            title: 'About',
-            subtitle: 'App version and info',
-            onTap: () => _showAboutDialog(context),
-          ),
-          const Divider(),
-          _buildMenuTile(
-            context: context,
-            icon: Icons.logout,
-            title: 'Logout',
-            subtitle: 'Sign out of your account',
-            onTap: _logout,
-            textColor: colorScheme.error,
-          ),
-        ],
+  Widget _buildMenuSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final menuItems = [
+      _MenuItem(
+        icon: Icons.person_outline,
+        title: 'Account Info',
+        onTap: () => context.push('/account-info'),
       ),
+      _MenuItem(
+        icon: Icons.settings,
+        title: 'Settings',
+        onTap: () => AppToast.showInfo(context, 'Settings feature coming soon'),
+      ),
+      _MenuItem(
+        icon: Icons.security,
+        title: 'Privacy & Security',
+        onTap: () => AppToast.showInfo(context, 'Privacy settings coming soon'),
+      ),
+      _MenuItem(
+        icon: Icons.help_outline,
+        title: 'Help & Support',
+        onTap: () => AppToast.showInfo(context, 'Help center coming soon'),
+      ),
+      _MenuItem(
+        icon: Icons.info_outline,
+        title: 'About',
+        onTap: () => _showAboutDialog(context),
+      ),
+      _MenuItem(
+        icon: Icons.logout,
+        title: 'Logout',
+        onTap: _logout,
+        textColor: colorScheme.error,
+      ),
+    ];
+
+    return ListView.builder(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: menuItems.length,
+      itemBuilder: (context, index) {
+        final item = menuItems[index];
+        return _buildMenuTile(
+          context: context,
+          icon: item.icon,
+          title: item.title,
+          onTap: item.onTap,
+          textColor: item.textColor,
+        );
+      },
     );
   }
 
@@ -326,40 +340,29 @@ class _ProfilePageState extends State<ProfilePage> {
     required BuildContext context,
     required IconData icon,
     required String title,
-    required String subtitle,
     required VoidCallback onTap,
     Color? textColor,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      elevation: 0,
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: textColor ?? colorScheme.primary,
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: textColor ?? colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: textColor?.withOpacity(0.7) ?? colorScheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: colorScheme.onSurfaceVariant,
-        ),
-        onTap: onTap,
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: textColor ?? colorScheme.primary,
       ),
+      title: Text(
+        title,
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: textColor ?? colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: colorScheme.onSurfaceVariant,
+      ),
+      onTap: onTap,
     );
   }
 }

@@ -30,7 +30,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   Future<void> _startVoiceCall(String peerId, String displayName) async {
     if (_callingStates[peerId] == true) {
-      AppToast.showInfo('Call already in progress');
+      AppToast.showInfo(context, 'Call already in progress');
       return;
     }
 
@@ -39,7 +39,7 @@ class _ContactsPageState extends State<ContactsPage> {
     });
 
     try {
-      AppToast.showInfo('Starting voice call...');
+      AppToast.showInfo(context, 'Starting voice call...');
 
       final controller = await _callKitManager.startCall(
         peerId: peerId,
@@ -47,9 +47,9 @@ class _ContactsPageState extends State<ContactsPage> {
       );
 
       if (controller == null) {
-        AppToast.showError('Failed to start voice call');
+        AppToast.showError(context, 'Failed to start voice call');
       } else {
-        AppToast.showSuccess('Voice call started');
+        AppToast.showSuccess(context, 'Voice call started');
       }
     } catch (e) {
       String errorMessage = 'Voice call failed';
@@ -60,7 +60,7 @@ class _ContactsPageState extends State<ContactsPage> {
       } else if (e.toString().contains('permission')) {
         errorMessage = 'Permission denied. Please check app settings';
       }
-      AppToast.showError(errorMessage);
+      AppToast.showError(context, errorMessage);
     } finally {
       setState(() {
         _callingStates[peerId] = false;
@@ -70,7 +70,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   Future<void> _startVideoCall(String peerId, String displayName) async {
     if (_callingStates[peerId] == true) {
-      AppToast.showInfo('Call already in progress');
+      AppToast.showInfo(context, 'Call already in progress');
       return;
     }
 
@@ -79,7 +79,7 @@ class _ContactsPageState extends State<ContactsPage> {
     });
 
     try {
-      AppToast.showInfo('Starting video call...');
+      AppToast.showInfo(context, 'Starting video call...');
 
       final controller = await _callKitManager.startCall(
         peerId: peerId,
@@ -87,9 +87,9 @@ class _ContactsPageState extends State<ContactsPage> {
       );
 
       if (controller == null) {
-        AppToast.showError('Failed to start video call');
+        AppToast.showError(context, 'Failed to start video call');
       } else {
-        AppToast.showSuccess('Video call started');
+        AppToast.showSuccess(context, 'Video call started');
       }
     } catch (e) {
       String errorMessage = 'Video call failed';
@@ -100,7 +100,7 @@ class _ContactsPageState extends State<ContactsPage> {
       } else if (e.toString().contains('permission')) {
         errorMessage = 'Permission denied. Please check app settings';
       }
-      AppToast.showError(errorMessage);
+      AppToast.showError(context, errorMessage);
     } finally {
       setState(() {
         _callingStates[peerId] = false;
@@ -110,18 +110,17 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
-      appBar: _buildAppBar(context, colorScheme),
+      appBar: _buildAppBar(context),
       body: Contacts.sharedInstance.allContacts.isEmpty
-          ? _buildEmptyContactsState(theme, colorScheme)
-          : _buildContactsList(context, theme, colorScheme),
+          ? _buildEmptyContactsState(context)
+          : _buildContactsList(context),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, ColorScheme colorScheme) {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AppBar(
       title: const Text('Contacts'),
       centerTitle: true,
@@ -140,7 +139,10 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildEmptyContactsState(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildEmptyContactsState(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -169,59 +171,59 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildContactsList(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildContactsList(BuildContext context) {
     return ListView.builder(
       itemCount: Contacts.sharedInstance.allContacts.length,
       itemBuilder: (context, index) {
         final contact = Contacts.sharedInstance.allContacts.values.elementAt(index);
-        return _buildContactCard(context, contact, theme, colorScheme);
+        return _buildContactCard(context, contact);
       },
     );
   }
 
-  Widget _buildContactCard(BuildContext context, dynamic contact, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildContactCard(BuildContext context, dynamic contact) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final displayName = contact.displayName();
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      elevation: 1,
-      child: ListTile(
-        leading: UserAvatar(user: contact),
-        title: Text(
-          displayName,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
+
+    return ListTile(
+      leading: UserAvatar(user: contact),
+      title: Text(
+        displayName,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w500,
         ),
-        subtitle: Text(
-          contact.shortEncodedPubkey,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: _buildCallButtons(contact, displayName, colorScheme),
-        onTap: () {
-          context.push(
-            '/user-detail',
-            extra: contact.pubKey,
-          );
-        },
       ),
+      subtitle: Text(
+        contact.shortEncodedPubkey,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: _buildCallButtons(context, contact, displayName),
+      onTap: () {
+        context.push(
+          '/user-detail',
+          extra: contact.pubKey,
+        );
+      },
     );
   }
 
-  Widget _buildCallButtons(dynamic contact, String displayName, ColorScheme colorScheme) {
+  Widget _buildCallButtons(BuildContext context, dynamic contact, String displayName) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildVoiceCallButton(contact, displayName, colorScheme),
-        _buildVideoCallButton(contact, displayName, colorScheme),
+        _buildVoiceCallButton(context, contact, displayName),
+        _buildVideoCallButton(context, contact, displayName),
       ],
     );
   }
 
-  Widget _buildVoiceCallButton(dynamic contact, String displayName, ColorScheme colorScheme) {
+  Widget _buildVoiceCallButton(BuildContext context, dynamic contact, String displayName) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isCalling = _callingStates[contact.pubKey] == true;
-    
+
     return IconButton(
       onPressed: isCalling ? null : () => _startVoiceCall(contact.pubKey, displayName),
       icon: isCalling
@@ -240,9 +242,10 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildVideoCallButton(dynamic contact, String displayName, ColorScheme colorScheme) {
+  Widget _buildVideoCallButton(BuildContext context, dynamic contact, String displayName) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isCalling = _callingStates[contact.pubKey] == true;
-    
+
     return IconButton(
       onPressed: isCalling ? null : () => _startVideoCall(contact.pubKey, displayName),
       icon: isCalling

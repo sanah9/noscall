@@ -50,7 +50,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       setState(() {
         _isInitializing = false;
       });
-      AppToast.showError('Failed to load user data: $e');
+      AppToast.showError(context, 'Failed to load user data: $e');
     }
   }
 
@@ -68,12 +68,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
             _isContact = false;
             _isLoading = false;
           });
-          AppToast.showSuccess('Contact removed successfully');
+          AppToast.showSuccess(context, 'Contact removed successfully');
         } else {
           setState(() {
             _isLoading = false;
           });
-          AppToast.showError('Failed to remove contact');
+          AppToast.showError(context, 'Failed to remove contact');
         }
       } else {
         // Add contact
@@ -83,30 +83,30 @@ class _UserDetailPageState extends State<UserDetailPage> {
             _isContact = true;
             _isLoading = false;
           });
-          AppToast.showSuccess('Contact added successfully');
+          AppToast.showSuccess(context, 'Contact added successfully');
         } else {
           setState(() {
             _isLoading = false;
           });
-          AppToast.showError('Failed to add contact');
+          AppToast.showError(context, 'Failed to add contact');
         }
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      AppToast.showError('Operation failed: $e');
+      AppToast.showError(context, 'Operation failed: $e');
     }
   }
 
   void _startCall() {
     // TODO: Implement voice call functionality
-    AppToast.showInfo('Voice call feature coming soon');
+    AppToast.showInfo(context, 'Voice call feature coming soon');
   }
 
   void _startVideoCall() {
     // TODO: Implement video call functionality
-    AppToast.showInfo('Video call feature coming soon');
+    AppToast.showInfo(context, 'Video call feature coming soon');
   }
 
   String _getDisplayName() {
@@ -124,7 +124,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   void _copyNpub() {
     // TODO: Implement copy to clipboard functionality
-    AppToast.showSuccess('npub copied to clipboard');
+    AppToast.showSuccess(context, 'npub copied to clipboard');
   }
 
   @override
@@ -507,52 +507,53 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void _showMoreOptions() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.block, color: colorScheme.error),
-              title: Text(
-                'Block User',
-                style: TextStyle(color: colorScheme.error),
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.block, color: colorScheme.error),
+                title: Text(
+                  'Block User',
+                  style: TextStyle(color: colorScheme.error),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Implement block user functionality
+                  AppToast.showInfo(context, 'Block user feature coming soon');
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement block user functionality
-                AppToast.showInfo('Block user feature coming soon');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.report, color: colorScheme.error),
-              title: Text(
-                'Report User',
-                style: TextStyle(color: colorScheme.error),
+              ListTile(
+                leading: Icon(Icons.report, color: colorScheme.error),
+                title: Text(
+                  'Report User',
+                  style: TextStyle(color: colorScheme.error),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Implement report user functionality
+                  AppToast.showInfo(context, 'Report user feature coming soon');
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement report user functionality
-                AppToast.showInfo('Report user feature coming soon');
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.share, color: colorScheme.primary),
-              title: const Text('Share User'),
-              onTap: () {
-                Navigator.pop(context);
-                // TODO: Implement share user functionality
-                AppToast.showInfo('Share user feature coming soon');
-              },
-            ),
-          ],
-        ),
-      ),
+              ListTile(
+                leading: Icon(Icons.share, color: colorScheme.primary),
+                title: const Text('Share User'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // TODO: Implement share user functionality
+                  AppToast.showInfo(context, 'Share user feature coming soon');
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

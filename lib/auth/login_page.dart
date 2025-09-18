@@ -31,12 +31,12 @@ class _LoginPageState extends State<LoginPage> {
     final privateKey = _privateKeyController.text.trim();
 
     if (privateKey.isEmpty) {
-      AppToast.showError('Please enter your private key');
+      AppToast.showError(context, 'Please enter your private key');
       return;
     }
 
     if (!privateKey.startsWith('nsec') && privateKey.length != 64) {
-      AppToast.showError('Private key must be nsec format or 64 characters long');
+      AppToast.showError(context, 'Private key must be nsec format or 64 characters long');
       return;
     }
 
@@ -52,16 +52,16 @@ class _LoginPageState extends State<LoginPage> {
       AppLoading.dismiss();
 
       if (success) {
-        AppToast.showSuccess('Login successful!');
+        AppToast.showSuccess(context, 'Login successful!');
         if (mounted) {
           context.go('/');
         }
       } else {
-        AppToast.showError('Login failed. Please check your private key.');
+        AppToast.showError(context, 'Login failed. Please check your private key.');
       }
     } catch (e) {
       AppLoading.dismiss();
-      AppToast.showError('Login error: $e');
+      AppToast.showError(context, 'Login error: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -74,7 +74,7 @@ class _LoginPageState extends State<LoginPage> {
   void _generatePrivateKey() {
     final privateKey = _authService.generatePrivateKey();
     _privateKeyController.text = privateKey;
-    AppToast.showInfo('New private key generated');
+    AppToast.showInfo(context, 'New private key generated');
   }
 
   @override
