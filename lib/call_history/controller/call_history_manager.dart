@@ -93,8 +93,12 @@ class CallHistoryManager {
   }
 
   Future<void> deleteAllHistory() async {
-    await _isar.callLogGroups.where().deleteAll();
-    await _isar.callEntrys.where().deleteAll();
+    _callLogGroups.clear();
+    await _isar.writeTxn(() async {
+      await _isar.callLogGroups.where().deleteAll();
+      await _isar.callEntrys.where().deleteAll();
+    });
+    _notifyDataChanged();
   }
 
   Future<void> _addCallEntry(CallEntry callEntry) async {
