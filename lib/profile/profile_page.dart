@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import '../utils/toast.dart';
 import '../auth/auth_service.dart';
@@ -31,11 +32,20 @@ class _ProfilePageState extends State<ProfilePage> {
   final AuthService _authService = AuthService();
   UserDBISAR? _user;
   bool _isLoading = true;
+  PackageInfo? _packageInfo;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadPackageInfo();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _packageInfo = packageInfo;
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -267,14 +277,17 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildAboutDialog(BuildContext context) {
     return AlertDialog(
       title: const Text('About Noscall'),
-      content: const Column(
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Version: 1.0.0'),
-          Text('Build: 2024.01.15'),
-          SizedBox(height: 8),
-          Text('A secure voice calling app built with Flutter and Nostr protocol.'),
+          if (_packageInfo != null) ...[
+            Text('Version: ${_packageInfo!.version}'),
+            Text('Build: ${_packageInfo!.buildNumber}'),
+            Text('Package: ${_packageInfo!.packageName}'),
+            const SizedBox(height: 8),
+          ],
+          const Text('A secure voice calling app built with Flutter and Nostr protocol.'),
         ],
       ),
       actions: [
