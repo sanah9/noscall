@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/call/call_ui/calling_page.dart';
 import 'package:noscall/call/calling_controller.dart';
+import 'package:noscall/call_history/models/call_entry.dart';
 import '../auth/login_page.dart';
 import '../auth/account_info_page.dart';
 import '../home/home_page.dart';
@@ -45,15 +46,20 @@ class AppRouter {
         path: '/user-detail',
         name: 'user-detail',
         builder: (context, state) {
-          final pubkey = state.extra as String?;
-          if (pubkey == null) {
+          final params = state.extra as Map? ?? {};
+          final pubkey = params['pubkey'] as String?;
+          final callHistory = params['callHistory'] as List<CallEntry>?;
+          if (pubkey == null || pubkey.isEmpty) {
             return const Scaffold(
               body: Center(
                 child: Text('User pubkey not found'),
               ),
             );
           }
-          return UserDetailPage(pubkey: pubkey);
+          return UserDetailPage(
+            pubkey: pubkey,
+            callHistory: callHistory,
+          );
         },
       ),
     ],

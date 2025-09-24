@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:noscall/flutter_utils/list_extension.dart';
 
 import '../call_manager.dart';
 import '../calling_controller.dart';
@@ -23,25 +22,19 @@ class CallingControlsBarState extends State<CallingControlsBar> {
 
   CallingController get controller => widget.controller;
 
-  OverlayEntry? extentItem;
-  bool get isExtentItemShowing => extentItem != null
-      || isSpeakerToggleShowing
-      || isRecordToggleShowing
-      || isCameraToggleShowing;
-
-  GlobalKey speakerWidgetKey = GlobalKey();
-  GlobalKey recordWidgetKey = GlobalKey();
-  GlobalKey cameraWidgetKey = GlobalKey();
-
-  bool isSpeakerToggleShowing = false;
-  bool isRecordToggleShowing = false;
-  bool isCameraToggleShowing = false;
 
   double get iconSize => 48;
   double get mainIconSize => 60;
 
+  late ThemeData theme;
+  Color get surface => theme.colorScheme.surface;
+  Color get outline => theme.colorScheme.outline;
+  Color get primary => theme.colorScheme.primary;
+  Color get errorColor => theme.colorScheme.error;
+
   @override
   Widget build(BuildContext context) {
+    theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -64,10 +57,10 @@ class CallingControlsBarState extends State<CallingControlsBar> {
         }
         return Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+            color: surface.withValues(alpha: 0.6),
             borderRadius: const BorderRadius.all(Radius.circular(24)),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.6),
+              color: outline.withValues(alpha: 0.6),
               width: 0.5,
             ),
           ),
@@ -86,7 +79,12 @@ class CallingControlsBarState extends State<CallingControlsBar> {
   List<Widget> controlWidgets(CallingState state) {
     final role = controller.role;
     final type = controller.callType;
-    final isConnected = [CallingState.connected, CallingState.ended].contains(state);
+    final isConnected = state == CallingState.connected;
+    final isEnded = state == CallingState.ended;
+
+    if (isEnded) {
+      return [];
+    }
 
     switch ((isConnected, role, type)) {
       case (false, CallingRole.callee, CallType.audio):
@@ -150,87 +148,17 @@ class CallingControlsBarState extends State<CallingControlsBar> {
 
   Widget speakerWidget() => ValueListenableBuilder(
     valueListenable: controller.speakerType,
-    builder: (_, speakerType, __) => Container(
-      key: speakerWidgetKey,
-      child: speakerItem(speakerType),
-    ),
+    builder: (_, speakerType, __) => speakerItem(speakerType),
   );
 
   Widget recordWidget() => ValueListenableBuilder(
     valueListenable: controller.isRecordOn,
-    builder: (_, isRecordOn, __) => Container(
-      key: recordWidgetKey,
-      child: recordItem(isRecordOn),
-    ),
+    builder: (_, isRecordOn, __) => recordItem(isRecordOn),
   );
 
   Widget cameraWidget() => ValueListenableBuilder(
     valueListenable: controller.isCameraOn,
-    builder: (_, isCameraOn, __) => Container(
-      key: cameraWidgetKey,
-      child: cameraItem(isCameraOn),
-    ),
-  );
-
-  Widget speakerToggle() => ValueListenableBuilder(
-    valueListenable: CallKitManager.instance.isBluetoothHeadsetConnected,
-    builder: (_, isBluetoothHeadsetConnected, __) {
-      return ValueListenableBuilder(
-        valueListenable: controller.speakerType,
-        builder: (_, currentSpeakerType, __) {
-          List<AudioOutputType> toggleType;
-          switch (currentSpeakerType) {
-            case AudioOutputType.none:
-              toggleType = [
-                if (isBluetoothHeadsetConnected)
-                  AudioOutputType.bluetooth,
-                AudioOutputType.speaker,
-              ];
-              break;
-            case AudioOutputType.speaker:
-              toggleType = [
-                if (isBluetoothHeadsetConnected)
-                  AudioOutputType.bluetooth,
-                AudioOutputType.none,
-              ];
-              break;
-            case AudioOutputType.bluetooth:
-              toggleType = [
-                AudioOutputType.speaker,
-                AudioOutputType.none,
-              ];
-              break;
-          }
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: toggleType.map((e) {
-              return GestureDetector(
-                onTap: () {
-                  hideAllToggle();
-                  controller.speakerToggleHandler(e);
-                },
-                child: speakerItem(e),
-              );
-            }).toList().cast<Widget>().insertEveryN(1, const SizedBox(height: 32)),
-          );
-        },
-      );
-    },
-  );
-
-  Widget recordToggle() => ValueListenableBuilder(
-    valueListenable: controller.isRecordOn,
-    builder: (_, value, __) {
-      return recordItem(!value);
-    },
-  );
-
-  Widget cameraToggle() => ValueListenableBuilder(
-    valueListenable: controller.isCameraOn,
-    builder: (_, value, __) {
-      return cameraItem(!value);
-    },
+    builder: (_, isCameraOn, __) => cameraItem(isCameraOn),
   );
 
   Widget speakerItem(AudioOutputType speakerType) {
@@ -247,22 +175,12 @@ class CallingControlsBarState extends State<CallingControlsBar> {
         break;
     }
     return GestureDetector(
-      onTap: () {
-        if (!isSpeakerToggleShowing) {
-          showToggleWidget(
-            itemKey: speakerWidgetKey,
-            child: speakerToggle(),
-          );
-          isSpeakerToggleShowing = true;
-        } else {
-          hideAllToggle();
-          controller.speakerToggleHandler(speakerType);
-        }
-      },
+      onTap: _handleSpeakerTap,
       child: Image.asset(
         'assets/images/$iconName',
         width: iconSize,
         height: iconSize,
+        color: primary,
       ),
     );
   }
@@ -272,22 +190,12 @@ class CallingControlsBarState extends State<CallingControlsBar> {
         ? 'icon_call_mic_on.png'
         : 'icon_call_mic_off.png';
     return GestureDetector(
-      onTap: () {
-        if (!isRecordToggleShowing) {
-          showToggleWidget(
-            itemKey: recordWidgetKey,
-            child: recordToggle(),
-          );
-          isRecordToggleShowing = true;
-        } else {
-          hideAllToggle();
-          controller.recordToggleHandler(isRecordOn);
-        }
-      },
+      onTap: _handleRecordTap,
       child: Image.asset(
         'assets/images/$iconName',
         height: iconSize,
         width: iconSize,
+        color: primary,
       ),
     );
   }
@@ -297,22 +205,12 @@ class CallingControlsBarState extends State<CallingControlsBar> {
         ? 'icon_call_video_on.png'
         : 'icon_call_video_off.png';
     return GestureDetector(
-      onTap: () {
-        if (!isCameraToggleShowing) {
-          showToggleWidget(
-            itemKey: cameraWidgetKey,
-            child: cameraToggle(),
-          );
-          isCameraToggleShowing = true;
-        } else {
-          hideAllToggle();
-          controller.cameraToggleHandler(isCameraOn);
-        }
-      },
+      onTap: _handleCameraTap,
       child: Image.asset(
         'assets/images/$iconName',
         height: iconSize,
         width: iconSize,
+        color: primary,
       ),
     );
   }
@@ -323,6 +221,7 @@ class CallingControlsBarState extends State<CallingControlsBar> {
       'assets/images/icon_call_camera_flip.png',
       height: iconSize,
       width: iconSize,
+      color: primary,
     ),
   );
 
@@ -344,39 +243,100 @@ class CallingControlsBarState extends State<CallingControlsBar> {
     ),
   );
 
-  void showToggleWidget({
-    required GlobalKey itemKey,
-    required Widget child,
-  }) {
-    if (extentItem != null) {
-      hideAllToggle();
+  void _handleSpeakerTap() {
+    final isBluetoothConnected = CallKitManager.instance.isBluetoothHeadsetConnected.value;
+
+    if (isBluetoothConnected) {
+      _showSpeakerSelectionDialog();
+    } else {
+      _toggleSpeakerDirectly();
     }
-
-    final ancestor = widget.overlayKey.currentContext?.findRenderObject() as RenderBox?;
-    final itemBox = itemKey.currentContext?.findRenderObject() as RenderBox?;
-    if (ancestor == null || itemBox == null) return;
-
-    final offsetGlobal = itemBox.localToGlobal(Offset.zero, ancestor: ancestor);
-    final bottom = ancestor.size.height - offsetGlobal.dy + 64;
-
-    extentItem = OverlayEntry(
-      builder: (BuildContext context) {
-        return Positioned(
-          left: offsetGlobal.dx,
-          bottom: bottom,
-          child: child,
-        );
-      },
-    );
-
-    widget.overlayKey.currentState!.insert(extentItem!);
   }
 
-  void hideAllToggle() {
-    extentItem?.remove();
-    extentItem = null;
-    isSpeakerToggleShowing = false;
-    isRecordToggleShowing = false;
-    isCameraToggleShowing = false;
+  void _handleRecordTap() {
+    final currentRecordState = controller.isRecordOn.value;
+    controller.recordToggleHandler(!currentRecordState);
+  }
+
+  void _handleCameraTap() {
+    final currentCameraState = controller.isCameraOn.value;
+    controller.cameraToggleHandler(!currentCameraState);
+  }
+
+  void _toggleSpeakerDirectly() {
+    final currentSpeakerType = controller.speakerType.value;
+    AudioOutputType nextType;
+
+    switch (currentSpeakerType) {
+      case AudioOutputType.none:
+        nextType = AudioOutputType.speaker;
+        break;
+      case AudioOutputType.speaker:
+        nextType = AudioOutputType.none;
+        break;
+      case AudioOutputType.bluetooth:
+        nextType = AudioOutputType.speaker;
+        break;
+    }
+
+    controller.speakerToggleHandler(nextType);
+  }
+
+  void _showSpeakerSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _buildSpeakerSelectionDialog(),
+    );
+  }
+
+  Widget _buildSpeakerSelectionDialog() {
+    final currentSpeakerType = controller.speakerType.value;
+    final isBluetoothConnected = CallKitManager.instance.isBluetoothHeadsetConnected.value;
+
+    return AlertDialog(
+      title: Text('Select Audio Output'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSpeakerOption(
+            AudioOutputType.none,
+            Icons.volume_off,
+            'Phone Speaker',
+            currentSpeakerType == AudioOutputType.none,
+          ),
+          _buildSpeakerOption(
+            AudioOutputType.speaker,
+            Icons.volume_up,
+            'Speaker',
+            currentSpeakerType == AudioOutputType.speaker,
+          ),
+          if (isBluetoothConnected)
+            _buildSpeakerOption(
+              AudioOutputType.bluetooth,
+              Icons.bluetooth,
+              'Bluetooth',
+              currentSpeakerType == AudioOutputType.bluetooth,
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Cancel'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpeakerOption(AudioOutputType type, IconData icon, String label, bool isSelected) {
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? primary : null),
+      title: Text(label),
+      trailing: isSelected ? Icon(Icons.check, color: primary) : null,
+      onTap: () {
+        Navigator.of(context).pop();
+        controller.speakerToggleHandler(type);
+      },
+    );
   }
 }

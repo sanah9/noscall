@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/call_history/constants/call_enums.dart';
+import 'package:noscall/call_history/models/call_entry.dart';
 import '../utils/toast.dart';
 
 class UserDetailPage extends StatefulWidget {
   final String pubkey;
+  final List<CallEntry>? callHistory;
 
   const UserDetailPage({
     super.key,
     required this.pubkey,
+    this.callHistory,
   });
 
   @override
@@ -18,542 +27,555 @@ class UserDetailPage extends StatefulWidget {
 }
 
 class _UserDetailPageState extends State<UserDetailPage> {
-  UserDBISAR? _user;
-  bool _isContact = false;
-  bool _isLoading = false;
-  bool _isInitializing = true;
+  late ValueNotifier<UserDBISAR> user;
+  late ValueNotifier<bool> isContact;
+  late ValueNotifier<bool> isBlocked;
+  late ValueNotifier<bool> isLoading;
+
+  late ThemeData theme;
+  BorderRadius get sectionRadius => BorderRadius.circular(16);
+  Color get primary => theme.colorScheme.primary;
+  Color get primaryContainer => theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+  Color get surface => theme.colorScheme.surface;
+  Color get onSurface => theme.colorScheme.onSurface;
+  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant;
+  Color get borderColor => theme.colorScheme.outline.withValues(alpha: 0.1);
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _initializeData();
   }
 
-  Future<void> _loadUserData() async {
-    setState(() {
-      _isInitializing = true;
-    });
-
-    try {
-      // Get user data from Account
-      final user = await Account.sharedInstance.getUserInfo(widget.pubkey);
-
-      // Check if user is in contacts
-      final isContact = Contacts.sharedInstance.allContacts.containsKey(widget.pubkey);
-
-      setState(() {
-        _user = user;
-        _isContact = isContact;
-        _isInitializing = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isInitializing = false;
-      });
-      AppToast.showError(context, 'Failed to load user data: $e');
-    }
+  void _initializeData() {
+    user = Account.sharedInstance.getUserNotifier(widget.pubkey);
+    isContact = ValueNotifier(Contacts.sharedInstance.allContacts.containsKey(widget.pubkey));
+    isBlocked = ValueNotifier(Contacts.sharedInstance.inBlockList(widget.pubkey));
+    isLoading = ValueNotifier(false);
   }
 
-  void _toggleContact() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      if (_isContact) {
-        // Remove contact
-        final result = await Contacts.sharedInstance.removeContact(widget.pubkey);
-        if (result.status) {
-          setState(() {
-            _isContact = false;
-            _isLoading = false;
-          });
-          AppToast.showSuccess(context, 'Contact removed successfully');
-        } else {
-          setState(() {
-            _isLoading = false;
-          });
-          AppToast.showError(context, 'Failed to remove contact');
-        }
-      } else {
-        // Add contact
-        final result = await Contacts.sharedInstance.addToContact([widget.pubkey]);
-        if (result.status) {
-          setState(() {
-            _isContact = true;
-            _isLoading = false;
-          });
-          AppToast.showSuccess(context, 'Contact added successfully');
-        } else {
-          setState(() {
-            _isLoading = false;
-          });
-          AppToast.showError(context, 'Failed to add contact');
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      AppToast.showError(context, 'Operation failed: $e');
-    }
-  }
-
-  void _startCall() {
-    // TODO: Implement voice call functionality
-    AppToast.showInfo(context, 'Voice call feature coming soon');
-  }
-
-  void _startVideoCall() {
-    // TODO: Implement video call functionality
-    AppToast.showInfo(context, 'Video call feature coming soon');
-  }
-
-  String _getDisplayName() {
-    if (_user == null) return 'Unknown User';
-
-    // Priority: nickName > name > shortEncodedPubkey
-    if (_user!.nickName != null && _user!.nickName!.isNotEmpty) {
-      return _user!.nickName!;
-    } else if (_user!.name != null && _user!.name!.isNotEmpty) {
-      return _user!.name!;
-    } else {
-      return _user!.shortEncodedPubkey;
-    }
-  }
-
-  void _copyNpub() {
-    // TODO: Implement copy to clipboard functionality
-    AppToast.showSuccess(context, 'npub copied to clipboard');
+  @override
+  void dispose() {
+    isContact.dispose();
+    isBlocked.dispose();
+    isLoading.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    theme = Theme.of(context);
+    return ValueListenableBuilder<UserDBISAR>(
+      valueListenable: user,
+      builder: (context, userData, child) {
+        return _buildMainView(userData);
+      },
+    );
+  }
 
-    if (_isInitializing) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('User Details'),
-          centerTitle: true,
-          backgroundColor: colorScheme.surface,
-          foregroundColor: colorScheme.onSurface,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading user data...',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_user == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('User Details'),
-          centerTitle: true,
-          backgroundColor: colorScheme.surface,
-          foregroundColor: colorScheme.onSurface,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.pop(),
-          ),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.person_off,
-                size: 64,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'User not found',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This user may not exist or is not accessible',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
+  Widget _buildMainView(UserDBISAR userData) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Details'),
-        centerTitle: true,
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: onSurface),
           onPressed: () => context.pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              _showMoreOptions();
-            },
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
+      extendBodyBehindAppBar: true,
+      body: Container(
+        child: ListView(
           children: [
-            // User Profile Section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.primaryContainer,
-                    colorScheme.primaryContainer.withOpacity(0.7),
-                  ],
-                ),
-              ),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: colorScheme.surface,
-                    backgroundImage: _user!.picture != null && _user!.picture!.isNotEmpty
-                        ? NetworkImage(_user!.picture!)
-                        : null,
-                    child: _user!.picture == null || _user!.picture!.isEmpty
-                        ? Text(
-                            _getDisplayName()[0].toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _getDisplayName(),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_user!.about != null && _user!.about!.isNotEmpty) ...[
-                    Text(
-                      _user!.about!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onPrimaryContainer.withOpacity(0.8),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _isContact
-                          ? colorScheme.primary
-                          : colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _isContact ? 'Contact' : 'Not a Contact',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: _isContact
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Action Buttons
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _toggleContact,
-                          icon: _isLoading
-                              ? SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                )
-                              : Icon(_isContact ? Icons.person_remove : Icons.person_add),
-                          label: Text(_isContact ? 'Remove Contact' : 'Add Contact'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isContact
-                                ? colorScheme.error
-                                : colorScheme.primary,
-                            foregroundColor: _isContact
-                                ? colorScheme.onError
-                                : colorScheme.onPrimary,
-                            elevation: 2,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _startCall,
-                          icon: const Icon(Icons.call),
-                          label: const Text('Voice Call'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.primary,
-                            side: BorderSide(color: colorScheme.primary),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _startVideoCall,
-                          icon: const Icon(Icons.videocam),
-                          label: const Text('Video Call'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.secondary,
-                            side: BorderSide(color: colorScheme.secondary),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // User Information
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'User Information',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // npub Information
-                  Card(
-                    elevation: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.public,
-                                color: colorScheme.tertiary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Nostr Public Key (npub)',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: colorScheme.outline.withOpacity(0.3),
-                              ),
-                            ),
-                            child: SelectableText(
-                              _user!.encodedPubkey,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _copyNpub,
-                                  icon: const Icon(Icons.copy, size: 16),
-                                  label: const Text('Copy npub'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: colorScheme.primary,
-                                    side: BorderSide(color: colorScheme.primary),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Additional Info
-                  Card(
-                    elevation: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: colorScheme.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'About This User',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'This user can be contacted using their npub. You can add them to your contacts for easier access, or call them directly using the buttons above.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+            _buildUserProfileSection(userData),
+            _buildActionButtons(),
+            _buildCallHistorySection(),
+            _buildUserInfoSection(userData),
+            _buildContactManagementSection(),
+            _buildBlockManagementSection(),
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
 
-  void _showMoreOptions() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildUserProfileSection(UserDBISAR userData) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          UserAvatar(
+            radius: 50,
+            user: userData,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _getDisplayName(userData),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.block, color: colorScheme.error),
-                title: Text(
-                  'Block User',
-                  style: TextStyle(color: colorScheme.error),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Implement block user functionality
-                  AppToast.showInfo(context, 'Block user feature coming soon');
-                },
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildActionButton(
+            icon: Icons.call,
+            onPressed: _startCall,
+          ),
+          _buildActionButton(
+            icon: Icons.videocam,
+            onPressed: _startVideoCall,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCallHistorySection() {
+    if (widget.callHistory == null || widget.callHistory!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _buildSectionContainer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+            ),
+            child: Text(
+              'Call History',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: onSurface,
+                fontWeight: FontWeight.w600,
               ),
-              ListTile(
-                leading: Icon(Icons.report, color: colorScheme.error),
-                title: Text(
-                  'Report User',
-                  style: TextStyle(color: colorScheme.error),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Implement report user functionality
-                  AppToast.showInfo(context, 'Report user feature coming soon');
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.share, color: colorScheme.primary),
-                title: const Text('Share User'),
-                onTap: () {
-                  Navigator.pop(context);
-                  // TODO: Implement share user functionality
-                  AppToast.showInfo(context, 'Share user feature coming soon');
-                },
-              ),
-            ],
+            ),
+          ),
+          ...widget.callHistory!.asMap().entries.map((entry) {
+            final index = entry.key;
+            final callEntry = entry.value;
+            final isLast = index == widget.callHistory!.length - 1;
+
+            return _buildCallHistoryItem(callEntry, isLast);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCallHistoryItem(CallEntry callEntry, bool isLast) {
+    return Container(
+      decoration: BoxDecoration(
+        border: isLast ? null : Border(
+          bottom: BorderSide(
+            color: borderColor,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: ListTile(
+        leading: _buildCircularIcon(
+          icon: switch (callEntry.direction) {
+            CallDirection.incoming => Icons.call_received,
+            CallDirection.outgoing => Icons.call_made,
+          },
+        ),
+        title: Text(
+          switch (callEntry.direction) {
+            CallDirection.incoming => 'Incoming Call',
+            CallDirection.outgoing => 'Outgoing Call',
+          },
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          _getCallStatusText(callEntry),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: onSurfaceVariant,
+          ),
+        ),
+        trailing: Text(
+          _formatCallTime(callEntry.startTime),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserInfoSection(UserDBISAR userData) {
+    return _buildSectionContainer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildUserInfoItem(
+            icon: Icons.fingerprint,
+            title: 'NPUB',
+            value: userData.encodedPubkey,
+            onTap: () => _copyNpub(userData.encodedPubkey),
+          ),
+          _buildUserInfoItem(
+            icon: Icons.person,
+            title: 'Name',
+            value: userData.name ?? '',
+            onTap: null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserInfoItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required VoidCallback? onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: borderColor,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: ListTile(
+        // leading: _buildCircularIcon(icon: icon),
+        title: Text(
+          title,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          value,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: onSurfaceVariant,
+          ),
+        ),
+        trailing: onTap != null
+            ? Icon(
+          Icons.copy,
+          color: primary,
+          size: 16,
+        )
+            : null,
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildContactManagementSection() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: isContact,
+      builder: (context, isContactValue, child) {
+        if (isContactValue) {
+          return const SizedBox.shrink();
+        }
+        return _buildSectionContainer(
+          child: ValueListenableBuilder<bool>(
+            valueListenable: isLoading,
+            builder: (context, isLoadingValue, child) {
+              return Column(
+                children: [
+                  _buildSectionTile(
+                    title: 'Add to Contacts',
+                    icon: Icons.person_add,
+                    onTap: _toggleContact,
+                    isLoading: isLoadingValue,
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
     );
+  }
+
+  Widget _buildBlockManagementSection() {
+    return _buildSectionContainer(
+      child: ValueListenableBuilder<bool>(
+        valueListenable: isBlocked,
+        builder: (context, isBlockedValue, child) {
+          return ValueListenableBuilder<bool>(
+            valueListenable: isLoading,
+            builder: (context, isLoadingValue, child) {
+              final title = isBlockedValue ? 'Unblock Contact' : 'Block Contact';
+              return _buildSectionTile(
+                title: title,
+                icon: Icons.block,
+                onTap: _toggleBlock,
+                isLoading: isLoadingValue,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSectionContainer({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      decoration: _buildBlurBackgroundDecoration(),
+      child: ClipRRect(
+        borderRadius: sectionRadius,
+        child: Material(
+          color: Colors.transparent,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _buildBlurBackgroundDecoration() {
+    return BoxDecoration(
+      color: primaryContainer,
+      borderRadius: sectionRadius,
+      border: Border.all(
+        color: borderColor,
+        width: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildCircularIcon({
+    required IconData icon,
+  }) {
+    final color = primary;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        icon,
+        color: color,
+        size: 20,
+      ),
+    );
+  }
+
+  Widget _buildSectionTile({
+    required String title,
+    required IconData icon,
+    required VoidCallback? onTap,
+    bool isLoading = false,
+  }) {
+    return ListTile(
+      title: Text(
+        title,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: primary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onTap: isLoading ? null : onTap,
+    );
+  }
+
+  Future<void> _handleAsyncOperation({
+    required Future<void> Function() operation,
+    required String successMessage,
+    required String errorMessage,
+  }) async {
+    isLoading.value = true;
+    try {
+      await operation();
+      AppToast.showSuccess(context, successMessage);
+    } catch (e) {
+      AppToast.showError(context, '$errorMessage: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: _buildBlurBackgroundDecoration(),
+          child: Icon(
+            icon,
+            color: primary,
+            size: 28,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getDisplayName(UserDBISAR userData) {
+    if (userData.nickName != null && userData.nickName!.isNotEmpty) {
+      return userData.nickName!;
+    } else if (userData.name != null && userData.name!.isNotEmpty) {
+      return userData.name!;
+    } else {
+      return userData.shortEncodedPubkey;
+    }
+  }
+
+  void _copyNpub(String npub) {
+    if (npub.isEmpty) {
+      AppToast.showError(context, 'NPUB not available');
+      return;
+    }
+
+    Clipboard.setData(ClipboardData(text: npub));
+    AppToast.showSuccess(context, 'NPUB copied to clipboard');
+  }
+
+
+  String _formatCallTime(DateTime startTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final startDate = DateTime(startTime.year, startTime.month, startTime.day);
+
+    if (startDate == today) {
+      return 'Today・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+    } else if (startDate == yesterday) {
+      return 'Yesterday・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+    } else {
+      final difference = today.difference(startDate).inDays;
+      if (difference < 7) {
+        return '${difference} days ago・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+      } else {
+        return '${startTime.month}/${startTime.day}・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+      }
+    }
+  }
+
+  String _getCallStatusText(CallEntry callEntry) {
+    return switch (callEntry.status) {
+      CallStatus.declined => 'Declined',
+      CallStatus.failed => 'Failed',
+      CallStatus.cancelled => 'Cancelled',
+      CallStatus.completed => _formatCallDuration(callEntry.duration),
+    };
+  }
+
+  String _formatCallDuration(Duration? duration) {
+    if (duration == null) return '0s';
+
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${seconds}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
+    }
+  }
+
+  void _toggleContact() async {
+    await _handleAsyncOperation(
+      operation: () async {
+        if (isContact.value) {
+          final result = await Contacts.sharedInstance.removeContact(widget.pubkey);
+          if (result.status) {
+            isContact.value = false;
+          } else {
+            throw Exception('Failed to remove contact');
+          }
+        } else {
+          final result = await Contacts.sharedInstance.addToContact([widget.pubkey]);
+          if (result.status) {
+            isContact.value = true;
+          } else {
+            throw Exception('Failed to add contact');
+          }
+        }
+      },
+      successMessage: isContact.value ? 'Contact removed' : 'Contact added',
+      errorMessage: 'Operation failed',
+    );
+  }
+
+  void _toggleBlock() async {
+    await _handleAsyncOperation(
+      operation: () async {
+        if (isBlocked.value) {
+          final result = await Contacts.sharedInstance.removeBlockList([widget.pubkey]);
+          if (result.status) {
+            isBlocked.value = false;
+          } else {
+            throw Exception('Failed to unblock contact');
+          }
+        } else {
+          final result = await Contacts.sharedInstance.addToBlockList(widget.pubkey);
+          if (result.status) {
+            isBlocked.value = true;
+          } else {
+            throw Exception('Failed to block contact');
+          }
+        }
+      },
+      successMessage: isBlocked.value ? 'Contact unblocked' : 'Contact blocked',
+      errorMessage: 'Operation failed',
+    );
+  }
+
+  void _startCall() async {
+    if (isBlocked.value) {
+      AppToast.showError(context, 'Cannot call blocked user');
+      return;
+    }
+
+    try {
+      await CallKitManager().startCall(
+        peerId: widget.pubkey,
+        callType: CallType.audio,
+      );
+    } catch (e) {
+      AppToast.showError(context, 'Failed to start call: $e');
+    }
+  }
+
+  void _startVideoCall() async {
+    if (isBlocked.value) {
+      AppToast.showError(context, 'Cannot call blocked user');
+      return;
+    }
+
+    try {
+      await CallKitManager().startCall(
+        peerId: widget.pubkey,
+        callType: CallType.video,
+      );
+    } catch (e) {
+      AppToast.showError(context, 'Failed to start video call: $e');
+    }
   }
 }

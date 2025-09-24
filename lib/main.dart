@@ -33,7 +33,7 @@ class MainApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Noscall',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0x3937a3)),
         useMaterial3: true,
       ),
       routerConfig: AppRouter.router,

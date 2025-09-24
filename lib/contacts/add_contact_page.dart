@@ -236,7 +236,7 @@ class _AddContactPageState extends State<AddContactPage> {
       onTap: () {
         context.push(
           '/user-detail',
-          extra: user.pubKey,
+          extra: {'pubkey': user.pubKey},
         );
       },
     );

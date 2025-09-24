@@ -31,6 +31,9 @@ class CallingPageState extends State<CallingPage> {
   double localCameraPosTop = 120.0;
   double localCameraPosLeft = 20.0;
 
+  late ThemeData theme;
+  Color get onSurface => theme.colorScheme.onSurface;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +54,7 @@ class CallingPageState extends State<CallingPage> {
 
   @override
   Widget build(BuildContext context) {
+    theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(
@@ -60,19 +64,13 @@ class CallingPageState extends State<CallingPage> {
         ),
       ),
       extendBodyBehindAppBar: true,
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () {
-          controlsBarKey.currentState?.hideAllToggle();
-        },
-        child: Overlay(
-          key: overlayKey,
-          initialEntries: [
-            OverlayEntry(
-              builder: (_) => _buildContent(),
-            ),
-          ],
-        ),
+      body: Overlay(
+        key: overlayKey,
+        initialEntries: [
+          OverlayEntry(
+            builder: (_) => _buildContent(),
+          ),
+        ],
       ),
     );
   }
@@ -201,7 +199,7 @@ class CallingPageState extends State<CallingPage> {
     return Text(
       showName,
       style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface,
+        color: onSurface,
         fontSize: 32,
         fontWeight: FontWeight.bold,
       ),
@@ -235,7 +233,7 @@ class CallingPageState extends State<CallingPage> {
         return Text(
           showHint,
           style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurface,
+            color: onSurface,
             fontSize: 14,
           ),
           maxLines: 1,

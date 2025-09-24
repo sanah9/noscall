@@ -23,9 +23,9 @@ extension CallDirectionEx on CallDirection {
   String get displayName {
     switch (this) {
       case CallDirection.incoming:
-        return '呼入';
+        return 'Incoming';
       case CallDirection.outgoing:
-        return '呼出';
+        return 'Outgoing';
     }
   }
 }

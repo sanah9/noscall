@@ -17,6 +17,13 @@ class _ContactsPageState extends State<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager();
   final Map<String, bool> _callingStates = {};
 
+  late ThemeData theme;
+  Color get primary => theme.colorScheme.primary;
+  Color get surface => theme.colorScheme.surface;
+  Color get onSurface => theme.colorScheme.onSurface;
+  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant;
+  Color get errorColor => theme.colorScheme.error;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +117,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   Widget build(BuildContext context) {
+    theme = Theme.of(context);
     return Scaffold(
       appBar: _buildAppBar(context),
       body: Contacts.sharedInstance.allContacts.isEmpty
@@ -119,13 +127,11 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return AppBar(
       title: const Text('Contacts'),
       centerTitle: true,
-      backgroundColor: colorScheme.surface,
-      foregroundColor: colorScheme.onSurface,
+      backgroundColor: surface,
+      foregroundColor: onSurface,
       elevation: 0,
       actions: [
         IconButton(
@@ -140,9 +146,6 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildEmptyContactsState(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -150,20 +153,20 @@ class _ContactsPageState extends State<ContactsPage> {
           Icon(
             Icons.people_outline,
             size: 64,
-            color: colorScheme.onSurfaceVariant,
+            color: onSurfaceVariant,
           ),
           const SizedBox(height: 16),
           Text(
             'No Contacts',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Add contacts to start calling',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: onSurfaceVariant,
             ),
           ),
         ],
@@ -182,85 +185,125 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildContactCard(BuildContext context, dynamic contact) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final displayName = contact.displayName();
+    final isCalling = _callingStates[contact.pubKey] == true;
 
-    return ListTile(
-      leading: UserAvatar(user: contact),
-      title: Text(
-        displayName,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w500,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            context.push(
+              '/user-detail',
+              extra: {'pubkey': contact.pubKey},
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                _buildUserAvatar(contact),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildContactName(contact, displayName),
+                      const SizedBox(height: 4),
+                      _buildContactSubtitle(contact),
+                    ],
+                  ),
+                ),
+                _buildRightSideContent(contact, displayName, isCalling),
+              ],
+            ),
+          ),
         ),
       ),
-      subtitle: Text(
-        contact.shortEncodedPubkey,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-      trailing: _buildCallButtons(context, contact, displayName),
-      onTap: () {
-        context.push(
-          '/user-detail',
-          extra: contact.pubKey,
-        );
-      },
     );
   }
 
-  Widget _buildCallButtons(BuildContext context, dynamic contact, String displayName) {
+  Widget _buildUserAvatar(dynamic contact) {
+    return UserAvatar(
+      user: contact,
+      radius: 24,
+    );
+  }
+
+  Widget _buildContactName(dynamic contact, String displayName) {
+    return Text(
+      displayName,
+      style: theme.textTheme.titleMedium?.copyWith(
+        color: onSurface,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  Widget _buildContactSubtitle(dynamic contact) {
+    return Text(
+      contact.shortEncodedPubkey,
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: onSurfaceVariant,
+        fontSize: 14,
+      ),
+    );
+  }
+
+  Widget _buildRightSideContent(dynamic contact, String displayName, bool isCalling) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildVoiceCallButton(context, contact, displayName),
-        _buildVideoCallButton(context, contact, displayName),
+        _buildVoiceCallButton(context, contact, displayName, isCalling),
+        const SizedBox(width: 8),
+        _buildVideoCallButton(context, contact, displayName, isCalling),
       ],
     );
   }
 
-  Widget _buildVoiceCallButton(BuildContext context, dynamic contact, String displayName) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isCalling = _callingStates[contact.pubKey] == true;
-
-    return IconButton(
-      onPressed: isCalling ? null : () => _startVoiceCall(contact.pubKey, displayName),
-      icon: isCalling
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  colorScheme.primary,
-                ),
-              ),
-            )
-          : Icon(Icons.call, color: colorScheme.primary),
-      tooltip: 'Voice Call',
+  Widget _buildVoiceCallButton(BuildContext context, dynamic contact, String displayName, bool isCalling) {
+    return GestureDetector(
+      onTap: isCalling ? null : () => _startVoiceCall(contact.pubKey, displayName),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: isCalling
+            ? SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(primary),
+          ),
+        ) : Icon(
+          Icons.call,
+          size: 24,
+          color: primary,
+        ),
+      ),
     );
   }
 
-  Widget _buildVideoCallButton(BuildContext context, dynamic contact, String displayName) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isCalling = _callingStates[contact.pubKey] == true;
-
-    return IconButton(
-      onPressed: isCalling ? null : () => _startVideoCall(contact.pubKey, displayName),
-      icon: isCalling
-          ? SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  colorScheme.secondary,
-                ),
-              ),
-            )
-          : Icon(Icons.videocam, color: colorScheme.secondary),
-      tooltip: 'Video Call',
+  Widget _buildVideoCallButton(BuildContext context, dynamic contact, String displayName, bool isCalling) {
+    return GestureDetector(
+      onTap: isCalling ? null : () => _startVideoCall(contact.pubKey, displayName),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: isCalling
+            ? SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(primary),
+          ),
+        ) : Icon(
+          Icons.videocam,
+          size: 24,
+          color: primary,
+        ),
+      ),
     );
   }
 }
