@@ -76,27 +76,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
   Widget _buildMainView(UserDBISAR userData) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: onSurface),
           onPressed: () => context.pop(),
         ),
       ),
       extendBodyBehindAppBar: true,
-      body: Container(
-        child: ListView(
-          children: [
-            const SizedBox(height: 12),
-            _buildUserProfileSection(userData),
-            _buildActionButtons(),
-            _buildCallHistorySection(),
-            _buildUserInfoSection(userData),
-            _buildContactManagementSection(),
-            _buildBlockManagementSection(),
-            const SizedBox(height: 40),
-          ],
-        ),
+      body: ListView(
+        children: [
+          const SizedBox(height: 12),
+          _buildUserProfileSection(userData),
+          _buildActionButtons(),
+          _buildCallHistorySection(),
+          _buildUserInfoSection(userData),
+          _buildContactManagementSection(),
+          _buildBlockManagementSection(),
+          const SizedBox(height: 40),
+        ],
       ),
     );
   }

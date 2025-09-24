@@ -87,6 +87,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
               border: InputBorder.none,
             ),
             onChanged: _searchCallGroups,
+            onSubmitted: (_) => _dismissKeyboard(),
             autofocus: true,
           );
         }
@@ -142,34 +143,57 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   }
 
   Widget _buildBody() {
-    return StreamBuilder<List<CallLogGroup>>(
-      stream: _manager.dataChangeStream,
-      initialData: _manager.callLogGroups,
-      builder: (BuildContext context, AsyncSnapshot<List<CallLogGroup>> snapshot) {
-        switch ((snapshot.connectionState, snapshot.data)) {
-          case (ConnectionState.waiting, _):
-            return _buildLoadingState();
-          case (_, final List<CallLogGroup> data):
-            if (data.isEmpty) return _buildEmptyState();
-            return _buildCallGroupList(data);
-          default:
-            final errorText = snapshot.error?.toString() ?? '';
-            if (errorText.isNotEmpty) {
-              return _buildErrorState(errorText);
-            } else {
-              return _buildEmptyState();
-            }
-        }
-      },
+    return GestureDetector(
+      onTap: _dismissKeyboard,
+      behavior: HitTestBehavior.translucent,
+      child: StreamBuilder<List<CallLogGroup>>(
+        stream: _manager.dataChangeStream,
+        initialData: _manager.callLogGroups,
+        builder: (BuildContext context, AsyncSnapshot<List<CallLogGroup>> snapshot) {
+          switch ((snapshot.connectionState, snapshot.data)) {
+            case (ConnectionState.waiting, _):
+              return _buildLoadingState();
+            case (_, final List<CallLogGroup> data):
+              if (data.isEmpty) return _buildEmptyState();
+              return StreamBuilder<String>(
+                stream: _searchTextController.stream,
+                initialData: '',
+                builder: (context, searchSnapshot) {
+                  final searchQuery = searchSnapshot.data ?? '';
+                  final filteredData = _filterCallGroups(data, searchQuery);
+                  if (filteredData.isEmpty && searchQuery.isNotEmpty) {
+                    return _buildNoSearchResultsState();
+                  }
+                  return _buildCallGroupList(filteredData);
+                },
+              );
+            default:
+              final errorText = snapshot.error?.toString() ?? '';
+              if (errorText.isNotEmpty) {
+                return _buildErrorState(errorText);
+              } else {
+                return _buildEmptyState();
+              }
+          }
+        },
+      ),
     );
   }
 
   Widget _buildCallGroupList(List<CallLogGroup> callGroups) {
-    return ListView.builder(
-      itemCount: callGroups.length,
-      itemBuilder: (context, index) => _buildCallGroupItem(
-        context,
-        callGroups[index],
+    return NotificationListener<ScrollNotification>(
+      onNotification: (ScrollNotification notification) {
+        if (notification is ScrollStartNotification) {
+          _dismissKeyboard();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        itemCount: callGroups.length,
+        itemBuilder: (context, index) => _buildCallGroupItem(
+          context,
+          callGroups[index],
+        ),
       ),
     );
   }
@@ -365,9 +389,11 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
     _showSearchController.add(false);
     _searchController.clear();
     _searchTextController.add('');
+    _dismissKeyboard();
   }
 
   void _handleMenuAction(String value) {
+    _dismissKeyboard();
     switch (value) {
       case 'clear':
         _clearAllCalls();
@@ -401,6 +427,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
 
   Future<void> _callBackFromGroup(CallLogGroup group) async {
+    _dismissKeyboard();
     try {
       await CallKitManager.instance.startCall(
         peerId: group.peerPubkey,
@@ -420,6 +447,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   }
 
   void _navigateToUserDetail(CallLogGroup group) {
+    _dismissKeyboard();
     context.push(
       '/user-detail',
       extra: {
@@ -431,6 +459,50 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
   Future<void> _searchCallGroups(String query) async {
     _searchTextController.add(query.trim());
+  }
+
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
+  List<CallLogGroup> _filterCallGroups(List<CallLogGroup> groups, String query) {
+    if (query.isEmpty) {
+      return groups;
+    }
+
+    final lowercaseQuery = query.toLowerCase();
+    return groups.where((group) {
+      final user = ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+      final displayName = user.displayName().toLowerCase();
+      return displayName.contains(lowercaseQuery);
+    }).toList();
+  }
+
+  Widget _buildNoSearchResultsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No matching calls',
+            style: theme.textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try searching with a different name',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -17,6 +17,10 @@ class _AddContactPageState extends State<AddContactPage> {
   final List<UserDBISAR> _searchResults = [];
   bool _isSearching = false;
 
+  late ThemeData theme;
+  Color get surface => theme.colorScheme.surface;
+  Color get onSurface => theme.colorScheme.onSurface;
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -25,29 +29,35 @@ class _AddContactPageState extends State<AddContactPage> {
 
   @override
   Widget build(BuildContext context) {
+    theme = Theme.of(context);
     return Scaffold(
       appBar: _buildAppBar(context),
-      body: Column(
-        children: [
-          _buildSearchSection(context),
-          _buildSearchResults(context),
-        ],
+      body: GestureDetector(
+        onTap: _dismissKeyboard,
+        behavior: HitTestBehavior.translucent,
+        child: Column(
+          children: [
+            _buildSearchSection(context),
+            _buildSearchResults(context),
+          ],
+        ),
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return AppBar(
       title: const Text('Add Contact'),
       centerTitle: true,
-      backgroundColor: colorScheme.surface,
-      foregroundColor: colorScheme.onSurface,
+      backgroundColor: surface,
+      foregroundColor: onSurface,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => context.pop(),
+        onPressed: () {
+          _dismissKeyboard();
+          context.pop();
+        },
       ),
     );
   }
@@ -103,12 +113,12 @@ class _AddContactPageState extends State<AddContactPage> {
         ),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-                icon: Icon(
-                  Icons.clear,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                onPressed: _clearSearch,
-              )
+          icon: Icon(
+            Icons.clear,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          onPressed: _clearSearch,
+        )
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -130,7 +140,10 @@ class _AddContactPageState extends State<AddContactPage> {
           ),
         ),
       ),
-      onSubmitted: _searchUser,
+      onSubmitted: (value) {
+        _dismissKeyboard();
+        _searchUser(value);
+      },
     );
   }
 
@@ -151,15 +164,15 @@ class _AddContactPageState extends State<AddContactPage> {
       ),
       child: _isSearching
           ? SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  colorScheme.onPrimary,
-                ),
-              ),
-            )
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            colorScheme.onPrimary,
+          ),
+        ),
+      )
           : const Text('Search'),
     );
   }
@@ -205,12 +218,20 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildResultsList(BuildContext context) {
-    return ListView.builder(
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        final user = _searchResults[index];
-        return _buildUserCard(context, user);
+    return NotificationListener<ScrollNotification>(
+      onNotification: (ScrollNotification notification) {
+        if (notification is ScrollStartNotification) {
+          _dismissKeyboard();
+        }
+        return false;
       },
+      child: ListView.builder(
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final user = _searchResults[index];
+          return _buildUserCard(context, user);
+        },
+      ),
     );
   }
 
@@ -234,6 +255,7 @@ class _AddContactPageState extends State<AddContactPage> {
         size: 16,
       ),
       onTap: () {
+        _dismissKeyboard();
         context.push(
           '/user-detail',
           extra: {'pubkey': user.pubKey},
@@ -274,6 +296,7 @@ class _AddContactPageState extends State<AddContactPage> {
 
 
   void _searchUser(String query) async {
+    _dismissKeyboard();
     query = query.trim();
     if (query.isEmpty) {
       AppToast.showError(context, 'Please enter a valid npub or DNS');
@@ -361,5 +384,10 @@ class _AddContactPageState extends State<AddContactPage> {
       _searchController.clear();
       _searchResults.clear();
     });
+    _dismissKeyboard();
+  }
+
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
   }
 }

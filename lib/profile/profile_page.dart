@@ -163,7 +163,10 @@ class _ProfilePageState extends State<ProfilePage> {
     final colorScheme = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(
+        vertical: 24.0,
+        horizontal: 40.0,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -208,46 +211,13 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         const SizedBox(height: 8),
         Text(
-          _user!.shortEncodedPubkey,
+          _user!.encodedPubkey,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onPrimary.withOpacity(0.8),
           ),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
-        if (_user!.about != null && _user!.about!.isNotEmpty) ...[
-          Text(
-            _user!.about!,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onPrimary.withOpacity(0.9),
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
-        ],
-        _buildOnlineStatus(context),
       ],
-    );
-  }
-
-  Widget _buildOnlineStatus(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.tertiary,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        'Online',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: colorScheme.onTertiary,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
     );
   }
 
@@ -256,26 +226,6 @@ class _ProfilePageState extends State<ProfilePage> {
     final colorScheme = theme.colorScheme;
 
     final menuItems = [
-      _MenuItem(
-        icon: Icons.person_outline,
-        title: 'Account Info',
-        onTap: () => context.push('/account-info'),
-      ),
-      _MenuItem(
-        icon: Icons.settings,
-        title: 'Settings',
-        onTap: () => AppToast.showInfo(context, 'Settings feature coming soon'),
-      ),
-      _MenuItem(
-        icon: Icons.security,
-        title: 'Privacy & Security',
-        onTap: () => AppToast.showInfo(context, 'Privacy settings coming soon'),
-      ),
-      _MenuItem(
-        icon: Icons.help_outline,
-        title: 'Help & Support',
-        onTap: () => AppToast.showInfo(context, 'Help center coming soon'),
-      ),
       _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
