@@ -10,18 +10,6 @@ class ICEServerManager {
     ICEServerModel(
       url: 'turn:0xchat:Prettyvs511@rtc2.0xchat.com:5349',
     ),
-    ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc3.0xchat.com:5349',
-    ),
-    ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc4.0xchat.com:5349',
-    ),
-    ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc5.0xchat.com:5349',
-    ),
-    ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc6.0xchat.com:5349',
-    ),
   ];
 }
 
@@ -40,7 +28,6 @@ class ICEServerModel {
     }
     return [
       _turnConfig,
-      _stunConfig,
     ];
   }
 
@@ -54,9 +41,6 @@ class ICEServerModel {
     'credential': credential,
   };
 
-  Map<String, String> get _stunConfig => {
-    'url': 'stun:$domain',
-  };
 
   bool get isTurnAddress => url.startsWith('turn');
 

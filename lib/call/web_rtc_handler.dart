@@ -262,13 +262,11 @@ class WebRTCHelper {
   }) {
     Map<String, dynamic> configuration = {
       'iceServers': iceServers.expand((e) => e.serverConfigs).toList(),
-      //
-      'iceTransportPolicy': 'relay',
-      //
-      // 'bundlePolicy': 'balanced',
-      // 'rtcpMuxPolicy': 'require',
+      'iceTransportPolicy': 'all',
+      'iceCandidatePoolSize': 4,
+      'bundlePolicy': 'balanced',
+      'rtcpMuxPolicy': 'require',
       'sdpSemantics': 'unified-plan',
-      // 'iceCandidatePoolSize': 2,
     };
 
     Map<String, dynamic> constraints = {
