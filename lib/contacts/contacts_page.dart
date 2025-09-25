@@ -15,7 +15,6 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager();
-  final Map<String, bool> _callingStates = {};
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
@@ -33,17 +32,19 @@ class _ContactsPageState extends State<ContactsPage> {
         setState(() {});
       }
     };
+
+    _callKitManager.activeController?.then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   Future<void> _startVoiceCall(String peerId, String displayName) async {
-    if (_callingStates[peerId] == true) {
+    if (_callKitManager.hasActiveCalling) {
       AppToast.showInfo(context, 'Call already in progress');
       return;
     }
-
-    setState(() {
-      _callingStates[peerId] = true;
-    });
 
     try {
       AppToast.showInfo(context, 'Starting voice call...');
@@ -68,22 +69,14 @@ class _ContactsPageState extends State<ContactsPage> {
         errorMessage = 'Permission denied. Please check app settings';
       }
       AppToast.showError(context, errorMessage);
-    } finally {
-      setState(() {
-        _callingStates[peerId] = false;
-      });
     }
   }
 
   Future<void> _startVideoCall(String peerId, String displayName) async {
-    if (_callingStates[peerId] == true) {
+    if (_callKitManager.hasActiveCalling) {
       AppToast.showInfo(context, 'Call already in progress');
       return;
     }
-
-    setState(() {
-      _callingStates[peerId] = true;
-    });
 
     try {
       AppToast.showInfo(context, 'Starting video call...');
@@ -108,10 +101,6 @@ class _ContactsPageState extends State<ContactsPage> {
         errorMessage = 'Permission denied. Please check app settings';
       }
       AppToast.showError(context, errorMessage);
-    } finally {
-      setState(() {
-        _callingStates[peerId] = false;
-      });
     }
   }
 
@@ -186,7 +175,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   Widget _buildContactCard(BuildContext context, dynamic contact) {
     final displayName = contact.displayName();
-    final isCalling = _callingStates[contact.pubKey] == true;
+    final isCalling = _callKitManager.hasActiveCalling;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),

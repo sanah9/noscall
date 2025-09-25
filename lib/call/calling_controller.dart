@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCIceCandidate, RTCIceConnectionState;
 import 'package:nostr/nostr.dart';
@@ -67,6 +68,8 @@ class CallingController {
   final connectedStopwatch = Stopwatch();
   late Timer connectedTimer;
 
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
   Function(String offerId)? disposeCallback;
 
   late WebRTCHandler webRTCHandler;
@@ -123,16 +126,21 @@ class CallingController {
 
     controller.callStartTime = DateTime.now();
 
+    controller._startConnectivityListener();
+
     return controller;
   }
 
   void _dispose() async {
     connectedTimer.cancel();
+    _connectivitySubscription?.cancel();
     webRTCHandler.dispose();
     disposeCallback?.call(await offerId);
   }
 
   Future<void> _recordCallHistory(String reason) async {
+    if (!offerIdCmp.isCompleted) return;
+
     final callId = await offerId;
     final duration = connectedStopwatch.isRunning
         ? connectedStopwatch.elapsed
@@ -251,7 +259,14 @@ extension CallingControllerSignalingEx on CallingController {
     await _recordCallHistory(reason);
     state.value = CallingState.ended;
 
-    await _sendDisconnect(reason);
+    _sendDisconnect(reason).catchError((error) {
+      LogUtils.error(
+        className: 'CallingController',
+        funcName: 'hangup',
+        message: 'Failed to send disconnect message: $error',
+      );
+    });
+
     await webRTCHandler.close();
     _dispose();
   }
@@ -597,6 +612,28 @@ extension CallingControllerNostrSignalingEx on CallingController {
 
     await webRTCHandler.close();
     _dispose();
+  }
+
+  void _startConnectivityListener() {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+          (List<ConnectivityResult> results) {
+        if (results.every((result) => result == ConnectivityResult.none)) {
+          LogUtils.info(
+            className: 'CallingController',
+            funcName: '_startConnectivityListener',
+            message: 'Network disconnected, hanging up call',
+          );
+          hangup('network disconnected');
+        }
+      },
+      onError: (error) {
+        LogUtils.error(
+          className: 'CallingController',
+          funcName: '_startConnectivityListener',
+          message: 'Connectivity listener error: $error',
+        );
+      },
+    );
   }
 }
 
