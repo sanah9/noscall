@@ -4,7 +4,9 @@ import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/call/call_ui/calling_page.dart';
 import 'package:noscall/call/calling_controller.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
-import '../auth/login_page.dart';
+import '../auth/login_home_page.dart';
+import '../auth/signin_page.dart';
+import '../auth/signup_page.dart';
 import '../auth/account_info_page.dart';
 import '../home/home_page.dart';
 import '../contacts/add_contact_page.dart';
@@ -17,7 +19,17 @@ class AppRouter {
       GoRoute(
         path: '/login',
         name: 'login',
-        builder: (context, state) => const LoginPage(),
+        builder: (context, state) => const LoginHomePage(),
+      ),
+      GoRoute(
+        path: '/signin',
+        name: 'signin',
+        builder: (context, state) => const SignInPage(),
+      ),
+      GoRoute(
+        path: '/signup',
+        name: 'signup',
+        builder: (context, state) => const SignUpPage(),
       ),
       GoRoute(
         path: '/',
