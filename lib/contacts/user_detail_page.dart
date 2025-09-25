@@ -283,20 +283,22 @@ class _UserDetailPageState extends State<UserDetailPage> {
     return ValueListenableBuilder<bool>(
       valueListenable: isContact,
       builder: (context, isContactValue, child) {
-        if (isContactValue) {
-          return const SizedBox.shrink();
-        }
         return _buildSectionContainer(
           child: ValueListenableBuilder<bool>(
             valueListenable: isLoading,
             builder: (context, isLoadingValue, child) {
+              final title = isContactValue ? 'Remove from Contacts' : 'Add to Contacts';
+              final icon = isContactValue ? Icons.person_remove : Icons.person_add;
+              final onTap = isContactValue ? _removeContact : _addContact;
+
               return Column(
                 children: [
                   _buildSectionTile(
-                    title: 'Add to Contacts',
-                    icon: Icons.person_add,
-                    onTap: _toggleContact,
+                    title: title,
+                    icon: icon,
+                    onTap: onTap,
                     isLoading: isLoadingValue,
+                    textColor: isContactValue ? theme.colorScheme.error : null,
                   ),
                 ],
               );
@@ -378,12 +380,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
     required IconData icon,
     required VoidCallback? onTap,
     bool isLoading = false,
+    Color? textColor,
   }) {
     return ListTile(
       title: Text(
         title,
         style: theme.textTheme.bodyMedium?.copyWith(
-          color: primary,
+          color: textColor ?? primary,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -495,28 +498,61 @@ class _UserDetailPageState extends State<UserDetailPage> {
     }
   }
 
-  void _toggleContact() async {
+  void _addContact() async {
     await _handleAsyncOperation(
       operation: () async {
-        if (isContact.value) {
-          final result = await Contacts.sharedInstance.removeContact(widget.pubkey);
-          if (result.status) {
-            isContact.value = false;
-          } else {
-            throw Exception('Failed to remove contact');
-          }
+        final result = await Contacts.sharedInstance.addToContact([widget.pubkey]);
+        if (result.status) {
+          isContact.value = true;
         } else {
-          final result = await Contacts.sharedInstance.addToContact([widget.pubkey]);
-          if (result.status) {
-            isContact.value = true;
-          } else {
-            throw Exception('Failed to add contact');
-          }
+          throw Exception('Failed to add contact');
         }
       },
-      successMessage: isContact.value ? 'Contact removed' : 'Contact added',
-      errorMessage: 'Operation failed',
+      successMessage: 'Contact added',
+      errorMessage: 'Failed to add contact',
     );
+  }
+
+  void _removeContact() async {
+    final confirmed = await _showRemoveContactConfirmation();
+    if (!confirmed) return;
+
+    await _handleAsyncOperation(
+      operation: () async {
+        final result = await Contacts.sharedInstance.removeContact(widget.pubkey);
+        if (result.status) {
+          isContact.value = false;
+        } else {
+          throw Exception('Failed to remove contact');
+        }
+      },
+      successMessage: 'Contact removed',
+      errorMessage: 'Failed to remove contact',
+    );
+  }
+
+  Future<bool> _showRemoveContactConfirmation() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Contact'),
+        content: const Text('Are you sure you want to remove this contact from your contacts list?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   void _toggleBlock() async {
