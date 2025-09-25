@@ -6,21 +6,30 @@ class ICEServerManager {
   List<ICEServerModel> get defaultICEServers => [
     ICEServerModel(
       url: 'turn:0xchat:Prettyvs511@rtc.0xchat.com:5349',
-      createTime: DateTime.now().millisecondsSinceEpoch,
-    )
+    ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@rtc2.0xchat.com:5349',
+    ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@rtc3.0xchat.com:5349',
+    ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@rtc4.0xchat.com:5349',
+    ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@rtc5.0xchat.com:5349',
+    ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@rtc6.0xchat.com:5349',
+    ),
   ];
 }
 
-
 class ICEServerModel {
   String url;
-  bool canDelete;
-  int createTime;
 
   ICEServerModel({
     this.url = '',
-    this.canDelete = true,
-    this.createTime = 0,
   });
 
   List<Map<String, String>> get serverConfigs {
@@ -49,7 +58,6 @@ class ICEServerModel {
     'url': 'stun:$domain',
   };
 
-
   bool get isTurnAddress => url.startsWith('turn');
 
   String get username {
@@ -73,8 +81,6 @@ class ICEServerModel {
   factory ICEServerModel.fromJson(Map<String, dynamic> json) {
     return ICEServerModel(
       url: json['url'] ?? '',
-      canDelete: json['canDelete'] ?? true,
-      createTime: json['createTime'] ?? 0,
     );
   }
 
@@ -91,7 +97,5 @@ class ICEServerModel {
   Map<String, dynamic> toJson(ICEServerModel iceServerModel) =>
       <String, dynamic>{
         'url': iceServerModel.url,
-        'canDelete': iceServerModel.canDelete,
-        'createTime': iceServerModel.createTime,
       };
 }
