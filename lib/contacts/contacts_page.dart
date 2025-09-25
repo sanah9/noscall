@@ -188,7 +188,6 @@ class _ContactsPageState extends State<ContactsPage> {
               extra: {'pubkey': contact.pubKey},
             );
           },
-          borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(

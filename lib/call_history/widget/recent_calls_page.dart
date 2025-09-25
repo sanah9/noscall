@@ -206,7 +206,6 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _callBackFromGroup(group),
-          borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.only(
               top: 16,
