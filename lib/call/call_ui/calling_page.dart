@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
@@ -38,11 +39,16 @@ class CallingPageState extends State<CallingPage> {
   void initState() {
     super.initState();
     controller.state.addListener(_callStateUpdate);
+    _setStatusBarMode();
   }
 
   @override
   void dispose() {
+    if (controller.state.value != CallingState.ended) {
+      controller.hangup('hangup');
+    }
     controller.state.removeListener(_callStateUpdate);
+    _restoreStatusBarMode();
     super.dispose();
   }
 
@@ -55,22 +61,27 @@ class CallingPageState extends State<CallingPage> {
   @override
   Widget build(BuildContext context) {
     theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        leading: BackButton(
-          onPressed: () {
-            controller.hangup('hangup');
-          },
-        ),
-      ),
-      extendBodyBehindAppBar: true,
-      body: Overlay(
-        key: overlayKey,
-        initialEntries: [
-          OverlayEntry(
-            builder: (_) => _buildContent(),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _getStatusBarStyle(),
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          systemOverlayStyle: _getStatusBarStyle(),
+          leading: BackButton(
+            onPressed: () {
+              controller.hangup('hangup');
+            },
           ),
-        ],
+        ),
+        extendBodyBehindAppBar: true,
+        body: Overlay(
+          key: overlayKey,
+          initialEntries: [
+            OverlayEntry(
+              builder: (_) => _buildContent(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -250,5 +261,35 @@ class CallingPageState extends State<CallingPage> {
     if (controller.state.value == CallingState.ended) {
       context.pop();
     }
+  }
+
+  SystemUiOverlayStyle _getStatusBarStyle() {
+    if (controller.callType.isVideo) {
+      return const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      );
+    } else {
+      return const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      );
+    }
+  }
+
+  void _setStatusBarMode() {
+    SystemChrome.setSystemUIOverlayStyle(_getStatusBarStyle());
+  }
+
+  void _restoreStatusBarMode() {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+    );
   }
 }

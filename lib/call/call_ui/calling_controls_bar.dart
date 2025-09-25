@@ -48,13 +48,6 @@ class CallingControlsBarState extends State<CallingControlsBar> {
       valueListenable: controller.state,
       builder: (_, state, __) {
         final items = controlWidgets(state);
-        double horizontal = 0.0;
-        switch (items.length) {
-          case 2: horizontal = 75; break;
-          case 3: horizontal = 36; break;
-          case 4: horizontal = 24; break;
-          case 5: horizontal = 36; break;
-        }
         return Container(
           decoration: BoxDecoration(
             color: surface.withValues(alpha: 0.6),
@@ -64,10 +57,9 @@ class CallingControlsBarState extends State<CallingControlsBar> {
               width: 0.5,
             ),
           ),
-          padding: EdgeInsets.symmetric(horizontal: horizontal),
           height: 100,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: items,
           ),
