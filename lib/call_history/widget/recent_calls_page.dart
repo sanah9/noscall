@@ -29,6 +29,8 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
   final StreamController<String> _searchTextController = StreamController<String>.broadcast();
 
+  String? _highlightedGroupId;
+
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
   Color get surface => theme.colorScheme.surface;
@@ -200,36 +202,37 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
   Widget _buildCallGroupItem(BuildContext context, CallLogGroup group) {
     final statusColor = _getCallStatusColor(group);
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _callBackFromGroup(group),
-          child: Padding(
-            padding: const EdgeInsets.only(
-              top: 16,
-              bottom: 16,
-              left: 16,
+    final GlobalKey globalKey = GlobalKey();
+    final isHighlighted = _highlightedGroupId == group.groupId;
+
+    return GestureDetector(
+      onTap: () => _callBackFromGroup(group),
+      onLongPress: () => _showContextMenu(context, globalKey, group),
+      child: Container(
+        key: globalKey,
+        width: MediaQuery.of(context).size.width,
+        color: isHighlighted ? primary.withValues(alpha: 0.1) : surface,
+        padding: const EdgeInsets.only(
+          top: 16,
+          bottom: 16,
+          left: 16,
+        ),
+        child: Row(
+          children: [
+            _buildUserAvatar(group.peerPubkey, group.type, statusColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildContactName(group, statusColor),
+                  const SizedBox(height: 4),
+                  _buildCallTypeAndDirection(group, statusColor),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                _buildUserAvatar(group.peerPubkey, group.type, statusColor),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildContactName(group, statusColor),
-                      const SizedBox(height: 4),
-                      _buildCallTypeAndDirection(group, statusColor),
-                    ],
-                  ),
-                ),
-                _buildRightSideContent(group, statusColor),
-              ],
-            ),
-          ),
+            _buildRightSideContent(group, statusColor),
+          ],
         ),
       ),
     );
@@ -427,10 +430,15 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
   Future<void> _callBackFromGroup(CallLogGroup group) async {
     _dismissKeyboard();
+    await _startCall(group, group.type);
+  }
+
+  Future<void> _startCall(CallLogGroup group, CallType callType) async {
+    _dismissKeyboard();
     try {
       await CallKitManager.instance.startCall(
         peerId: group.peerPubkey,
-        callType: group.type,
+        callType: callType,
       );
     } catch (e) {
       if (mounted) {
@@ -441,6 +449,174 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+      }
+    }
+  }
+
+
+  void _showContextMenu(BuildContext context, GlobalKey key, CallLogGroup group) {
+    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    setState(() {
+      _highlightedGroupId = group.groupId;
+    });
+
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    const offset = Offset(20, 70);
+    const itemHeight = 36.0;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx + offset.dx,
+        position.dy + offset.dy,
+        position.dx + offset.dx + size.width,
+        position.dy + offset.dy + size.height,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: theme.colorScheme.surfaceContainerLow,
+      elevation: 1,
+      shadowColor: onSurface.withValues(alpha: 0.3),
+      menuPadding: EdgeInsets.zero,
+      clipBehavior: Clip.hardEdge,
+      items: [
+        PopupMenuItem<String>(
+          value: 'audio_call',
+          height: itemHeight,
+          child: _buildMenuItem(
+            icon: Icons.phone,
+            text: 'Audio Call',
+            color: primary,
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'video_call',
+          height: itemHeight,
+          child: _buildMenuItem(
+            icon: Icons.videocam,
+            text: 'Video Call',
+            color: primary,
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'view_details',
+          height: itemHeight,
+          child: _buildMenuItem(
+            icon: Icons.info_outline,
+            text: 'View Details',
+            color: primary,
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'delete',
+          height: itemHeight,
+          child: _buildMenuItem(
+            icon: Icons.delete_outline,
+            text: 'Delete',
+            color: errorColor,
+          ),
+        ),
+      ],
+    ).then((String? value) {
+      setState(() {
+        _highlightedGroupId = null;
+      });
+
+      if (value != null) {
+        _handleContextMenuAction(value, group);
+      }
+    });
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 18),
+        Icon(
+          icon,
+          size: 20,
+          color: color,
+        ),
+      ],
+    );
+  }
+
+  void _handleContextMenuAction(String action, CallLogGroup group) {
+    switch (action) {
+      case 'audio_call':
+        _startCall(group, CallType.audio);
+        break;
+      case 'video_call':
+        _startCall(group, CallType.video);
+        break;
+      case 'view_details':
+        _navigateToUserDetail(group);
+        break;
+      case 'delete':
+        _deleteCallGroup(group);
+        break;
+    }
+  }
+
+  Future<void> _deleteCallGroup(CallLogGroup group) async {
+    final user = ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Call History'),
+        content: Text('Are you sure you want to delete call history with ${user.displayName()}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _manager.deleteCallLogGroup(group.groupId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Call history with ${user.displayName()} deleted'),
+              backgroundColor: primary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete call history: $e'),
+              backgroundColor: errorColor,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }

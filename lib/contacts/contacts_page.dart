@@ -177,36 +177,33 @@ class _ContactsPageState extends State<ContactsPage> {
     final displayName = contact.displayName();
     final isCalling = _callKitManager.hasActiveCalling;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            context.push(
-              '/user-detail',
-              extra: {'pubkey': contact.pubKey},
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _buildUserAvatar(contact),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildContactName(contact, displayName),
-                      const SizedBox(height: 4),
-                      _buildContactSubtitle(contact),
-                    ],
-                  ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          context.push(
+            '/user-detail',
+            extra: {'pubkey': contact.pubKey},
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              _buildUserAvatar(contact),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildContactName(contact, displayName),
+                    const SizedBox(height: 4),
+                    _buildContactSubtitle(contact),
+                  ],
                 ),
-                _buildRightSideContent(contact, displayName, isCalling),
-              ],
-            ),
+              ),
+              _buildRightSideContent(contact, displayName, isCalling),
+            ],
           ),
         ),
       ),
