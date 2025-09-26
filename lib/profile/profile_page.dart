@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:noscall/contacts/user_avatar.dart';
@@ -171,7 +172,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileHeader(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: 24.0,
@@ -179,8 +179,8 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomLeft,
           colors: [
             colorScheme.primary,
             colorScheme.primary.withOpacity(0.8),
@@ -213,19 +213,28 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         Text(
-          _user!.displayName(),
+          _user?.displayName() ?? '',
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             color: colorScheme.onPrimary,
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          _user!.encodedPubkey,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onPrimary.withOpacity(0.8),
+        GestureDetector(
+          onTap: () {
+            final value = _user?.encodedPubkey ?? '';
+            if (value.isNotEmpty) {
+              Clipboard.setData(ClipboardData(text: value));
+              AppToast.showSuccess(context, 'pubkey copied to clipboard');
+            }
+          },
+          child: Text(
+            _user?.encodedPubkey ?? '',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onPrimary.withOpacity(0.8),
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
