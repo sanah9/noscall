@@ -10,6 +10,18 @@ class ICEServerManager {
     ICEServerModel(
       url: 'turn:0xchat:Prettyvs511@rtc2.0xchat.com:5349',
     ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@rtc3.0xchat.com:5349',
+    ),
+    // ICEServerModel(
+    //   url: 'turn:0xchat:Prettyvs511@rtc4.0xchat.com:5349',
+    // ),
+    // ICEServerModel(
+    //   url: 'turn:0xchat:Prettyvs511@rtc5.0xchat.com:5349',
+    // ),
+    // ICEServerModel(
+    //   url: 'turn:0xchat:Prettyvs511@rtc6.0xchat.com:5349',
+    // ),
   ];
 }
 

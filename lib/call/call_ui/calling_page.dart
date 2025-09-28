@@ -45,7 +45,7 @@ class CallingPageState extends State<CallingPage> {
   @override
   void dispose() {
     if (controller.state.value != CallingState.ended) {
-      controller.hangup('hangup');
+      controller.hangup(CallEndReason.hangup);
     }
     controller.state.removeListener(_callStateUpdate);
     _restoreStatusBarMode();
@@ -69,7 +69,7 @@ class CallingPageState extends State<CallingPage> {
           systemOverlayStyle: _getStatusBarStyle(),
           leading: BackButton(
             onPressed: () {
-              controller.hangup('hangup');
+              controller.hangup(CallEndReason.hangup);
             },
           ),
         ),

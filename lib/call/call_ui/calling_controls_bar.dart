@@ -217,22 +217,72 @@ class CallingControlsBarState extends State<CallingControlsBar> {
     ),
   );
 
-  Widget acceptBtn() => GestureDetector(
-    onTap: () => widget.controller.accept(),
-    child: Image.asset(
-      'assets/images/icon_call_accept.png',
-      height: mainIconSize,
-      width: mainIconSize,
-    ),
+  Widget acceptBtn() => ValueListenableBuilder(
+    valueListenable: controller.isAccepting,
+    builder: (_, value, __) {
+      final isAccepting = value && controller.state.value == CallingState.connecting;
+      return  GestureDetector(
+        onTap: isAccepting ? null : () => widget.controller.accept(),
+        child:  Container(
+          width: mainIconSize,
+          height: mainIconSize,
+          decoration: BoxDecoration(
+            color: Colors.green,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.green.withValues(alpha: 0.2),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: isAccepting ? const CircularProgressIndicator(
+            strokeWidth: 3,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ) : Icon(
+            Icons.call,
+            color: Colors.white,
+            size: mainIconSize * 0.5,
+          ),
+        ),
+      );
+    }
   );
 
-  Widget hangupBtn() => GestureDetector(
-    onTap: () => widget.controller.hangup('hangup'),
-    child: Image.asset(
-      'assets/images/icon_call_end.png',
-      height: mainIconSize,
-      width: mainIconSize,
-    ),
+  Widget hangupBtn() => ValueListenableBuilder(
+    valueListenable: controller.isHangingUp,
+    builder: (_, value, __) {
+      final isHangingUp = value;
+      return  GestureDetector(
+        onTap: isHangingUp ? null : () => widget.controller.hangup(CallEndReason.hangup),
+        child: Container(
+          width: mainIconSize,
+          height: mainIconSize,
+          decoration: BoxDecoration(
+            color: errorColor,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: errorColor.withValues(alpha: 0.2),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: isHangingUp ? const CircularProgressIndicator(
+            strokeWidth: 3,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ) : Icon(
+            Icons.call_end,
+            color: Colors.white,
+            size: mainIconSize * 0.5,
+          ),
+        ),
+      );
+    }
   );
 
   void _handleSpeakerTap() {

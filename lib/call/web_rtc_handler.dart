@@ -38,6 +38,8 @@ class WebRTCHandler {
   ValueNotifier<bool>? isRecordOn;
   ValueNotifier<bool>? isFrontCamera;
 
+  final List<RTCIceCandidate> _pendingCandidates = [];
+
   static Future<WebRTCHandler> create({
     required CallType callType,
     ValueNotifier<CallingState>? state,
@@ -84,7 +86,27 @@ class WebRTCHandler {
   Future setRemoteDescription({
     required String? remoteSdp,
     required String? remoteType,
-  }) => peerConnection.setRemoteDescription(RTCSessionDescription(remoteSdp, remoteType));
+  }) async {
+    LogUtils.info(
+      className: 'WebRTCHandler',
+      funcName: 'setRemoteDescription',
+      message: 'remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
+    );
+    await peerConnection.setRemoteDescription(RTCSessionDescription(remoteSdp, remoteType));
+    for (final candidate in _pendingCandidates) {
+      try {
+        LogUtils.info(
+          className: 'WebRTCHandler',
+          funcName: 'addCandidate',
+          message: 'candidate: $candidate',
+        );
+        await peerConnection.addCandidate(candidate);
+      } catch (e, stack) {
+        LogUtils.e(() => '$e, $stack');
+      }
+    }
+    _pendingCandidates.clear();
+  }
 
   Future addCandidate({
     required String? candidate,
@@ -97,7 +119,16 @@ class WebRTCHandler {
         sdpMid,
         sdpMLineIndex,
       );
-      await peerConnection.addCandidate(candidateEntry);
+      if (await peerConnection.getRemoteDescription() == null) {
+        _pendingCandidates.add(candidateEntry);
+      } else {
+        LogUtils.info(
+          className: 'WebRTCHandler',
+          funcName: 'addCandidate',
+          message: 'candidate: $candidate',
+        );
+        await peerConnection.addCandidate(candidateEntry);
+      }
     } catch (e, stack) {
       LogUtils.e(() => '$e, $stack');
     }
@@ -262,9 +293,9 @@ class WebRTCHelper {
   }) {
     Map<String, dynamic> configuration = {
       'iceServers': iceServers.expand((e) => e.serverConfigs).toList(),
-      'iceTransportPolicy': 'all',
+      'iceTransportPolicy': 'relay',
       'iceCandidatePoolSize': 4,
-      'bundlePolicy': 'balanced',
+      'bundlePolicy': 'max-bundle',
       'rtcpMuxPolicy': 'require',
       'sdpSemantics': 'unified-plan',
     };
@@ -302,6 +333,11 @@ class WebRTCHelper {
     final sdp = description.sdp;
     description.sdp = sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
 
+    LogUtils.info(
+      className: 'WebRTCHandler',
+      funcName: 'createOffer',
+      message: 'setLocalDescription: $description',
+    );
     await connection.setLocalDescription(description);
 
     return description;
@@ -314,6 +350,11 @@ class WebRTCHelper {
     final sdp = description.sdp;
     description.sdp = sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
 
+    LogUtils.info(
+      className: 'WebRTCHandler',
+      funcName: 'createAnswer',
+      message: 'setLocalDescription: $description',
+    );
     await connection.setLocalDescription(description);
 
     return description;

@@ -47,3 +47,21 @@ enum CallActionType {
   answer,
   end,
 }
+
+enum CallEndReason {
+  hangup('hangUp'),
+  reject('reject'),
+  timeout('timeout'),
+  disconnect('disconnect'),
+  networkDisconnected('network disconnected'),
+  iceConnectionFailed('ICE Server Connection Failed'),
+  iceDisconnected('ICE Server Disconnected');
+
+  final String value;
+  const CallEndReason(this.value);
+}
+
+extension CallEndReasonEx on CallEndReason {
+  static CallEndReason? fromValue(dynamic value) =>
+      CallEndReason.values.where((e) => e.value == value).firstOrNull;
+}

@@ -113,9 +113,6 @@ class CallKitManager with WidgetsBindingObserver {
         case 'mute':
           _handleCallKeepMute(callId, event['muted'] as bool);
           break;
-        case 'hold':
-          _handleCallKeepHold(callId, event['hold'] as bool);
-          break;
       }
     });
   }
@@ -130,18 +127,15 @@ class CallKitManager with WidgetsBindingObserver {
   Future<void> _handleCallKeepEnd(String callId) async {
     final activeController = await this.activeController;
     if (activeController != null) {
-      activeController.hangup('hangup');
+      activeController.hangup(CallEndReason.hangup, false);
     }
   }
 
-  void _handleCallKeepMute(String callId, bool muted) {
-    // Handle mute functionality
-    LogUtils.i(() => 'Call $callId muted: $muted');
-  }
-
-  void _handleCallKeepHold(String callId, bool hold) {
-    // Handle hold functionality
-    LogUtils.i(() => 'Call $callId hold: $hold');
+  void _handleCallKeepMute(String callId, bool muted) async {
+    final activeController = await this.activeController;
+    if (activeController != null) {
+      activeController.recordToggleHandler(!muted, false);
+    }
   }
 
   Future<CallingController?> startCall({
@@ -163,12 +157,10 @@ class CallKitManager with WidgetsBindingObserver {
       }
 
       final user = ChatCore.Account.sharedInstance.getUserNotifier(peerId).value;
-      final callId = _generateCallId();
       final controller = await openCallModule(
         user: user,
         callType: callType,
         role: CallingRole.caller,
-        callId: callId,
       );
 
       LogUtils.i(() => 'Call started to $peerId with type ${callType.value}');
@@ -185,7 +177,6 @@ class CallKitManager with WidgetsBindingObserver {
       'hasActiveCalling': hasActiveCalling,
       'callType': callType?.value,
       'isBluetoothConnected': isBluetoothHeadsetConnected.value,
-      'callKeepState': _callKeepManager.getCurrentCallInfo(),
       'canStartNewCall': _canStartNewCall(),
     };
   }
@@ -267,26 +258,25 @@ class CallKitManager with WidgetsBindingObserver {
 
       final user = ChatCore.Account.sharedInstance.getUserNotifier(friend).value;
 
-      final incomingCallId = _generateCallId();
-
-      // await _callKeepManager.displayIncomingCall(
-      //   offerId,
-      //   user.name ?? user.shortEncodedPubkey,
-      //   hasVideo: mediaType.isVideo,
-      // );
-
       final controller = await openCallModule(
         user: user,
         callType: mediaType,
         role: CallingRole.callee,
         offerId: offerId,
-        callId: incomingCallId,
       );
 
       controller.signalingCallbackHandler(
         nostrState: state,
         content: data,
       );
+
+      controller.callId.then((callId) async {
+        await _callKeepManager.displayIncomingCall(
+          callId,
+          user.name ?? user.shortEncodedPubkey,
+          hasVideo: controller.callType.isVideo,
+        );
+      });
     }
   }
 
@@ -296,7 +286,6 @@ class CallKitManager with WidgetsBindingObserver {
     required CallingRole role,
     String? sessionId,
     String? offerId,
-    String? callId,
   }) async {
     final cmp = Completer<CallingController>();
     activeControllerCmp = cmp;
@@ -314,6 +303,7 @@ class CallKitManager with WidgetsBindingObserver {
       isFrontCamera: false,
       disposeCallback: callControllerDisposeHandler,
       callHistoryManager: callHistoryManager,
+      callKeepManager: _callKeepManager,
     );
 
     if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
@@ -327,19 +317,19 @@ class CallKitManager with WidgetsBindingObserver {
     switch (role) {
       case CallingRole.caller:
         final isSuccess = await controller.invitePeer(timeoutHandler: () {
-          controller.hangup('timeout');
+          controller.hangup(CallEndReason.timeout);
         });
         if (!isSuccess) {
-          controller.hangup('timeout');
+          controller.hangup(CallEndReason.timeout);
           return controller;
         }
 
-        await controller.offerId.then((offerId) async {
-          // await _callKeepManager.startCall(
-          //   offerId,
-          //   user.name ?? user.shortEncodedPubkey,
-          //   hasVideo: callType.isVideo,
-          // );
+        await controller.callId.then((callId) async {
+          await _callKeepManager.startCall(
+            callId,
+            user.displayName(),
+            hasVideo: callType.isVideo,
+          );
         });
         break;
       case CallingRole.callee:
@@ -352,13 +342,6 @@ class CallKitManager with WidgetsBindingObserver {
   void callControllerDisposeHandler(String offerId) {
     disconnectOfferId.add(offerId);
     activeControllerCmp = null;
-
-    // End call in CallKeep
-    // _callKeepManager.endCall(offerId);
-  }
-
-  String _generateCallId() {
-    return DateTime.now().millisecondsSinceEpoch.toString();
   }
 
   void presentPageWithController(CallingController controller) {
@@ -379,39 +362,6 @@ class CallKitManager with WidgetsBindingObserver {
     presentPageWithController(controller);
     // Controller is ready when app comes to foreground
     LogUtils.i(() => 'Call controller ready for foreground: $offerId');
-  }
-}
-
-extension NativeCallKitEx on CallKitManager {
-  Future<void> onCallActionHandlers(CallActionType type) async {
-    final activeController = await CallKitManager.instance.activeController;
-    if (activeController == null) return;
-
-    switch (type) {
-      case CallActionType.answer:
-        activeController.accept();
-        break;
-      case CallActionType.end:
-        activeController.hangup('hangup');
-        break;
-    }
-  }
-
-  Future<void> onReceiveInviteHandler(Map<String, String> signalingInfo) async {
-    final caller = signalingInfo['caller'] ?? '';
-    final offerId = signalingInfo['offerId'] ?? '';
-    if (caller.isEmpty || offerId.isEmpty) {
-      LogUtils.e(() => 'caller($caller) or offerId($offerId) is empty.');
-      return;
-    }
-
-    CallKitManager.instance.callStateChangeHandler(
-      friend: caller,
-      state: SignalingState.offer,
-      offerId: offerId,
-      data: '',
-      mediaType: CallType.audio,
-    );
   }
 }
 

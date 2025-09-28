@@ -5,25 +5,36 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCIceCandidate, RTCIceConnectionState;
 import 'package:nostr/nostr.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/core.dart';
+import 'callkeep_manager.dart';
 import 'constant/call_type.dart';
 import 'web_rtc_handler.dart';
 import '../call_history/controller/call_history_manager.dart';
 import '../call_history/constants/call_enums.dart';
 
-///                          Start
-/// ------------------------------------------------------------
-///           Caller           ｜            Callee
-///    1. Send Offer           ｜
-///    2. Send Candidate info  ｜  Add Caller candidate info
-///                            ｜      3. Send Answer
-/// Add Callee candidate info  ｜      4. Send Candidate info
-///             5. WebRTC Connection Checking
-///             6. WebRTC Connection Connected
-///             7. Some one send disconnected
-/// ------------------------------------------------------------
-///                           End
+///                                   Start
+/// ------------------------------------------------------------------------
+///               Caller                ｜               Callee
+/// ------------------------------------------------------------------------
+///    1. createOffer + setLocalDesc    ｜
+///       Send Offer                    ｜     setRemoteDesc(offer)
+///                                     ｜
+///    2. onIceCandidate(caller)        ｜
+///       Send Candidate info           ｜     Add Caller candidate info
+///                                     ｜
+///                                     ｜     3. createAnswer + setLocalDesc
+///       setRemoteDesc(answer)         ｜        Send Answer
+///                                     ｜
+///                                     ｜     4. onIceCandidate(callee)
+///       Add Callee candidate info     ｜        Send Candidate info
+/// ------------------------------------------------------------------------
+///                       5. WebRTC Connection Checking
+///                       6. WebRTC Connection Connected
+///                       7. Some one send disconnected
+/// ------------------------------------------------------------------------
+///                                    End
 
 class CallingController {
   CallingController._({
@@ -38,12 +49,15 @@ class CallingController {
     bool isFrontCamera = false,
     this.disposeCallback,
     this.callHistoryManager,
+    this.callKeepManager,
   }) :
         state = ValueNotifier(state),
         speakerType = ValueNotifier(speakerType),
         isCameraOn = ValueNotifier(isCameraOn),
         isRecordOn = ValueNotifier(isRecordOn),
         isFrontCamera = ValueNotifier(isFrontCamera),
+        isAccepting = ValueNotifier(false),
+        isHangingUp = ValueNotifier(false),
         connectedDuration = ValueNotifier(Duration.zero),
         sessionId = sessionId.isNotEmpty ? sessionId : user.pubKey;
 
@@ -57,12 +71,17 @@ class CallingController {
   Completer<String> offerIdCmp = Completer<String>();
   Future<String> get offerId => offerIdCmp.future;
 
+  Completer<String> callIdCmp = Completer<String>();
+  Future<String> get callId => callIdCmp.future;
+
   CallingRole role;
   ValueNotifier<CallingState> state;
   ValueNotifier<AudioOutputType> speakerType;
   ValueNotifier<bool> isCameraOn;
   ValueNotifier<bool> isRecordOn;
   ValueNotifier<bool> isFrontCamera;
+  ValueNotifier<bool> isAccepting;
+  ValueNotifier<bool> isHangingUp;
 
   ValueNotifier<Duration> connectedDuration;
   final connectedStopwatch = Stopwatch();
@@ -76,6 +95,7 @@ class CallingController {
 
   late DateTime callStartTime;
   final CallHistoryManager? callHistoryManager;
+  final CallKeepManager? callKeepManager;
 
   static Future<CallingController> create({
     required UserDBISAR user,
@@ -90,6 +110,7 @@ class CallingController {
     bool isFrontCamera = false,
     Function(String offerId)? disposeCallback,
     CallHistoryManager? callHistoryManager,
+    CallKeepManager? callKeepManager,
   }) async {
     final controller = CallingController._(
       user: user,
@@ -103,10 +124,12 @@ class CallingController {
       isFrontCamera: isFrontCamera,
       disposeCallback: disposeCallback,
       callHistoryManager: callHistoryManager,
+      callKeepManager: callKeepManager,
     );
 
     if (offerId.isNotEmpty) {
       controller.offerIdCmp.complete(offerId);
+      controller.callIdCmp.complete(const Uuid().v5(Namespace.url.value, offerId));
     }
 
     controller.webRTCHandler = await WebRTCHandler.create(
@@ -153,24 +176,24 @@ class CallingController {
         ? CallDirection.outgoing
         : CallDirection.incoming;
 
-    switch (reason.toLowerCase()) {
-      case 'reject':
+    // Convert string reason to CallEndReason enum for consistent handling
+    final callEndReason = CallEndReasonEx.fromValue(reason) ?? CallEndReason.disconnect;
+
+    switch (callEndReason) {
+      case CallEndReason.reject:
         status = CallStatus.declined;
         break;
-      case 'ice server connection failed':
-      case 'ice server disconnected':
-      case 'failed':
+      case CallEndReason.iceConnectionFailed:
+      case CallEndReason.iceDisconnected:
         status = CallStatus.failed;
         break;
-      case 'timeout':
-      case 'hangup':
-      case 'disconnect':
+      case CallEndReason.timeout:
+      case CallEndReason.hangup:
+      case CallEndReason.disconnect:
+      case CallEndReason.networkDisconnected:
         status = state.value == CallingState.connected
             ? CallStatus.completed
             : CallStatus.cancelled;
-        break;
-      default:
-        status = CallStatus.cancelled;
         break;
     }
 
@@ -202,12 +225,15 @@ extension CallingControllerUserActionEx on CallingController {
     speakerType.value = value;
   }
 
-  void recordToggleHandler(bool value) async {
+  void recordToggleHandler(bool value, [bool shouldInvokeCallKeep = true]) async {
     if (isRecordOn.value == value) return;
 
     final isSuccess = await webRTCHandler.recordToggle(value);
     if (isSuccess) {
       isRecordOn.value = value;
+      if (shouldInvokeCallKeep) {
+        callKeepManager?.setMutedCall(await callId, !value);
+      }
     }
   }
 
@@ -232,7 +258,7 @@ extension CallingControllerSignalingEx on CallingController {
     Future.delayed(const Duration(seconds: 60), () {
       if (state.value != CallingState.connected && state.value != CallingState.ended) {
         timeoutHandler?.call();
-        _recordCallHistory('timeout');
+        _recordCallHistory(CallEndReason.timeout.value);
       }
     });
 
@@ -247,19 +273,39 @@ extension CallingControllerSignalingEx on CallingController {
     }
 
     offerIdCmp.complete(offerId);
+    callIdCmp.complete(const Uuid().v5(Namespace.url.value, offerId));
     return true;
   }
 
-  Future hangup(String reason) async {
-    if (reason.toLowerCase() == 'hangup') {
-      reason = [CallingState.ringing, CallingState.connecting].contains(state.value) ? 'hangUp': 'disconnect';
-    }
+  Future hangup(CallEndReason reason, [bool shouldInvokeCallKeep = true]) async {
+    if (state.value == CallingState.ended) return;
+    if (isHangingUp.value) return;
+
+    isHangingUp.value = true;
+
+    // Determine the appropriate reason based on call state using Dart 3.0 switch
+    final finalReason = switch (reason) {
+      CallEndReason.hangup => [CallingState.ringing, CallingState.connecting].contains(state.value)
+          ? CallEndReason.hangup
+          : CallEndReason.disconnect,
+      _ => reason,
+    };
 
     connectedStopwatch.stop();
-    await _recordCallHistory(reason);
+    await _recordCallHistory(finalReason.value);
     state.value = CallingState.ended;
 
-    _sendDisconnect(reason).catchError((error) {
+    if (shouldInvokeCallKeep) {
+      switch (reason)  {
+        case CallEndReason.reject:
+          callKeepManager?.rejectCall(await callId);
+          break;
+        default:
+          callKeepManager?.endCall(await callId);
+          break;
+      }
+    }
+    _sendDisconnect(finalReason.value).catchError((error) {
       LogUtils.error(
         className: 'CallingController',
         funcName: 'hangup',
@@ -272,12 +318,18 @@ extension CallingControllerSignalingEx on CallingController {
   }
 
   Future accept() async {
+    if (state.value != CallingState.ringing) return;
+    if (isAccepting.value) return;
+
+    isAccepting.value = true;
+
     state.value = CallingState.connecting;
     _sendAnswer();
+    callKeepManager?.answerCall(await callId);
   }
 
   Future reject() async {
-    await hangup('reject');
+    await hangup(CallEndReason.reject);
   }
 }
 
@@ -344,7 +396,7 @@ extension CallingControllerNostrSignalingEx on CallingController {
       LogUtils.info(
           className: 'CallingController',
           funcName: '_sendAnswer',
-          message: '[send answer] okEvent status: ${okEvent.status}, message: ${okEvent.message}'
+          message: '[send answer] offerId: $offerId, okEvent status: ${okEvent.status}, message: ${okEvent.message}'
       );
 
       await _sendAllCandidate();
@@ -606,10 +658,13 @@ extension CallingControllerNostrSignalingEx on CallingController {
       funcName: 'signalingAnswerCallbackHandler',
       message: '[receive disconnect]',
     );
+    if (state.value == CallingState.ended) return;
+
     connectedStopwatch.stop();
-    await _recordCallHistory('disconnect');
+    await _recordCallHistory(CallEndReason.disconnect.value);
     state.value = CallingState.ended;
 
+    callKeepManager?.endCall(await callId);
     await webRTCHandler.close();
     _dispose();
   }
@@ -623,7 +678,7 @@ extension CallingControllerNostrSignalingEx on CallingController {
             funcName: '_startConnectivityListener',
             message: 'Network disconnected, hanging up call',
           );
-          hangup('network disconnected');
+          hangup(CallEndReason.networkDisconnected);
         }
       },
       onError: (error) {
@@ -640,6 +695,11 @@ extension CallingControllerNostrSignalingEx on CallingController {
 extension CallingControllerWebRTCSignalingEx on CallingController {
   void onIceCandidateHandler(RTCIceCandidate candidate) async {
     localCandidateSet.add(candidate);
+    LogUtils.info(
+      className: 'CallingController',
+      funcName: 'onIceCandidateHandler',
+      message: 'candidate: ${candidate.candidate}',
+    );
   }
 
   void onIceConnectionStateHandler(RTCIceConnectionState connectionState) async {
@@ -655,10 +715,10 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
         webRTCHandler.setSpeakerType(speakerType.value);
         break;
       case RTCIceConnectionState.RTCIceConnectionStateFailed:
-        hangup('ICE Server Connection Failed');
+        hangup(CallEndReason.iceConnectionFailed);
         break;
       case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
-        hangup('ICE Server Disconnected');
+        hangup(CallEndReason.iceDisconnected);
         break;
       default:
         break;
