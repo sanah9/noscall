@@ -79,9 +79,9 @@ class WebRTCHandler {
     );
   }
 
-  Future<RTCSessionDescription> createOffer() => WebRTCHelper.createOffer(peerConnection);
+  Future<RTCSessionDescription> createOffer() => WebRTCHelper.createOffer(peerConnection, callType.isVideo);
 
-  Future<RTCSessionDescription> createAnswer() => WebRTCHelper.createAnswer(peerConnection);
+  Future<RTCSessionDescription> createAnswer() => WebRTCHelper.createAnswer(peerConnection, callType.isVideo);
 
   Future setRemoteDescription({
     required String? remoteSdp,
@@ -293,7 +293,7 @@ class WebRTCHelper {
   }) {
     Map<String, dynamic> configuration = {
       'iceServers': iceServers.expand((e) => e.serverConfigs).toList(),
-      'iceTransportPolicy': 'relay',
+      'iceTransportPolicy': 'all',
       'iceCandidatePoolSize': 4,
       'bundlePolicy': 'max-bundle',
       'rtcpMuxPolicy': 'require',
@@ -326,9 +326,14 @@ class WebRTCHelper {
     return navigator.mediaDevices.getUserMedia(mediaConstraints);
   }
 
-  static Future<RTCSessionDescription> createOffer(RTCPeerConnection connection) async {
+  static Future<RTCSessionDescription> createOffer(RTCPeerConnection connection, bool isVideo) async {
 
-    final description = await connection.createOffer();
+    final description = await connection.createOffer({
+      'mandatory': {
+        'OfferToReceiveAudio': true,
+        'OfferToReceiveVideo': isVideo,
+      },
+    });
 
     final sdp = description.sdp;
     description.sdp = sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
@@ -343,9 +348,14 @@ class WebRTCHelper {
     return description;
   }
 
-  static Future<RTCSessionDescription> createAnswer(RTCPeerConnection connection) async {
+  static Future<RTCSessionDescription> createAnswer(RTCPeerConnection connection, bool isVideo) async {
 
-    final description = await connection.createAnswer();
+    final description = await connection.createAnswer({
+      'mandatory': {
+        'OfferToReceiveAudio': true,
+        'OfferToReceiveVideo': isVideo,
+      },
+    });
 
     final sdp = description.sdp;
     description.sdp = sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
