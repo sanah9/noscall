@@ -30,7 +30,12 @@ class UserAvatar extends StatelessWidget {
           radius: radius,
           backgroundImage: imageProvider,
         ),
-        placeholder: (context, url) => SizedBox.square(dimension: radius * 2,),
+        placeholder: (context, url) => _buildInitialsAvatar(
+          context,
+          colorScheme,
+          displayName,
+          radius,
+        ),
         errorWidget: (context, url, error) => _buildInitialsAvatar(
           context,
           colorScheme,
