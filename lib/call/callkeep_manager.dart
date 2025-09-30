@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:callkeep/callkeep.dart';
+import 'package:flutter/services.dart';
+import 'package:noscall/core/native_method_channel.dart';
 
 import '../core/common/utils/log_utils.dart';
 
@@ -33,10 +36,6 @@ class CallKeepManager {
             'alertDescription': 'This app needs access to your phone account permissions',
             'cancelButton': 'Cancel',
             'okButton': 'OK',
-            'additionalPermissions': [
-              'android.permission.CALL_PHONE',
-              'android.permission.READ_PHONE_STATE',
-            ],
             'foregroundService': {
               'channelId': 'com.noscall.callkeep',
               'channelName': 'Call Service',
@@ -50,8 +49,12 @@ class CallKeepManager {
       _setupEventHandlers();
       LogUtils.i(() => 'CallKeep initialized successfully');
     } catch (e) {
-      LogUtils.e(() => 'Failed to initialize CallKeep: $e');
-      rethrow;
+      if (Platform.isAndroid && e is PlatformException) {
+        // PhoneAccount connection service requires BIND_TELECOM_CONNECTION_SERVICE permission
+      } else {
+        LogUtils.e(() => 'Failed to initialize CallKeep: $e');
+        rethrow;
+      }
     }
   }
 
@@ -83,6 +86,14 @@ class CallKeepManager {
         'muted': event.muted,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
+    });
+
+    _callKeep.on<CallKeepDidActivateAudioSession>((_) {
+      NativeMethodChannel.audioSessionDidActivate();
+    });
+
+    _callKeep.on<CallKeepDidDeactivateAudioSession>((_) {
+      NativeMethodChannel.audioSessionDidDeactivate();
     });
   }
 
