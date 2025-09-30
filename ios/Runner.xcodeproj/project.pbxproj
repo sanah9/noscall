@@ -13,6 +13,7 @@
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		C5ED612427D884810008C42E /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = C5ED612327D884810008C42E /* libc++.tbd */; };
+		C78561002E8BCA0A00AE8BF9 /* NativeMethodHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C78560FF2E8BCA0A00AE8BF9 /* NativeMethodHandler.swift */; };
 		CF8DE80D2678B80500EF6C1B /* Launch Screen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = CF8DE80C2678B80500EF6C1B /* Launch Screen.storyboard */; };
 		CFB7624826A2B819002D9005 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = CFB7624A26A2B819002D9005 /* InfoPlist.strings */; };
 		F1A1C819CE2FAD83498F6FE5 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B1CB4F3D472658B95EB84A6 /* Pods_Runner.framework */; };
@@ -58,6 +59,7 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C5ED612327D884810008C42E /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
+		C78560FF2E8BCA0A00AE8BF9 /* NativeMethodHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMethodHandler.swift; sourceTree = "<group>"; };
 		CF7D7861264AC52900F33C52 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		CF8DE80C2678B80500EF6C1B /* Launch Screen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = "Launch Screen.storyboard"; sourceTree = "<group>"; };
 		CFB7624926A2B819002D9005 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 			isa = PBXGroup;
 			children = (
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				C78560FF2E8BCA0A00AE8BF9 /* NativeMethodHandler.swift */,
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -315,6 +318,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C78561002E8BCA0A00AE8BF9 /* NativeMethodHandler.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);

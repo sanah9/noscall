@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:noscall/core/native_method_channel.dart';
 
 import '../core/common/utils/log_utils.dart';
 import 'ice_server_manager.dart';
@@ -70,6 +71,7 @@ class WebRTCHandler {
     await prepareMedia();
     prepareForSdpSemantics();
     prepareCallback();
+    NativeMethodChannel.useManualAudio();
   }
 
   Future preparePeerConnection() async {
@@ -278,11 +280,13 @@ extension WebRTCPeerConnectionCallbackEx on WebRTCHandler {
     final stream = event.streams.firstOrNull;
     if (stream == null) return;
 
-    final track = event.track;
-    if (!['video', 'audio'].contains(track.kind)) return;
-
-    if (track.kind == 'video') {
-      WebRTCHelper.addStreamToRenderer(stream, remoteRenderer);
+    switch (event.track.kind) {
+      case 'audio':
+        remoteMedia = stream;
+        break;
+      case 'video':
+        WebRTCHelper.addStreamToRenderer(stream, remoteRenderer);
+        break;
     }
   }
 }

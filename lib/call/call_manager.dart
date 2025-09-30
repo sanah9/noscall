@@ -37,7 +37,7 @@ class CallKitManager with WidgetsBindingObserver {
   ValueNotifier<bool> isBluetoothHeadsetConnected = ValueNotifier(false);
 
   CallHistoryManager? callHistoryManager;
-  final CallKeepManager _callKeepManager = CallKeepManager();
+  CallKeepManager? _callKeepManager;
 
   CallType? callType;
   bool get getInCallIng => hasActiveCalling;
@@ -81,7 +81,8 @@ class CallKitManager with WidgetsBindingObserver {
   Future<void> initRTC() async {
     try {
       // Initialize CallKeep
-      await _callKeepManager.initialize();
+      _callKeepManager = CallKeepManager();
+      await _callKeepManager?.initialize();
 
       // Setup CallKeep event handlers
       _setupCallKeepHandlers();
@@ -99,7 +100,7 @@ class CallKitManager with WidgetsBindingObserver {
   }
 
   void _setupCallKeepHandlers() {
-    _callKeepManager.callEventStream.listen((event) {
+    _callKeepManager?.callEventStream.listen((event) {
       final action = event['action'] as String;
       final callId = event['callId'] as String;
 
@@ -185,7 +186,7 @@ class CallKitManager with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     deviceChangeSubscription?.cancel();
     deviceChangeSubscription = null;
-    _callKeepManager.dispose();
+    _callKeepManager?.dispose();
   }
 
   void nostrCallStateChangeHandler(String friend, SignalingState state, String data, String? offerId,) {
@@ -271,7 +272,7 @@ class CallKitManager with WidgetsBindingObserver {
       );
 
       controller.callId.then((callId) async {
-        await _callKeepManager.displayIncomingCall(
+        await _callKeepManager?.displayIncomingCall(
           callId,
           user.name ?? user.shortEncodedPubkey,
           hasVideo: controller.callType.isVideo,
@@ -325,7 +326,7 @@ class CallKitManager with WidgetsBindingObserver {
         }
 
         await controller.callId.then((callId) async {
-          await _callKeepManager.startCall(
+          await _callKeepManager?.startCall(
             callId,
             user.displayName(),
             hasVideo: callType.isVideo,
