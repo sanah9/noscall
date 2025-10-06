@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:core';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/core/core.dart' as ChatCore;
@@ -81,7 +81,9 @@ class CallKitManager with WidgetsBindingObserver {
   Future<void> initRTC() async {
     try {
       // Initialize CallKeep
-      _callKeepManager = CallKeepManager();
+      if (Platform.isIOS) {
+        _callKeepManager = CallKeepManager();
+      }
       await _callKeepManager?.initialize();
 
       // Setup CallKeep event handlers

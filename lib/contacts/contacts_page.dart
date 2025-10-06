@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
 import '../core/call/contacts/contacts.dart';
 import '../call/call_manager.dart';
 import '../call/constant/call_type.dart';
@@ -173,10 +174,8 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildContactCard(BuildContext context, dynamic contact) {
+  Widget _buildContactCard(BuildContext context, UserDBISAR contact) {
     final displayName = contact.displayName();
-    final isCalling = _callKitManager.hasActiveCalling;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -202,7 +201,7 @@ class _ContactsPageState extends State<ContactsPage> {
                   ],
                 ),
               ),
-              _buildRightSideContent(contact, displayName, isCalling),
+              _buildRightSideContent(contact, displayName),
             ],
           ),
         ),
@@ -210,14 +209,14 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildUserAvatar(dynamic contact) {
+  Widget _buildUserAvatar(UserDBISAR contact) {
     return UserAvatar(
       user: contact,
       radius: 24,
     );
   }
 
-  Widget _buildContactName(dynamic contact, String displayName) {
+  Widget _buildContactName(UserDBISAR contact, String displayName) {
     return Text(
       displayName,
       style: theme.textTheme.titleMedium?.copyWith(
@@ -227,7 +226,7 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildContactSubtitle(dynamic contact) {
+  Widget _buildContactSubtitle(UserDBISAR contact) {
     return Text(
       contact.shortEncodedPubkey,
       style: theme.textTheme.bodyMedium?.copyWith(
@@ -237,31 +236,24 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildRightSideContent(dynamic contact, String displayName, bool isCalling) {
+  Widget _buildRightSideContent(UserDBISAR contact, String displayName) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildVoiceCallButton(context, contact, displayName, isCalling),
+        _buildVoiceCallButton(context, contact, displayName),
         const SizedBox(width: 8),
-        _buildVideoCallButton(context, contact, displayName, isCalling),
+        _buildVideoCallButton(context, contact, displayName),
       ],
     );
   }
 
-  Widget _buildVoiceCallButton(BuildContext context, dynamic contact, String displayName, bool isCalling) {
+  Widget _buildVoiceCallButton(BuildContext context, UserDBISAR contact, String displayName) {
     return GestureDetector(
-      onTap: isCalling ? null : () => _startVoiceCall(contact.pubKey, displayName),
+      onTap: () => _startVoiceCall(contact.pubKey, displayName),
+      behavior: HitTestBehavior.translucent,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: isCalling
-            ? SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(primary),
-          ),
-        ) : Icon(
+        child: Icon(
           Icons.call,
           size: 24,
           color: primary,
@@ -270,20 +262,13 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildVideoCallButton(BuildContext context, dynamic contact, String displayName, bool isCalling) {
+  Widget _buildVideoCallButton(BuildContext context, UserDBISAR contact, String displayName) {
     return GestureDetector(
-      onTap: isCalling ? null : () => _startVideoCall(contact.pubKey, displayName),
+      onTap: () => _startVideoCall(contact.pubKey, displayName),
+      behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: isCalling
-            ? SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(primary),
-          ),
-        ) : Icon(
+        child: Icon(
           Icons.videocam,
           size: 24,
           color: primary,

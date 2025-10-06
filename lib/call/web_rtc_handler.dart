@@ -211,6 +211,8 @@ class WebRTCHandler {
 
   void dispose() {
     peerConnection.dispose();
+    localRenderer.dispose();
+    remoteRenderer.dispose();
   }
 }
 
@@ -234,8 +236,6 @@ extension WebRTCPeerConnectionMediaEx on WebRTCHandler {
     for (final track in videoTracks) {
       track.enabled = isCameraOn?.value ?? true;
     }
-
-    // Speaker Prepare
 
     if (isVideo) {
       WebRTCHelper.addStreamToRenderer(media, localRenderer);
