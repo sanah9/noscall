@@ -121,11 +121,14 @@ class CallingPageState extends State<CallingPage> {
       child: ValueListenableBuilder(
         valueListenable: controller.state,
         builder: (BuildContext context, state, Widget? child) {
-          return RTCVideoView(
-            state == CallingState.connected
-                ? controller.webRTCHandler.remoteRenderer
-                : controller.webRTCHandler.localRenderer,
-            objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+          return Container(
+            color: Colors.black,
+            child: RTCVideoView(
+              state == CallingState.connected
+                  ? controller.webRTCHandler.remoteRenderer
+                  : controller.webRTCHandler.localRenderer,
+              objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+            ),
           );
         },
       ),
@@ -151,10 +154,13 @@ class CallingPageState extends State<CallingPage> {
               height: 120,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: RTCVideoView(
-                  controller.webRTCHandler.localRenderer,
-                  mirror: true,
-                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                child: Container(
+                  color: Colors.black,
+                  child: RTCVideoView(
+                    controller.webRTCHandler.localRenderer,
+                    mirror: true,
+                    objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                  ),
                 ),
               ),
             ),
