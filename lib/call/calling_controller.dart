@@ -178,23 +178,24 @@ class CallingController {
 
     // Convert string reason to CallEndReason enum for consistent handling
     final callEndReason = CallEndReasonEx.fromValue(reason) ?? CallEndReason.disconnect;
-
-    switch (callEndReason) {
-      case CallEndReason.reject:
-        status = CallStatus.declined;
-        break;
-      case CallEndReason.iceConnectionFailed:
-      case CallEndReason.iceDisconnected:
-        status = CallStatus.failed;
-        break;
-      case CallEndReason.timeout:
-      case CallEndReason.hangup:
-      case CallEndReason.disconnect:
-      case CallEndReason.networkDisconnected:
-        status = state.value == CallingState.connected
-            ? CallStatus.completed
-            : CallStatus.cancelled;
-        break;
+    if (state.value == CallingState.connected) {
+      status = CallStatus.completed;
+    } else {
+      switch (callEndReason) {
+        case CallEndReason.reject:
+          status = CallStatus.declined;
+          break;
+        case CallEndReason.iceConnectionFailed:
+        case CallEndReason.iceDisconnected:
+          status = CallStatus.failed;
+          break;
+        case CallEndReason.timeout:
+        case CallEndReason.hangup:
+        case CallEndReason.disconnect:
+        case CallEndReason.networkDisconnected:
+          status = CallStatus.cancelled;
+          break;
+      }
     }
 
     callHistoryManager?.addCallRecord(

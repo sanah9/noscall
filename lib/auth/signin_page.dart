@@ -1,5 +1,6 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../utils/toast.dart';
 import '../utils/loading.dart';
@@ -19,6 +20,7 @@ class _SignInPageState extends State<SignInPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _obscureText = true;
+  bool _isAmberLoading = false;
 
   @override
   void dispose() {
@@ -51,32 +53,34 @@ class _SignInPageState extends State<SignInPage> {
 
   Widget _buildBody() {
     return GradientBackground(
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: _buildContent(),
-          ),
-        ),
-      ),
+      child: _buildContent(),
     );
   }
 
   Widget _buildContent() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(height: 40),
-          _buildLogo(),
-          _buildTitle(),
-          _buildSubtitle(),
-          const SizedBox(height: 40),
-          _buildLoginCard(),
-          const SizedBox(height: 32),
-          _buildFooter(),
-        ],
+    return SafeArea(
+      child: Form(
+        key: _formKey,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 32),
+              _buildLogo(),
+              const SizedBox(height: 32),
+              _buildTitle(),
+              const SizedBox(height: 32),
+              _buildLoginCard(),
+              if (Platform.isAndroid)
+                ...[
+                  const SizedBox(height: 32),
+                  _buildAmberButton(),
+                ],
+              const SizedBox(height: 32),
+              _buildFooter(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -93,33 +97,13 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Widget _buildTitle() {
-    return const Column(
-      children: [
-        SizedBox(height: 24),
-        Text(
-          'Sign In',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSubtitle() {
-    return const Column(
-      children: [
-        SizedBox(height: 8),
-        Text(
-          'Enter your private key to continue',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.white70,
-          ),
-        ),
-      ],
+    return Text(
+      'Sign In',
+      style: TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
     );
   }
 
@@ -129,7 +113,7 @@ class _SignInPageState extends State<SignInPage> {
       decoration: _buildCardDecoration(),
       child: Column(
         children: [
-          _buildPrivateKeyField(),
+          _buildInputField(),
           const SizedBox(height: 24),
           _buildSignInButton(),
           const SizedBox(height: 16),
@@ -153,33 +137,51 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  Widget _buildPrivateKeyField() {
+  Widget _buildInputField() {
+    const iconSize = 40.0;
     return TextFormField(
       controller: _privateKeyController,
       obscureText: _obscureText,
-      validator: _validatePrivateKey,
+      validator: _validateInput,
       maxLines: 1,
       decoration: InputDecoration(
-        labelText: 'Private Key',
-        hintText: 'Enter nsec format or 64-character hex key',
+        hintText: 'nsec or bunker://',
+        hintStyle: const TextStyle(
+          fontSize: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        prefixIcon: const Icon(Icons.key),
+        prefixIconConstraints: BoxConstraints.tight(const Size.square(iconSize)),
+        prefixIcon: const Icon(Icons.key, size: 20),
         suffixIcon: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              onPressed: _toggleObscureText,
-              icon: Icon(
-                _obscureText ? Icons.visibility : Icons.visibility_off,
+            SizedBox(
+              width: iconSize,
+              height: iconSize,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: _toggleObscureText,
+                iconSize: 20,
+                icon: Icon(
+                  _obscureText ? Icons.visibility : Icons.visibility_off,
+                ),
+                tooltip: _obscureText ? 'Show key' : 'Hide key',
               ),
-              tooltip: _obscureText ? 'Show key' : 'Hide key',
             ),
-            IconButton(
-              onPressed: _clearPrivateKey,
-              icon: const Icon(Icons.clear),
-              tooltip: 'Clear',
+            SizedBox(
+              width: iconSize,
+              height: iconSize,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: _clearInput,
+                iconSize: 20,
+                icon: const Icon(
+                  Icons.clear,
+                ),
+                tooltip: 'Clear',
+              ),
             ),
           ],
         ),
@@ -232,24 +234,59 @@ class _SignInPageState extends State<SignInPage> {
         color: Colors.blue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline,
             color: Colors.blue,
             size: 20,
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Enter your private key in nsec format or 64-character hex format. Keep your private key secure!',
+              'Enter your private key (nsec/hex) or Bunker URL (bunker:///nostrconnect://). Keep your private key secure!',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.blue[700],
+                color: Color(0xFF1976D2),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAmberButton() {
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _isAmberLoading ? null : _loginWithAmber,
+        icon: _isAmberLoading
+            ? const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        )
+            : const Icon(Icons.phone_android),
+        label: Text(
+          _isAmberLoading ? 'Connecting...' : 'Login with Amber',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF6B35),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+        ),
       ),
     );
   }
@@ -264,22 +301,28 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  String? _validatePrivateKey(String? value) {
+  String? _validateInput(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter your private key';
+      return 'Please enter your private key or Bunker URL';
     }
 
-    final privateKey = value.trim();
+    final input = value.trim();
 
-    if (privateKey.startsWith('nsec')) {
+    // Check for private key formats
+    if (input.startsWith('nsec')) {
       return null;
     }
 
-    if (privateKey.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(privateKey)) {
+    if (input.length == 64 && RegExp(r'^[0-9a-fA-F]+$').hasMatch(input)) {
       return null;
     }
 
-    return 'Private key must be nsec format or 64-character hex';
+    // Check for Bunker URL formats
+    if (input.startsWith('bunker://') || input.startsWith('nostrconnect://')) {
+      return null;
+    }
+
+    return 'Must be nsec format, 64-character hex, bunker:// or nostrconnect:// URL';
   }
 
   void _dismissKeyboard() {
@@ -291,7 +334,7 @@ class _SignInPageState extends State<SignInPage> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    final privateKey = _privateKeyController.text.trim();
+    final input = _privateKeyController.text.trim();
 
     setState(() {
       _isLoading = true;
@@ -300,7 +343,15 @@ class _SignInPageState extends State<SignInPage> {
     try {
       AppLoading.show('Signing in...');
 
-      final success = await _authService.loginWithPrivateKey(privateKey);
+      bool success = false;
+
+      // Check if input is a Bunker URL
+      if (input.startsWith('bunker://') || input.startsWith('nostrconnect://')) {
+        success = await _authService.loginWithBunkerUrl(input);
+      } else {
+        // Assume it's a private key
+        success = await _authService.loginWithPrivateKey(input);
+      }
 
       AppLoading.dismiss();
 
@@ -310,7 +361,7 @@ class _SignInPageState extends State<SignInPage> {
           context.go('/');
         }
       } else {
-        AppToast.showError(context, 'Sign in failed. Please check your private key.');
+        AppToast.showError(context, 'Sign in failed. Please check your input.');
       }
     } catch (e) {
       AppLoading.dismiss();
@@ -330,7 +381,38 @@ class _SignInPageState extends State<SignInPage> {
     });
   }
 
-  void _clearPrivateKey() {
+  void _clearInput() {
     _privateKeyController.clear();
+  }
+
+  // Action methods
+  Future<void> _loginWithAmber() async {
+    _dismissKeyboard();
+
+    setState(() {
+      _isAmberLoading = true;
+    });
+
+    try {
+      AppLoading.show('Connecting to Amber...');
+
+      final success = await _authService.loginWithAmber();
+
+      AppLoading.dismiss();
+
+      AppToast.showSuccess(context, 'Amber login successful!');
+      if (mounted) {
+        context.go('/');
+      }
+    } catch (e) {
+      AppLoading.dismiss();
+      AppToast.showError(context, 'Amber login error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAmberLoading = false;
+        });
+      }
+    }
   }
 }

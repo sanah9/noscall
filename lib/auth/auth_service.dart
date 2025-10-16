@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
@@ -91,6 +92,80 @@ class AuthService {
       return true;
     } catch (e) {
       LogUtils.e(() => 'Private key login failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> loginWithAmber() async {
+    if (!Platform.isAndroid) {
+      throw Exception('Amber login is only available on Android');
+    }
+
+    bool isInstalled = await _isAmberInstalled();
+    if (!isInstalled) {
+      throw Exception('Amber app is not installed');
+    }
+
+    String pubkey = await _getAmberPublicKey() ?? '';
+    if (pubkey.startsWith('npub')) {
+      pubkey = UserDBISAR.decodePubkey(pubkey) ?? '';
+    }
+    if (pubkey.isEmpty) {
+      throw Exception('Failed to get public key from Amber');
+    }
+
+    await _cleanupCurrentSession();
+
+    await _initDatabase(pubkey);
+
+    final userDB = await Account.sharedInstance.loginWithPubKey(
+      pubkey,
+      SignerApplication.androidSigner,
+    );
+    if (userDB == null) {
+      throw Exception('Login failed');
+    }
+
+    await _initChatCore(pubkey);
+
+    await _saveUserInfo(pubkey);
+
+    LogUtils.i(() => 'Successfully logged in with Amber. Pubkey: ${pubkey.substring(0, 8)}...');
+  }
+
+  Future<bool> loginWithBunkerUrl(String bunkerUrl) async {
+    try {
+      if (bunkerUrl.trim().isEmpty) {
+        throw Exception('Bunker URL cannot be empty');
+      }
+
+      // Get public key from Bunker URL
+      final pubkey = await Account.getPublicKeyWithNIP46URI(bunkerUrl);
+      if (pubkey.isEmpty) {
+        throw Exception('Failed to get public key from Bunker URL');
+      }
+
+      await _cleanupCurrentSession();
+
+      await _initDatabase(pubkey);
+
+      // Login with Bunker URL using public key and remote signer
+      final userDB = await Account.sharedInstance.loginWithPubKey(
+        pubkey,
+        SignerApplication.remoteSigner,
+      );
+      if (userDB == null) {
+        throw Exception('Login failed');
+      }
+
+      await _initChatCore(pubkey);
+
+      await _saveUserInfo(pubkey);
+
+      LogUtils.i(() => 'Successfully logged in with Bunker URL. Pubkey: ${pubkey.substring(0, 8)}...');
+      return true;
+    } catch (e) {
+      LogUtils.e(() => 'Bunker URL login failed: $e');
       return false;
     }
   }
@@ -266,6 +341,14 @@ class AuthService {
 
   String? getCurrentPubkey() {
     return Account.sharedInstance.currentPubkey;
+  }
+
+  Future<bool> _isAmberInstalled() async {
+    return CoreMethodChannel.isInstalledAmber();
+  }
+
+  Future<String?> _getAmberPublicKey() async {
+    return ExternalSignerTool.getPubKey();
   }
 
   void dispose() {
