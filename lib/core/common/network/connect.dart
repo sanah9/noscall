@@ -6,7 +6,6 @@ import 'package:nostr/nostr.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../../account/account.dart';
-import '../config/config.dart';
 import '../thread/threadPoolManager.dart';
 import '../utils/log_utils.dart';
 import 'eventCache.dart';
@@ -736,22 +735,6 @@ class Connect {
   }
 
   Future _connectWsSetting(String relay) async {
-    String? host = Config.sharedInstance.hostConfig[relay];
-    if (host != null && host.isNotEmpty) {
-      relay = host;
-    }
-    // ProxySettings? settings = Config.sharedInstance.proxySettings;
-    // if (settings != null && settings.turnOnProxy) {
-    //   bool onionURI = relay.contains(".onion");
-    //   switch (settings.onionHostOption) {
-    //     case EOnionHostOption.no:
-    //       if (onionURI) return null;
-    //     case EOnionHostOption.required:
-    //       if (!onionURI) return null;
-    //     default:
-    //       break;
-    //   }
-    // }
     return await WebSocket.connect(relay);
   }
 

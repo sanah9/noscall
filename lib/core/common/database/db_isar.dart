@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../account/model/relayDB_isar.dart';
 import '../../account/model/userDB_isar.dart';
-import '../config/configDB_isar.dart';
 import '../network/eventDB_isar.dart';
 import '../utils/log_utils.dart';
 
@@ -29,7 +28,6 @@ class DBISAR {
   List<CollectionSchema<dynamic>> schemas = [
     UserDBISARSchema,
     RelayDBISARSchema,
-    ConfigDBISARSchema,
     EventDBISARSchema,
     CallEntrySchema,
     CallLogGroupSchema,

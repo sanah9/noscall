@@ -1,7 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:isar/isar.dart';
 
-import '../common/config/config.dart';
 import '../common/database/db_isar.dart';
 import '../common/network/connect.dart';
 import '../common/utils/log_utils.dart';
@@ -17,12 +16,10 @@ class Relays {
   Map<String, RelayDBISAR> relays = {};
 
   List<String> recommendGeneralRelays = [
-    'wss://relay.0xchat.com',
-    'wss://yabu.me',
-    'wss://relay.siamstr.com',
-    'wss://relay.damus.io',
     'wss://relay.nostr.band',
     'wss://nos.lol',
+    'wss://relay.damus.io',
+    'wss://relay.0xchat.com',
     'wss://nostr.wine',
     'wss://eden.nostr.land'
   ];
@@ -34,7 +31,6 @@ class Relays {
   ];
 
   Future<void> init() async {
-    await Config.sharedInstance.initConfig();
     List<RelayDBISAR> result = await _loadRelaysFromDB() ?? [];
     if (result.isNotEmpty) {
       relays = {for (var item in result) item.url: item};

@@ -24,8 +24,6 @@ export 'call/messages/model/messageDB_isar.dart';
 
 // Common exports
 export 'common/config/call_core_init_config.dart';
-export 'common/config/config.dart';
-export 'common/config/configDB_isar.dart';
 export 'common/database/db_isar.dart';
 export 'common/network/connect.dart';
 export 'common/network/eventCache.dart';

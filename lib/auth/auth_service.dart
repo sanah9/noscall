@@ -241,13 +241,6 @@ class AuthService {
 
       await DBISAR.sharedInstance.open(pubkey);
 
-      Relays.sharedInstance.recommendGeneralRelays = [
-        'wss://relay.0xchat.com',
-      ];
-      Relays.sharedInstance.recommendDMRelays = [
-        'wss://relay.0xchat.com',
-      ];
-
       await Relays.sharedInstance.init();
 
       Messages.sharedInstance.init();

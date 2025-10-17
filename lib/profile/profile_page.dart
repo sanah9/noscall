@@ -7,6 +7,8 @@ import '../utils/toast.dart';
 import '../auth/auth_service.dart';
 import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
+import '../core/account/relays.dart';
+import 'package:nostr/nostr.dart';
 
 class _MenuItem {
   final IconData icon;
@@ -288,6 +290,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final menuItems = [
       _MenuItem(
+        icon: Icons.key,
+        title: 'Keys',
+        onTap: () => _showKeysDialog(context),
+      ),
+      _MenuItem(
+        icon: Icons.cloud_circle,
+        title: 'Relays',
+        onTap: () => _showRelaysDialog(context),
+      ),
+      _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
         onTap: () => _showAboutDialog(context),
@@ -318,6 +330,151 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _showKeysDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _buildKeysDialog(context),
+    );
+  }
+
+  Widget _buildKeysDialog(BuildContext context) {
+    final account = Account.sharedInstance;
+    
+    // Convert pubkey to npub format
+    final npub = Nip19.encodePubkey(account.currentPubkey);
+    final nsec = Nip19.encodePrivkey(account.currentPrivkey);
+
+    return AlertDialog(
+      title: const Text('Your Keys'),
+      content: Container(
+        width: double.maxFinite,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSimpleKeyItem(
+              context: context,
+              title: 'Public Key',
+              value: npub,
+              isPrivate: false,
+            ),
+            Container(
+              height: 1,
+              color: Colors.grey.shade300,
+              margin: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            _buildSimpleKeyItem(
+              context: context,
+              title: 'Private Key',
+              value: nsec.isEmpty ? 'login with signer' : nsec,
+              isPrivate: nsec.isNotEmpty,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSimpleKeyItem({
+    required BuildContext context,
+    required String title,
+    required String value,
+    required bool isPrivate,
+  }) {
+    final theme = Theme.of(context);
+    final displayValue = isPrivate ? '•' * value.length : value;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                displayValue,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: isPrivate ? null : 'monospace',
+                  color: Colors.grey.shade600,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: value));
+                AppToast.showInfo(context, '$title copied to clipboard');
+              },
+              child: Icon(
+                Icons.copy,
+                color: Colors.grey.shade600,
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showRelaysDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _buildRelaysDialog(context),
+    );
+  }
+
+  Widget _buildRelaysDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final relays = Relays.sharedInstance.recommendGeneralRelays;
+
+    return AlertDialog(
+      title: const Text('App Relays'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: relays.length,
+          itemBuilder: (context, index) {
+            final relay = relays[index];
+            return ListTile(
+              title: Text(
+                relay,
+                style: theme.textTheme.bodyMedium,
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -336,9 +493,10 @@ class _ProfilePageState extends State<ProfilePage> {
             Text('Version: ${_packageInfo!.version}'),
             Text('Build: ${_packageInfo!.buildNumber}'),
             Text('Package: ${_packageInfo!.packageName}'),
+            const Text('GitHub: https://github.com/noscall/noscall'),
+            const Text('Description: A secure voice and video calling app built on Nostr'),
             const SizedBox(height: 8),
           ],
-          const Text('A secure voice calling app built with Flutter and Nostr protocol.'),
         ],
       ),
       actions: [
