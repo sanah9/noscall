@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 class NativeMethodChannel {
-  static const MethodChannel _channel = MethodChannel('com.noscall.native_methods');
+  static const MethodChannel _channel = MethodChannel('sh.noscall.native_methods');
 
   static Future<void> useManualAudio() async {
     if (Platform.isIOS) {

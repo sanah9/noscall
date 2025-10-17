@@ -37,7 +37,7 @@ class CallKeepManager {
             'cancelButton': 'Cancel',
             'okButton': 'OK',
             'foregroundService': {
-              'channelId': 'com.noscall.callkeep',
+              'channelId': 'sh.noscall.callkeep',
               'channelName': 'Call Service',
               'notificationTitle': 'Call in Progress',
               'notificationIcon': 'mipmap/ic_launcher',

@@ -1,4 +1,4 @@
-package com.noscall.app;
+package sh.noscall.app;
 
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;

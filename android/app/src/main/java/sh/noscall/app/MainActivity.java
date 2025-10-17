@@ -1,4 +1,4 @@
-package com.noscall.app;
+package sh.noscall.app;
 
 import io.flutter.embedding.android.FlutterFragmentActivity;
 import io.flutter.embedding.engine.FlutterEngine;
@@ -9,7 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 public class MainActivity extends FlutterFragmentActivity {
-    private static final String CHANNEL = "com.noscall.native_methods";
+    private static final String CHANNEL = "sh.noscall.native_methods";
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {

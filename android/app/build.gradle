@@ -12,7 +12,7 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-  namespace 'com.noscall.app'
+  namespace 'sh.noscall.app'
   compileSdk 35
   ndkVersion "27.0.12077973"
 
@@ -20,7 +20,7 @@ android {
   def version = parsePubspecVersion()
   def versionParts = version.split("\\+")
   defaultConfig {
-    applicationId "com.noscall.app"
+    applicationId "sh.noscall.app"
     minSdk 28
     targetSdk 35
     versionCode versionParts[1] as Integer

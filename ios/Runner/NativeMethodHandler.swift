@@ -6,7 +6,7 @@ import WebRTC
 class NativeMethodHandler: NSObject, FlutterPlugin {
     static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
-            name: "com.noscall.native_methods",
+            name: "sh.noscall.native_methods",
             binaryMessenger: registrar.messenger()
         )
         let instance = NativeMethodHandler()
