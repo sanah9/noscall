@@ -23,7 +23,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" />
 
     <application
-        android:label="@string/main_app_name"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         tools:replace="android:label"
         android:hardwareAccelerated="true"
