@@ -379,7 +379,8 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   }
 
   Color _getCallStatusColor(CallLogGroup group) {
-    return group.isConnected ? primary : errorColor;
+    if (!group.isConnected && group.direction == CallDirection.incoming) return errorColor;
+    return primary;
   }
 
 
