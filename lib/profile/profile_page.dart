@@ -8,6 +8,7 @@ import '../auth/auth_service.dart';
 import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../core/account/relays.dart';
+import '../core/common/network/connect.dart';
 import 'package:nostr/nostr.dart';
 
 class _MenuItem {
@@ -437,6 +438,38 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildConnectionStatus(String relay) {
+    final connect = Connect.sharedInstance;
+    final socket = connect.webSockets[relay];
+    final status = socket?.connectStatus ?? 3; 
+    
+    Color statusColor;
+    switch (status) {
+      case 0: // connecting
+        statusColor = Colors.yellow;
+        break;
+      case 1: // open/connected
+        statusColor = Colors.green;
+        break;
+      case 2: // closing
+        statusColor = Colors.orange;
+        break;
+      case 3: // closed
+      default:
+        statusColor = Colors.red;
+        break;
+    }
+    
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: statusColor,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
   void _showRelaysDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -457,10 +490,19 @@ class _ProfilePageState extends State<ProfilePage> {
           itemCount: relays.length,
           itemBuilder: (context, index) {
             final relay = relays[index];
-            return ListTile(
-              title: Text(
-                relay,
-                style: theme.textTheme.bodyMedium,
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  _buildConnectionStatus(relay),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      relay,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
               ),
             );
           },
