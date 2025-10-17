@@ -225,12 +225,20 @@ class _UserDetailPageState extends State<UserDetailPage> {
             title: 'NPUB',
             value: userData.encodedPubkey,
             onTap: () => _copyNpub(userData.encodedPubkey),
+            trailingIcon: Icons.copy,
           ),
           _buildUserInfoItem(
             icon: Icons.person,
             title: 'Name',
             value: userData.name ?? '',
             onTap: null,
+          ),
+          _buildUserInfoItem(
+            icon: Icons.label,
+            title: 'Nickname',
+            value: userData.nickName ?? 'Not set',
+            onTap: () => _editNickname(userData),
+            trailingIcon: Icons.edit,
           ),
         ],
       ),
@@ -242,6 +250,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     required String title,
     required String value,
     required VoidCallback? onTap,
+    IconData? trailingIcon,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -267,9 +276,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
             color: onSurfaceVariant,
           ),
         ),
-        trailing: onTap != null
+        trailing: trailingIcon != null
             ? Icon(
-          Icons.copy,
+          trailingIcon,
           color: primary,
           size: 16,
         )
@@ -452,6 +461,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     AppToast.showSuccess(context, 'NPUB copied to clipboard');
   }
 
+  void _editNickname(UserDBISAR userData) {
+    context.push('/edit-nickname', extra: {
+      'pubkey': widget.pubkey,
+      'currentNickname': userData.nickName ?? '',
+    });
+  }
 
   String _formatCallTime(DateTime startTime) {
     final now = DateTime.now();

@@ -9,6 +9,7 @@ import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart' as ChatCore;
+import 'package:noscall/core/account/model/userDB_isar.dart';
 
 import '../models/call_log_group.dart';
 
@@ -205,60 +206,59 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
     final GlobalKey globalKey = GlobalKey();
     final isHighlighted = _highlightedGroupId == group.groupId;
 
-    return GestureDetector(
-      onTap: () => _callBackFromGroup(group),
-      onLongPress: () => _showContextMenu(context, globalKey, group),
-      child: Container(
-        key: globalKey,
-        width: MediaQuery.of(context).size.width,
-        color: isHighlighted ? primary.withValues(alpha: 0.1) : surface,
-        padding: const EdgeInsets.only(
-          top: 16,
-          bottom: 16,
-          left: 16,
-        ),
-        child: Row(
-          children: [
-            _buildUserAvatar(group.peerPubkey, group.type, statusColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildContactName(group, statusColor),
-                  const SizedBox(height: 4),
-                  _buildCallTypeAndDirection(group, statusColor),
-                ],
-              ),
+    return ValueListenableBuilder(
+      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey),
+      builder: (context, user, child) {
+        return GestureDetector(
+          onTap: () => _callBackFromGroup(group),
+          onLongPress: () => _showContextMenu(context, globalKey, group),
+          child: Container(
+            key: globalKey,
+            width: MediaQuery.of(context).size.width,
+            color: isHighlighted ? primary.withValues(alpha: 0.1) : surface,
+            padding: const EdgeInsets.only(
+              top: 16,
+              bottom: 16,
+              left: 16,
             ),
-            _buildRightSideContent(group, statusColor),
-          ],
-        ),
-      ),
+            child: Row(
+              children: [
+                _buildUserAvatar(user, group.type, statusColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildContactName(user, statusColor),
+                      const SizedBox(height: 4),
+                      _buildCallTypeAndDirection(group, statusColor),
+                    ],
+                  ),
+                ),
+                _buildRightSideContent(group, statusColor),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildUserAvatar(String peerPubkey, CallType callType, Color statusColor) {
-    final user = ChatCore.Account.sharedInstance.getUserNotifier(peerPubkey).value;
+  Widget _buildUserAvatar(UserDBISAR user, CallType callType, Color statusColor) {
     return UserAvatar(
       user: user,
       radius: 24,
     );
   }
 
-  Widget _buildContactName(CallLogGroup group, Color statusColor) {
+  Widget _buildContactName(UserDBISAR user, Color statusColor) {
     final theme = Theme.of(context);
-    return ValueListenableBuilder(
-      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey),
-      builder: (BuildContext context, user, Widget? child) {
-        return Text(
-          user.displayName(),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: statusColor,
-            fontWeight: FontWeight.w500,
-          ),
-        );
-      },
+    return Text(
+      user.displayName(),
+      style: theme.textTheme.titleMedium?.copyWith(
+        color: statusColor,
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 

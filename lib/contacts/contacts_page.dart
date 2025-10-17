@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/account.dart' as ChatCore;
 import '../core/call/contacts/contacts.dart';
 import '../call/call_manager.dart';
 import '../call/constant/call_type.dart';
@@ -175,50 +176,54 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildContactCard(BuildContext context, UserDBISAR contact) {
-    final displayName = contact.displayName();
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          context.push(
-            '/user-detail',
-            extra: {'pubkey': contact.pubKey},
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              _buildUserAvatar(contact),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildContactName(contact, displayName),
-                    const SizedBox(height: 4),
-                    _buildContactSubtitle(contact),
-                  ],
-                ),
+    return ValueListenableBuilder<UserDBISAR>(
+      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(contact.pubKey),
+      builder: (context, updatedUser, child) {
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              context.push(
+                '/user-detail',
+                extra: {'pubkey': contact.pubKey},
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  _buildUserAvatar(updatedUser),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildContactName(updatedUser),
+                        const SizedBox(height: 4),
+                        _buildContactSubtitle(updatedUser),
+                      ],
+                    ),
+                  ),
+                  _buildRightSideContent(updatedUser),
+                ],
               ),
-              _buildRightSideContent(contact, displayName),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildUserAvatar(UserDBISAR contact) {
+  Widget _buildUserAvatar(UserDBISAR user) {
     return UserAvatar(
-      user: contact,
+      user: user,
       radius: 24,
     );
   }
 
-  Widget _buildContactName(UserDBISAR contact, String displayName) {
+  Widget _buildContactName(UserDBISAR user) {
     return Text(
-      displayName,
+      user.displayName(),
       style: theme.textTheme.titleMedium?.copyWith(
         color: onSurface,
         fontWeight: FontWeight.w500,
@@ -226,9 +231,9 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildContactSubtitle(UserDBISAR contact) {
+  Widget _buildContactSubtitle(UserDBISAR user) {
     return Text(
-      contact.shortEncodedPubkey,
+      user.shortEncodedPubkey,
       style: theme.textTheme.bodyMedium?.copyWith(
         color: onSurfaceVariant,
         fontSize: 14,
@@ -236,20 +241,20 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildRightSideContent(UserDBISAR contact, String displayName) {
+  Widget _buildRightSideContent(UserDBISAR user) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildVoiceCallButton(context, contact, displayName),
+        _buildVoiceCallButton(context, user),
         const SizedBox(width: 8),
-        _buildVideoCallButton(context, contact, displayName),
+        _buildVideoCallButton(context, user),
       ],
     );
   }
 
-  Widget _buildVoiceCallButton(BuildContext context, UserDBISAR contact, String displayName) {
+  Widget _buildVoiceCallButton(BuildContext context, UserDBISAR user) {
     return GestureDetector(
-      onTap: () => _startVoiceCall(contact.pubKey, displayName),
+      onTap: () => _startVoiceCall(user.pubKey, user.displayName()),
       behavior: HitTestBehavior.translucent,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -262,9 +267,9 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildVideoCallButton(BuildContext context, UserDBISAR contact, String displayName) {
+  Widget _buildVideoCallButton(BuildContext context, UserDBISAR user) {
     return GestureDetector(
-      onTap: () => _startVideoCall(contact.pubKey, displayName),
+      onTap: () => _startVideoCall(user.pubKey, user.displayName()),
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.all(8.0),

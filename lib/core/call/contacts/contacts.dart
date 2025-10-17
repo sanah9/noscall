@@ -175,6 +175,9 @@ class Contacts {
       await Account.saveUserToDB(friend);
       _syncContactsToRelay(okCallBack: (ok, relay) {
         if (!completer.isCompleted) completer.complete(ok);
+        if (ok.status) {
+          Account.sharedInstance.updateOrCreateUserNotifier(friend.pubKey, friend);
+        }
       });
     } else if (!completer.isCompleted) {
       completer.complete(OKEvent(friendPubkey, false, ''));

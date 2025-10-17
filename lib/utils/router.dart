@@ -11,6 +11,7 @@ import '../auth/account_info_page.dart';
 import '../home/home_page.dart';
 import '../contacts/add_contact_page.dart';
 import '../contacts/user_detail_page.dart';
+import '../contacts/edit_nickname_page.dart';
 
 class AppRouter {
   static final GoRouter _router = GoRouter(
@@ -71,6 +72,26 @@ class AppRouter {
           return UserDetailPage(
             pubkey: pubkey,
             callHistory: callHistory,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/edit-nickname',
+        name: 'edit-nickname',
+        builder: (context, state) {
+          final params = state.extra as Map? ?? {};
+          final pubkey = params['pubkey'] as String?;
+          final currentNickname = params['currentNickname'] as String?;
+          if (pubkey == null || pubkey.isEmpty) {
+            return const Scaffold(
+              body: Center(
+                child: Text('User pubkey not found'),
+              ),
+            );
+          }
+          return EditNicknamePage(
+            pubkey: pubkey,
+            currentNickname: currentNickname ?? '',
           );
         },
       ),
