@@ -6,6 +6,7 @@ import '../utils/loading.dart';
 import '../core/account/account.dart';
 import 'auth_service.dart';
 import 'widgets/gradient_background.dart';
+import 'package:nostr/nostr.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -145,8 +146,8 @@ class _SignUpPageState extends State<SignUpPage> {
           _buildAccountInfoContainer(),
           const SizedBox(height: 24),
           _buildCreateAccountButton(),
-          const SizedBox(height: 16),
-          _buildInfoContainer(),
+          // const SizedBox(height: 16),
+          // _buildInfoContainer(),
         ],
       ),
     );
@@ -201,8 +202,8 @@ class _SignUpPageState extends State<SignUpPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildPrivateKeyInfo(),
-                const SizedBox(height: 8),
+                // _buildPrivateKeyInfo(),
+                // const SizedBox(height: 8),
                 _buildPublicKeyInfo(),
                 const SizedBox(height: 8),
               ],
@@ -223,7 +224,7 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
         const SizedBox(width: 8),
         const Text(
-          'Account Information',
+          'Nostr Account',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.grey,
@@ -259,7 +260,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Widget _buildPublicKeyInfo() {
     return Text(
-      'Public Key: ${_generatedPrivateKey != null ? _getPublicKey(_generatedPrivateKey!) : ''}',
+      _generatedPrivateKey != null ? _getPublicKey(_generatedPrivateKey!) : '',
       style: const TextStyle(
         fontSize: 12,
         color: Colors.grey,
@@ -418,7 +419,8 @@ class _SignUpPageState extends State<SignUpPage> {
 
   String _getPublicKey(String privateKey) {
     try {
-      return Account.getPublicKey(privateKey);
+      var publicKey = Account.getPublicKey(privateKey);
+      return Nip19.encodePubkey(publicKey);
     } catch (e) {
       return 'Error generating public key';
     }

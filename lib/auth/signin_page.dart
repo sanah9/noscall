@@ -71,11 +71,6 @@ class _SignInPageState extends State<SignInPage> {
               _buildTitle(),
               const SizedBox(height: 32),
               _buildLoginCard(),
-              if (Platform.isAndroid)
-                ...[
-                  const SizedBox(height: 32),
-                  _buildAmberButton(),
-                ],
               const SizedBox(height: 32),
               _buildFooter(),
             ],
@@ -116,8 +111,12 @@ class _SignInPageState extends State<SignInPage> {
           _buildInputField(),
           const SizedBox(height: 24),
           _buildSignInButton(),
-          const SizedBox(height: 16),
-          _buildInfoContainer(),
+          if (Platform.isAndroid) ...[
+            const SizedBox(height: 16),
+            _buildOrDivider(),
+            const SizedBox(height: 16),
+            _buildAmberButton(),
+          ],
         ],
       ),
     );
@@ -256,6 +255,36 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
+  Widget _buildOrDivider() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'or',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildAmberButton() {
     return SizedBox(
       height: 56,
@@ -273,7 +302,7 @@ class _SignInPageState extends State<SignInPage> {
         )
             : const Icon(Icons.phone_android),
         label: Text(
-          _isAmberLoading ? 'Connecting...' : 'Login with Amber',
+          _isAmberLoading ? 'Connecting...' : 'Sign in with Amber',
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,

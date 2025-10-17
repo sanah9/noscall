@@ -80,6 +80,48 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+
+        return AlertDialog(
+          title: Text(
+            'Logout',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to logout? You will need to enter your private key again to sign back in.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                await _logout();
+              },
+              child: Text(
+                'Logout',
+                style: TextStyle(color: colorScheme.error),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -253,7 +295,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _MenuItem(
         icon: Icons.logout,
         title: 'Logout',
-        onTap: _logout,
+        onTap: _showLogoutDialog,
         textColor: colorScheme.error,
       ),
     ];

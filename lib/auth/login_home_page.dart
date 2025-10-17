@@ -37,9 +37,9 @@ class LoginHomePage extends StatelessWidget {
         _buildTitle(),
         _buildSubtitle(),
         const SizedBox(height: 48),
-        _buildSignInButton(context),
-        const SizedBox(height: 16),
         _buildCreateAccountButton(context),
+        const SizedBox(height: 16),
+        _buildSignInButton(context),
         const SizedBox(height: 32),
         _buildFooter(),
       ],
@@ -78,7 +78,7 @@ class LoginHomePage extends StatelessWidget {
       children: [
         SizedBox(height: 8),
         Text(
-          'Secure Voice & Video Calling',
+          'Secure Voice and Video Calling',
           style: TextStyle(
             fontSize: 16,
             color: Colors.white70,
@@ -89,14 +89,30 @@ class LoginHomePage extends StatelessWidget {
   }
 
   Widget _buildSignInButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/signin'),
+      child: const Text(
+        'Already have account?',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateAccountButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton.icon(
-        onPressed: () => context.push('/signin'),
-        icon: const Icon(Icons.login),
+        onPressed: () => context.push('/signup'),
+        icon: const Icon(Icons.person_add),
         label: const Text(
-          'Sign In',
+          'Create Account',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -109,31 +125,6 @@ class LoginHomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           elevation: 2,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCreateAccountButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: OutlinedButton.icon(
-        onPressed: () => context.push('/signup'),
-        icon: const Icon(Icons.person_add),
-        label: const Text(
-          'Create Account',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: Colors.white, width: 2),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
         ),
       ),
     );
