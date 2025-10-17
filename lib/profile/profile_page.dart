@@ -9,6 +9,7 @@ import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../core/account/relays.dart';
 import '../core/common/network/connect.dart';
+import '../call/ice_server_manager.dart';
 import 'package:nostr/nostr.dart';
 
 class _MenuItem {
@@ -98,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           content: Text(
-            'Are you sure you want to logout? You will need to enter your private key again to sign back in.',
+            'Are you sure you want to logout?',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -300,6 +301,11 @@ class _ProfilePageState extends State<ProfilePage> {
         title: 'Relays',
         onTap: () => _showRelaysDialog(context),
       ),
+      // _MenuItem(
+      //   icon: Icons.settings_ethernet,
+      //   title: 'ICE Servers',
+      //   onTap: () => _showIceServersDialog(context),
+      // ),
       _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
@@ -347,36 +353,27 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return AlertDialog(
       title: const Text('Your Keys'),
-      content: Container(
-        width: double.maxFinite,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSimpleKeyItem(
-              context: context,
-              title: 'Public Key',
-              value: npub,
-              isPrivate: false,
-            ),
-            Container(
-              height: 1,
-              color: Colors.grey.shade300,
-              margin: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            _buildSimpleKeyItem(
-              context: context,
-              title: 'Private Key',
-              value: nsec.isEmpty ? 'login with signer' : nsec,
-              isPrivate: nsec.isNotEmpty,
-            ),
-          ],
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSimpleKeyItem(
+            context: context,
+            title: 'Public Key',
+            value: npub,
+            isPrivate: false,
+          ),
+          Container(
+            height: 1,
+            color: Colors.grey.shade300,
+            margin: const EdgeInsets.symmetric(vertical: 16),
+          ),
+          _buildSimpleKeyItem(
+            context: context,
+            title: 'Private Key',
+            value: nsec.isEmpty ? 'login with signer' : nsec,
+            isPrivate: nsec.isNotEmpty,
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -470,6 +467,60 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _showIceServersDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => _buildIceServersDialog(context),
+    );
+  }
+
+  Widget _buildIceServersDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final iceServers = ICEServerManager.shared.defaultICEServers;
+
+    return AlertDialog(
+      title: const Text('ICE Servers'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: iceServers.length,
+          itemBuilder: (context, index) {
+            final iceServer = iceServers[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      iceServer.host,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
   void _showRelaysDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -532,12 +583,29 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_packageInfo != null) ...[
-            Text('Version: ${_packageInfo!.version}'),
-            Text('Build: ${_packageInfo!.buildNumber}'),
-            Text('Package: ${_packageInfo!.packageName}'),
-            const Text('GitHub: https://github.com/noscall/noscall'),
-            const Text('Description: A secure voice and video calling app built on Nostr'),
-            const SizedBox(height: 8),
+            _buildInfoSection(
+              context: context,
+              title: 'Version',
+              value: 'v${_packageInfo!.version}+${_packageInfo!.buildNumber}',
+            ),
+            const SizedBox(height: 12),
+            _buildInfoSection(
+              context: context,
+              title: 'Package',
+              value: _packageInfo!.packageName,
+            ),
+            const SizedBox(height: 12),
+            _buildInfoSection(
+              context: context,
+              title: 'GitHub',
+              value: 'https://github.com/noscall/noscall',
+            ),
+            const SizedBox(height: 12),
+            _buildInfoSection(
+              context: context,
+              title: 'Description',
+              value: 'A secure audio and video calls app built on Nostr',
+            ),
           ],
         ],
       ),
@@ -545,6 +613,34 @@ class _ProfilePageState extends State<ProfilePage> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoSection({
+    required BuildContext context,
+    required String title,
+    required String value,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$title:',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: Colors.grey.shade700,
+          ),
         ),
       ],
     );

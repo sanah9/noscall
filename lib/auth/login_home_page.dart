@@ -78,7 +78,7 @@ class LoginHomePage extends StatelessWidget {
       children: [
         SizedBox(height: 8),
         Text(
-          'Secure Voice and Video Calling',
+          'Secure Audio and Video Calls',
           style: TextStyle(
             fontSize: 16,
             color: Colors.white70,

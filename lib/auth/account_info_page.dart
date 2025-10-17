@@ -482,7 +482,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
             ),
           ),
           content: Text(
-            'Are you sure you want to logout? You will need to enter your private key again to sign back in.',
+            'Are you sure you want to logout?',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
