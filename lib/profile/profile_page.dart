@@ -10,7 +10,7 @@ import '../core/account/model/userDB_isar.dart';
 import '../core/account/relays.dart';
 import '../core/common/network/connect.dart';
 import '../call/ice_server_manager.dart';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 class _MenuItem {
   final IconData icon;
