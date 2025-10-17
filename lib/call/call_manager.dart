@@ -6,7 +6,7 @@ import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/core/core.dart' as ChatCore;
 import 'package:noscall/utils/router.dart';
 
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 

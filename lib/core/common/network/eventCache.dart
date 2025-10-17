@@ -1,5 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 import '../database/db_isar.dart';
 import '../utils/log_utils.dart';

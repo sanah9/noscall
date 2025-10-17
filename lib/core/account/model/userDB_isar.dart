@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 import 'package:isar/isar.dart';
 
 import '../account.dart';

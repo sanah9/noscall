@@ -6,7 +6,7 @@ import '../utils/loading.dart';
 import '../core/account/account.dart';
 import 'auth_service.dart';
 import 'widgets/gradient_background.dart';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});

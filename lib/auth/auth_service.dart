@@ -14,7 +14,7 @@ import '../core/call/messages/messages.dart';
 import '../core/core-manager.dart';
 import '../core/common/config/call_core_init_config.dart';
 import '../call/call_manager.dart';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 enum LoginMethod {
   privateKey('privateKey'),

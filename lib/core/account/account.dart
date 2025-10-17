@@ -6,7 +6,7 @@ import 'package:isar/isar.dart';
 import 'package:pointycastle/export.dart';
 import 'package:convert/convert.dart';
 
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 import '../call/contacts/contacts.dart';
 import '../common/database/db_isar.dart';

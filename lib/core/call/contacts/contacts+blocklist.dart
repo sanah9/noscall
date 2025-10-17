@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 import '../../account/account.dart';
 import '../../common/network/connect.dart';

@@ -38,8 +38,10 @@ dependencies:
       ref: 20eadd73d8727566da14225d5d608f1ef0a9e2f1
   flutter_webrtc: ^0.12.10
 
-  nostr:
-    path: packages/nostr
+  nostr_core_dart:
+    git:
+      url: https://github.com/sanah9/nostr-dart
+      ref: 71cc545e54565c2df6d8ab347cf54fcae646e770
 
 dev_dependencies:
   flutter_test:

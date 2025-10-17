@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:isar/isar.dart';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 import '../../account/account.dart';
 import '../../common/database/db_isar.dart';

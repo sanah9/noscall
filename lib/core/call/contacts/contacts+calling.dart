@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 
 import '../../common/network/connect.dart';
 import '../messages/messages.dart';

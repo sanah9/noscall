@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
-import 'package:nostr/nostr.dart';
+import 'package:nostr_core_dart/nostr.dart';
 import 'package:isar/isar.dart';
 
 import '../../../account/model/userDB_isar.dart';
