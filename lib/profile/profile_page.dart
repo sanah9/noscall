@@ -265,23 +265,23 @@ class _ProfilePageState extends State<ProfilePage> {
             color: colorScheme.onPrimary,
           ),
         ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            final value = _user?.encodedPubkey ?? '';
-            if (value.isNotEmpty) {
-              Clipboard.setData(ClipboardData(text: value));
-              AppToast.showSuccess(context, 'pubkey copied to clipboard');
-            }
-          },
-          child: Text(
-            _user?.encodedPubkey ?? '',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onPrimary.withOpacity(0.8),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
+        // const SizedBox(height: 8),
+        // GestureDetector(
+        //   onTap: () {
+        //     final value = _user?.encodedPubkey ?? '';
+        //     if (value.isNotEmpty) {
+        //       Clipboard.setData(ClipboardData(text: value));
+        //       AppToast.showSuccess(context, 'pubkey copied to clipboard');
+        //     }
+        //   },
+        //   child: Text(
+        //     _user?.encodedPubkey ?? '',
+        //     style: theme.textTheme.bodyMedium?.copyWith(
+        //       color: colorScheme.onPrimary.withOpacity(0.8),
+        //     ),
+        //     textAlign: TextAlign.center,
+        //   ),
+        // ),
       ],
     );
   }
