@@ -1,6 +1,6 @@
 # NosCall
 
-A decentralized voice and video calling app built on Nostr protocol. Features end-to-end encrypted calls with cross-platform support.
+A secure audio and video calling app built on Nostr protocol. Features end-to-end encrypted calls with cross-platform support.
 
 ## Features
 
