@@ -4,7 +4,7 @@ A secure audio and video calling app built on Nostr protocol. Features end-to-en
 
 ## Features
 
-- Voice and video calls
+- Audio and video calls
 - Cross-platform support (iOS, Android)
 - Call history and contact management
 - Compatible with other Nostr clients
