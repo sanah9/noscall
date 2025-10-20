@@ -26,18 +26,25 @@ class _MenuItem {
   });
 }
 
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+class SettingPage extends StatefulWidget {
+  const SettingPage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  State<SettingPage> createState() => _SettingPageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _SettingPageState extends State<SettingPage> {
   final AuthService _authService = AuthService();
   UserDBISAR? _user;
   bool _isLoading = true;
   PackageInfo? _packageInfo;
+
+  late ThemeData theme;
+  Color get primary => theme.colorScheme.primary;
+  Color get onSurface => theme.colorScheme.onSurface;
+  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant;
+  Color get onPrimary => theme.colorScheme.onPrimary;
+  Color get errorColor => theme.colorScheme.error;
 
   @override
   void initState() {
@@ -128,6 +135,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    theme = Theme.of(context);
+    
     if (_isLoading) {
       return _buildLoadingState(context);
     }
@@ -140,22 +149,19 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildLoadingState(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+              valueColor: AlwaysStoppedAnimation<Color>(primary),
             ),
             const SizedBox(height: 16),
             Text(
               'Loading profile...',
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                color: onSurfaceVariant,
               ),
             ),
           ],
@@ -165,9 +171,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildErrorState(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
       body: Center(
         child: Column(
@@ -176,20 +179,20 @@ class _ProfilePageState extends State<ProfilePage> {
             Icon(
               Icons.person_off,
               size: 64,
-              color: colorScheme.onSurfaceVariant,
+              color: onSurfaceVariant,
             ),
             const SizedBox(height: 16),
             Text(
               'No user data found',
               style: theme.textTheme.titleLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                color: onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Please log in again',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                color: onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 16),
@@ -216,8 +219,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileHeader(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(
         vertical: 24.0,
@@ -228,8 +229,8 @@ class _ProfilePageState extends State<ProfilePage> {
           begin: Alignment.topCenter,
           end: Alignment.bottomLeft,
           colors: [
-            colorScheme.primary,
-            colorScheme.primary.withOpacity(0.8),
+            primary,
+            primary.withValues(alpha: 0.8),
           ],
         ),
       ),
@@ -253,16 +254,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileInfo(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Column(
       children: [
         Text(
           _user?.displayName() ?? '',
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: colorScheme.onPrimary,
+            color: onPrimary,
           ),
         ),
         // const SizedBox(height: 8),
@@ -287,9 +285,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMenuSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     final menuItems = [
       _MenuItem(
         icon: Icons.key,
@@ -315,7 +310,7 @@ class _ProfilePageState extends State<ProfilePage> {
         icon: Icons.logout,
         title: 'Logout',
         onTap: _showLogoutDialog,
-        textColor: colorScheme.error,
+        textColor: errorColor,
       ),
     ];
 

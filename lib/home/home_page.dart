@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../contacts/contacts_page.dart';
 import '../call_history/widget/recent_calls_page.dart';
-import '../profile/profile_page.dart';
+import '../setting/setting_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,7 +30,7 @@ class _HomePageState extends State<HomePage> {
         children: const [
           RecentCallsPage(),
           ContactsPage(),
-          ProfilePage(),
+          SettingPage(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
