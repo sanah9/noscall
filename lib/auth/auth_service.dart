@@ -99,7 +99,7 @@ class AuthService {
     try {
       switch (loginMethod) {
         case LoginMethod.privateKey:
-          await Account.sharedInstance.loginWithPubKey(pubkey, loginMethod.getSignerApplication());
+          await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
           break;
         case LoginMethod.amber:
           if (Platform.isAndroid && await _isAmberInstalled()) {
