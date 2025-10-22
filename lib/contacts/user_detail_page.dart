@@ -5,6 +5,7 @@ import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/account+profile.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
@@ -31,6 +32,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late ValueNotifier<bool> isContact;
   late ValueNotifier<bool> isBlocked;
   late ValueNotifier<bool> isLoading;
+  late ValueNotifier<bool> isUpdatingFromRemote;
 
   late ThemeData theme;
   BorderRadius get sectionRadius => BorderRadius.circular(16);
@@ -45,6 +47,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void initState() {
     super.initState();
     _initializeData();
+    _updateUserInfoFromRemote();
   }
 
   void _initializeData() {
@@ -52,6 +55,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     isContact = ValueNotifier(Contacts.sharedInstance.allContacts.containsKey(widget.pubkey));
     isBlocked = ValueNotifier(Contacts.sharedInstance.inBlockList(widget.pubkey));
     isLoading = ValueNotifier(false);
+    isUpdatingFromRemote = ValueNotifier(false);
   }
 
   @override
@@ -59,6 +63,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     isContact.dispose();
     isBlocked.dispose();
     isLoading.dispose();
+    isUpdatingFromRemote.dispose();
     super.dispose();
   }
 
@@ -102,9 +107,37 @@ class _UserDetailPageState extends State<UserDetailPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          UserAvatar(
-            radius: 50,
-            user: userData,
+          Stack(
+            children: [
+              UserAvatar(
+                radius: 50,
+                user: userData,
+              ),
+              ValueListenableBuilder<bool>(
+                valueListenable: isUpdatingFromRemote,
+                builder: (context, isUpdating, child) {
+                  if (isUpdating) {
+                    return Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: surface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(primary),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(
@@ -623,6 +656,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
       );
     } catch (e) {
       AppToast.showError(context, 'Failed to start video call: $e');
+    }
+  }
+
+  Future<void> _updateUserInfoFromRemote() async {
+    if (isUpdatingFromRemote.value) return; // Prevent multiple simultaneous updates
+
+    isUpdatingFromRemote.value = true;
+    try {
+      await Account.sharedInstance.reloadProfileFromRelay(widget.pubkey);
+      // The user notifier will automatically update the UI when the data changes
+    } finally {
+      isUpdatingFromRemote.value = false;
     }
   }
 }
