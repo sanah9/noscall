@@ -30,6 +30,8 @@ dependencies:
   permission_handler: ^11.3.1
   cached_network_image: ^3.4.1
   package_info_plus: ^8.0.0
+  image_picker: ^1.0.7
+  http: ^1.1.0
   
   # calling
   callkeep:
