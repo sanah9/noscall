@@ -12,6 +12,7 @@ import '../home/home_page.dart';
 import '../contacts/add_contact_page.dart';
 import '../contacts/user_detail_page.dart';
 import '../contacts/edit_nickname_page.dart';
+import '../profile/profile_settings_page.dart';
 
 class AppRouter {
   static final GoRouter _router = GoRouter(
@@ -94,6 +95,11 @@ class AppRouter {
             currentNickname: currentNickname ?? '',
           );
         },
+      ),
+      GoRoute(
+        path: '/profile-settings',
+        name: 'profile-settings',
+        builder: (context, state) => const ProfileSettingsPage(),
       ),
     ],
   );

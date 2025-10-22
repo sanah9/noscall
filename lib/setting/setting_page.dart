@@ -9,7 +9,6 @@ import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../core/account/relays.dart';
 import '../core/common/network/connect.dart';
-import '../call/ice_server_manager.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 class _MenuItem {
@@ -35,7 +34,7 @@ class SettingPage extends StatefulWidget {
 
 class _SettingPageState extends State<SettingPage> {
   final AuthService _authService = AuthService();
-  UserDBISAR? _user;
+  ValueNotifier<UserDBISAR>? userNotifier;
   bool _isLoading = true;
   PackageInfo? _packageInfo;
 
@@ -67,15 +66,15 @@ class _SettingPageState extends State<SettingPage> {
 
     try {
       final user = Account.sharedInstance.me;
-      setState(() {
-        _user = user;
-        _isLoading = false;
-      });
+      if (user != null) {
+        userNotifier = Account.sharedInstance.getUserNotifier(user.pubKey);
+      }
     } catch (e) {
+      AppToast.showError(context, 'Failed to load user data: $e');
+    } finally {
       setState(() {
         _isLoading = false;
       });
-      AppToast.showError(context, 'Failed to load user data: $e');
     }
   }
 
@@ -141,7 +140,7 @@ class _SettingPageState extends State<SettingPage> {
       return _buildLoadingState(context);
     }
 
-    if (_user == null) {
+    if (userNotifier == null) {
       return _buildErrorState(context);
     }
 
@@ -219,45 +218,50 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   Widget _buildProfileHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 24.0,
-        horizontal: 40.0,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomLeft,
-          colors: [
-            primary,
-            primary.withValues(alpha: 0.8),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            _buildProfileAvatar(context),
-            const SizedBox(height: 16),
-            _buildProfileInfo(context),
-          ],
-        ),
-      ),
+    return ValueListenableBuilder(
+      valueListenable: userNotifier!,
+      builder: (context, user, _) {
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: 24.0,
+            horizontal: 40.0,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomLeft,
+              colors: [
+                primary,
+                primary.withValues(alpha: 0.8),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildProfileAvatar(context, user),
+                const SizedBox(height: 16),
+                _buildProfileInfo(context, user),
+              ],
+            ),
+          ),
+        );
+      }
     );
   }
 
-  Widget _buildProfileAvatar(BuildContext context) {
+  Widget _buildProfileAvatar(BuildContext context, UserDBISAR user) {
     return UserAvatar(
-      user: _user!,
+      user: user,
       radius: 60,
     );
   }
 
-  Widget _buildProfileInfo(BuildContext context) {
+  Widget _buildProfileInfo(BuildContext context, UserDBISAR user) {
     return Column(
       children: [
         Text(
-          _user?.displayName() ?? '',
+          user.displayName(),
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
             color: onPrimary,
@@ -286,6 +290,11 @@ class _SettingPageState extends State<SettingPage> {
 
   Widget _buildMenuSection(BuildContext context) {
     final menuItems = [
+      // _MenuItem(
+      //   icon: Icons.edit,
+      //   title: 'Profile',
+      //   onTap: () => _navigateToProfileSettings(context),
+      // ),
       _MenuItem(
         icon: Icons.key,
         title: 'Keys',
@@ -462,58 +471,8 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  void _showIceServersDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _buildIceServersDialog(context),
-    );
-  }
-
-  Widget _buildIceServersDialog(BuildContext context) {
-    final theme = Theme.of(context);
-    final iceServers = ICEServerManager.shared.defaultICEServers;
-
-    return AlertDialog(
-      title: const Text('ICE Servers'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: iceServers.length,
-          itemBuilder: (context, index) {
-            final iceServer = iceServers[index];
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      iceServer.host,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
-      ],
-    );
+  void _navigateToProfileSettings(BuildContext context) {
+    context.push('/profile-settings');
   }
 
   void _showRelaysDialog(BuildContext context) {

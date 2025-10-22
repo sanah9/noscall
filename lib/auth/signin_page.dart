@@ -425,7 +425,7 @@ class _SignInPageState extends State<SignInPage> {
     try {
       AppLoading.show('Connecting to Amber...');
 
-      final success = await _authService.loginWithAmber();
+      await _authService.loginWithAmber();
 
       AppLoading.dismiss();
 
