@@ -2,6 +2,17 @@
 
 A secure audio and video calling app built on Nostr protocol. Features end-to-end encrypted calls with cross-platform support.
 
+## App Screenshots
+
+<table>
+  <tr>
+    <td><img src="./screenshot/Screenshot1.png" width="150"/></td>
+    <td><img src="./screenshot/Screenshot2.png" width="150"/></td>
+    <td><img src="./screenshot/Screenshot3.png" width="150"/></td>
+    <td><img src="./screenshot/Screenshot4.png" width="150"/></td>
+  </tr>
+</table>
+
 ## Features
 
 - Audio and video calls
