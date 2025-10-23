@@ -239,7 +239,6 @@ class Contacts {
           userDB.name = userDB.shortEncodedPubkey;
           allContacts[p.pubkey] = userDB;
         }
-        _batchUpdateContactProfilesFromRemote(friendsList);
         contactUpdatedCallBack?.call();
         await Future.forEach(friendsList, (p) async {
           UserDBISAR? user = await Account.sharedInstance.getUserInfo(p.pubkey);
@@ -366,11 +365,5 @@ class Contacts {
     if (offlinePrivateMessageFinish[relay] == true) {
       Relays.sharedInstance.syncRelaysToDB(r: relay);
     }
-  }
-
-  Future<void> _batchUpdateContactProfilesFromRemote(List<People> friendsList) async {
-    await Future.forEach(friendsList, (friend) async {
-      Account.sharedInstance.reloadProfileFromRelay(friend.pubkey);
-    });
   }
 }

@@ -243,6 +243,8 @@ class AuthService {
 
       await Relays.sharedInstance.init();
 
+      Account.sharedInstance.init();
+
       Messages.sharedInstance.init();
 
       LogUtils.i(() => 'Database and services initialized for pubkey: ${pubkey.substring(0, 8)}...');
