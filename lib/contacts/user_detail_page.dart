@@ -495,6 +495,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void _editNickname(UserDBISAR userData) {
+    if (!isContact.value) {
+      AppToast.showError(context, 'Only contacts can modify nickname');
+      return;
+    }
+    
     context.push('/edit-nickname', extra: {
       'pubkey': widget.pubkey,
       'currentNickname': userData.nickName ?? '',
