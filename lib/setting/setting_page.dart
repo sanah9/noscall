@@ -531,7 +531,7 @@ class _SettingPageState extends State<SettingPage> {
 
   Widget _buildAboutDialog(BuildContext context) {
     return AlertDialog(
-      title: const Text('About Noscall'),
+      title: const Text('About NosCall'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

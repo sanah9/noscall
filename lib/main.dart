@@ -31,7 +31,7 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Noscall',
+      title: 'NosCall',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0x3937a3)),
         useMaterial3: true,

@@ -62,7 +62,7 @@ class LoginHomePage extends StatelessWidget {
       children: [
         SizedBox(height: 32),
         Text(
-          'Noscall',
+          'NosCall',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
