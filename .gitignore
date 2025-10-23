@@ -145,3 +145,4 @@ temp/
 **/GoogleService-Info.plist
 **/key.jks
 **/keystore.properties
+/zapstore

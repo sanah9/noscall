@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 import '../../common/network/connect.dart';
@@ -8,31 +9,24 @@ import '../messages/model/messageDB_isar.dart';
 import 'contacts.dart';
 
 extension Calling on Contacts {
-  Future<OKEvent> sendDisconnect(
-      String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(
-        offerId, friendPubkey, SignalingState.disconnect, content);
+  Future<OKEvent> sendDisconnect(String offerId, String friendPubkey, String content) async {
+    return await _sendSignaling(offerId, friendPubkey, SignalingState.disconnect, content);
   }
 
   Future<OKEvent> sendOffer(String friendPubkey, String content) async {
-    return await _sendSignaling(
-        '', friendPubkey, SignalingState.offer, content);
+    return await _sendSignaling('', friendPubkey, SignalingState.offer, content);
   }
 
-  Future<OKEvent> sendAnswer(
-      String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(
-        offerId, friendPubkey, SignalingState.answer, content);
+  Future<OKEvent> sendAnswer(String offerId, String friendPubkey, String content) async {
+    return await _sendSignaling(offerId, friendPubkey, SignalingState.answer, content);
   }
 
-  Future<OKEvent> sendCandidate(
-      String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(
-        offerId, friendPubkey, SignalingState.candidate, content);
+  Future<OKEvent> sendCandidate(String offerId, String friendPubkey, String content) async {
+    return await _sendSignaling(offerId, friendPubkey, SignalingState.candidate, content);
   }
 
-  Future<OKEvent> _sendSignaling(String offerId, String toPubkey,
-      SignalingState state, String content) async {
+  Future<OKEvent> _sendSignaling(
+      String offerId, String toPubkey, SignalingState state, String content) async {
     Completer<OKEvent> completer = Completer<OKEvent>();
     Event? event;
     String? reason;
@@ -59,21 +53,25 @@ extension Calling on Contacts {
       default:
         throw Exception('error state');
     }
-    Signaling signaling =
-        Signaling(event.pubkey, toPubkey, content, state, offerId);
+    Signaling signaling = Signaling(event.pubkey, toPubkey, content, state, offerId);
     if (state != SignalingState.candidate) {
       await handleSignalingEvent(event, signaling, reason);
     }
 
     /// 60s timeout for calling event
-    Event encodeEvent = await Nip17.encode(event, toPubkey, pubkey, privkey,
-        expiration: currentUnixTimestampSeconds() + 60, kind: kind);
-    Connect.sharedInstance.sendEvent(encodeEvent,
-        sendCallBack: (ok, relay) async {
-          if (!completer.isCompleted) {
-            completer.complete(OKEvent(event!.id, ok.status, ok.message));
-          }
-        });
+    Event? encodeEvent = await encodeNip17Event(event, toPubkey,
+        expiration: currentUnixTimestampSeconds() + 60,
+        kind: kind,
+        createAt: currentUnixTimestampSeconds());
+    if (encodeEvent != null) {
+      Connect.sharedInstance.sendEvent(relayKinds: [RelayKind.general], encodeEvent,
+          sendCallBack: (ok, relay) async {
+        if (!completer.isCompleted) {
+          completer.complete(OKEvent(event!.id, ok.status, ok.message));
+        }
+      });
+    }
+    completer.complete(OKEvent(event.id, false, 'encode nip17 event fail'));
     return completer.future;
   }
 
@@ -88,13 +86,11 @@ extension Calling on Contacts {
     }
     bool result = await handleSignalingEvent(event, signaling, reason);
     if (result) {
-      onCallStateChange?.call(
-          event.pubkey, signaling.state, signaling.content, signaling.offerId);
+      onCallStateChange?.call(event.pubkey, signaling.state, signaling.content, signaling.offerId);
     }
   }
 
-  Future<bool> handleSignalingEvent(
-      Event event, Signaling signaling, String? reason) async {
+  Future<bool> handleSignalingEvent(Event event, Signaling signaling, String? reason) async {
     /// receive offer
     int eventTime = event.createdAt * 1000;
     if (signaling.state == SignalingState.offer) {
@@ -147,14 +143,8 @@ extension Calling on Contacts {
           break;
       }
       CallMessage? callMessage = callMessages[signaling.offerId];
-      callMessage ??= CallMessage(
-          signaling.offerId ?? event.id,
-          signaling.sender,
-          signaling.receiver,
-          state,
-          eventTime,
-          eventTime,
-          '');
+      callMessage ??= CallMessage(signaling.offerId ?? event.id, signaling.sender,
+          signaling.receiver, state, eventTime, eventTime, '');
       callMessage.end = eventTime;
       callMessage.state = state;
       callMessages[callMessage.callId] = callMessage;

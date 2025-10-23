@@ -55,7 +55,8 @@ extension IsolateEvent on Contacts {
     if (signerApplication == SignerApplication.remoteSigner) {
       message = await _decodeNip4InIsolate(map);
     } else {
-      message = await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeNip4InIsolate(map));
+      message =
+          await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeNip4InIsolate(map));
     }
 
     if (message != null) {
@@ -120,19 +121,30 @@ extension IsolateEvent on Contacts {
     String receiver = params['receiver'] ?? '';
     Event sealedEvent = await Nip17.encode(
         event, receiver, params['pubkey'] ?? '', params['privkey'] ?? '',
-        sealedPrivkey: params['sealedPrivkey'], sealedReceiver: params['sealedReceiver']);
+        sealedPrivkey: params['sealedPrivkey'],
+        sealedReceiver: params['sealedReceiver'],
+        expiration: params['expiration'],
+        kind: params['kind'],
+        createAt: params['createAt']);
     return sealedEvent.toJson();
   }
 
   Future<Event?> encodeNip17Event(Event event, String receiver,
-      {String? sealedReceiver, String? sealedPrivkey}) async {
+      {String? sealedReceiver,
+      String? sealedPrivkey,
+      int? kind,
+      int? expiration,
+      int? createAt}) async {
     Map<String, dynamic> map = {
       'event': event.toJson(),
       'receiver': receiver,
       'privkey': privkey,
       'pubkey': pubkey,
       'sealedPrivkey': sealedPrivkey,
-      'sealedReceiver': sealedReceiver
+      'sealedReceiver': sealedReceiver,
+      'kind': kind,
+      'expiration': expiration,
+      'createAt': createAt
     };
 
     var message;
