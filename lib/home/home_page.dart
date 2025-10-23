@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../contacts/contacts_page.dart';
 import '../call_history/widget/recent_calls_page.dart';
@@ -39,22 +40,28 @@ class _HomePageState extends State<HomePage> {
         onTap: _onItemTapped,
         backgroundColor: colorScheme.surfaceContainer,
         selectedItemColor: colorScheme.primary,
-        unselectedItemColor: colorScheme.onSurfaceVariant,
+        unselectedItemColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
         selectedLabelStyle: theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: theme.textTheme.labelSmall,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.history),
+            icon: _selectedIndex == 0
+                ? const Icon(CupertinoIcons.clock_fill)
+                : const Icon(CupertinoIcons.clock),
             label: 'Recent',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.contacts),
+            icon: _selectedIndex == 1
+                ? const Icon(Icons.contacts)
+                : const Icon(Icons.contacts_outlined),
             label: 'Contacts',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: _selectedIndex == 2
+                ? const Icon(Icons.person)
+                : const Icon(Icons.person_outline),
             label: 'Me',
           ),
         ],
