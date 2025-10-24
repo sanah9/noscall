@@ -290,11 +290,11 @@ class _SettingPageState extends State<SettingPage> {
 
   Widget _buildMenuSection(BuildContext context) {
     final menuItems = [
-      // _MenuItem(
-      //   icon: Icons.edit,
-      //   title: 'Profile',
-      //   onTap: () => _navigateToProfileSettings(context),
-      // ),
+      _MenuItem(
+        icon: Icons.edit,
+        title: 'Profile',
+        onTap: () => _navigateToProfileSettings(context),
+      ),
       _MenuItem(
         icon: Icons.key,
         title: 'Keys',
