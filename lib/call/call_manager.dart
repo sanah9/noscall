@@ -184,13 +184,6 @@ class CallKitManager with WidgetsBindingObserver {
     };
   }
 
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    deviceChangeSubscription?.cancel();
-    deviceChangeSubscription = null;
-    _callKeepManager?.dispose();
-  }
-
   void nostrCallStateChangeHandler(String friend, SignalingState state, String data, String? offerId,) {
     if (offerId == null || offerId.isEmpty) {
       LogUtils.e(() => 'nostrCallStateChangeHandler offerId: $offerId');

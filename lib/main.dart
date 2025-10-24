@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'core/common/thread/threadPoolManager.dart';
 import 'utils/http_client.dart';
 import 'utils/router.dart';
 import 'utils/loading.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
   AppLoading.configLoading();
   HttpOverrides.global = CustomHttpOverrides();
   try {
+    await ThreadPoolManager.sharedInstance.initialize();
     await AuthService().initialize();
   } catch (e) {
     debugPrint('Failed to initialize services: $e');

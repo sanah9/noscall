@@ -8,9 +8,6 @@ import '../core/common/utils/log_utils.dart';
 import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../core/common/database/db_isar.dart';
-import '../core/common/thread/threadPoolManager.dart';
-import '../core/account/relays.dart';
-import '../core/call/messages/messages.dart';
 import '../core/core-manager.dart';
 import '../core/common/config/call_core_init_config.dart';
 import '../call/call_manager.dart';
@@ -69,42 +66,50 @@ class AuthService {
 
   Future<void> initialize() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      final pubkey = prefs.getString(_userKey);
-      if (pubkey == null) return;
-
-      final loginMethodString = prefs.getString(_loginMethodKey);
-      if (loginMethodString == null) return;
-
-      final loginMethod = LoginMethod.fromString(loginMethodString);
-
-      _currentUserPubkey = pubkey;
-      _currentUserNpub = _pubkeyToNpub(_currentUserPubkey!);
-      _currentLoginMethod = loginMethod;
-
-      await _initDatabase(pubkey);
-
-      await _autoLoginWithMethod(pubkey, loginMethod);
-
-      await _initChatCore(pubkey);
-
-      LogUtils.i(() => 'Auth service initialized. Method: ${loginMethod.value}');
+      await _autoLogin();
     } catch (e) {
       LogUtils.e(() => 'Failed to initialize auth service: $e');
+      await _resetAuthState();
     }
+  }
+
+  Future<void> _autoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pubkey = prefs.getString(_userKey);
+    if (pubkey == null) return;
+
+    final loginMethodString = prefs.getString(_loginMethodKey);
+    if (loginMethodString == null) return;
+
+    final loginMethod = LoginMethod.fromString(loginMethodString);
+
+    _currentUserPubkey = pubkey;
+    _currentUserNpub = _pubkeyToNpub(_currentUserPubkey!);
+    _currentLoginMethod = loginMethod;
+
+    await _initDatabase(pubkey);
+
+    await _autoLoginWithMethod(pubkey, loginMethod);
+
+    await _initChatCore(pubkey);
   }
 
   Future<void> _autoLoginWithMethod(String pubkey, LoginMethod loginMethod) async {
     try {
       switch (loginMethod) {
         case LoginMethod.privateKey:
-          await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
+          final user = await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
+          if (user == null) {
+            throw Exception('login failed');
+          }
           break;
         case LoginMethod.amber:
           if (Platform.isAndroid && await _isAmberInstalled()) {
             final signerApplication = loginMethod.getSignerApplication();
-            await Account.sharedInstance.loginWithPubKey(pubkey, signerApplication);
+            final user = await Account.sharedInstance.loginWithPubKey(pubkey, signerApplication);
+            if (user == null) {
+              throw Exception('login failed');
+            }
             LogUtils.i(() => 'Auto-login with Amber successful');
           } else {
             LogUtils.w(() => 'Amber not available for auto-login');
@@ -114,7 +119,10 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           final bunkerUrl = prefs.getString(_userBunkerUrlKey);
           if (bunkerUrl != null) {
-            await Account.sharedInstance.loginWithNip46URI(bunkerUrl);
+            final user = await Account.sharedInstance.loginWithNip46URI(bunkerUrl);
+            if (user == null) {
+              throw Exception('login failed');
+            }
             LogUtils.i(() => 'Auto-login with Bunker successful');
           } else {
             LogUtils.w(() => 'Bunker login requires URL, cannot auto-login');
@@ -123,7 +131,7 @@ class AuthService {
       }
     } catch (e) {
       LogUtils.e(() => 'Auto-login failed for method ${loginMethod.value}: $e');
-      throw e;
+      rethrow;
     }
   }
 
@@ -237,15 +245,7 @@ class AuthService {
     try {
       if (pubkey.isEmpty) return;
 
-      await ThreadPoolManager.sharedInstance.initialize();
-
       await DBISAR.sharedInstance.open(pubkey);
-
-      await Relays.sharedInstance.init();
-
-      Account.sharedInstance.init();
-
-      Messages.sharedInstance.init();
 
       LogUtils.i(() => 'Database and services initialized for pubkey: ${pubkey.substring(0, 8)}...');
     } catch (e) {
@@ -256,9 +256,10 @@ class AuthService {
 
   Future<void> _initChatCore(String pubkey) async {
     try {
+      Account.sharedInstance.init();
+
       final appDir = await getApplicationDocumentsDirectory();
       final databasePath = '${appDir.path}/noscall_$pubkey';
-
       final config = ChatCoreInitConfig(
         pubkey: pubkey,
         databasePath: databasePath,
@@ -396,7 +397,25 @@ class AuthService {
     return ExternalSignerTool.getPubKey();
   }
 
-  void dispose() {
-    _authStateController.close();
+  Future<void> _resetAuthState() async {
+    try {
+      await _logout();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      await prefs.remove(_loginMethodKey);
+      await prefs.remove(_userBunkerUrlKey);
+
+      _currentUserPubkey = null;
+      _currentUserNpub = null;
+      _currentLoginMethod = null;
+      isAuthenticated = false;
+
+      _authStateController.add(false);
+
+    } catch (e) {
+      LogUtils.e(() => 'Failed to reset authentication state: $e');
+      rethrow;
+    }
   }
 }
