@@ -5,17 +5,17 @@ class ICEServerManager {
 
   List<ICEServerModel> get defaultICEServers => [
     ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc.0xchat.com:5349',
-    ),
-    ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc2.0xchat.com:5349',
-    ),
-    ICEServerModel(
-      url: 'turn:0xchat:Prettyvs511@rtc3.0xchat.com:5349',
+      url: 'turn:0xchat:Prettyvs511@52.76.210.159:5349',
     ),
     // ICEServerModel(
-    //   url: 'turn:0xchat:Prettyvs511@rtc4.0xchat.com:5349',
+    //   url: 'turn:0xchat:Prettyvs511@rtc2.0xchat.com:5349',
     // ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@13.213.17.140:5349',
+    ),
+    ICEServerModel(
+      url: 'turn:0xchat:Prettyvs511@15.222.242.167:5349',
+    ),
     // ICEServerModel(
     //   url: 'turn:0xchat:Prettyvs511@rtc5.0xchat.com:5349',
     // ),

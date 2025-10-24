@@ -20,6 +20,7 @@ class Relays {
     'wss://relay.0xchat.com',
     'wss://nostr.wine',
     'wss://auth.nostr1.com',
+    'ws://52.9.218.70:8989',
   ];
 
   List<String> recommendDMRelays = [
