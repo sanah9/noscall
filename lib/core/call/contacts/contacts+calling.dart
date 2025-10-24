@@ -70,8 +70,9 @@ extension Calling on Contacts {
           completer.complete(OKEvent(event!.id, ok.status, ok.message));
         }
       });
+    } else {
+      completer.complete(OKEvent(event.id, false, 'encode nip17 event fail'));
     }
-    completer.complete(OKEvent(event.id, false, 'encode nip17 event fail'));
     return completer.future;
   }
 
