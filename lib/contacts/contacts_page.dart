@@ -217,7 +217,7 @@ class _ContactsPageState extends State<ContactsPage> {
   Widget _buildUserAvatar(UserDBISAR user) {
     return UserAvatar(
       user: user,
-      radius: 24,
+      size: 48,
     );
   }
 

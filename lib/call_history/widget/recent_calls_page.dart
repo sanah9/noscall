@@ -247,7 +247,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   Widget _buildUserAvatar(UserDBISAR user, CallType callType, Color statusColor) {
     return UserAvatar(
       user: user,
-      radius: 24,
+      size: 48,
     );
   }
 

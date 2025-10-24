@@ -253,7 +253,7 @@ class _SettingPageState extends State<SettingPage> {
   Widget _buildProfileAvatar(BuildContext context, UserDBISAR user) {
     return UserAvatar(
       user: user,
-      radius: 60,
+      size: 120,
     );
   }
 

@@ -110,7 +110,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
           Stack(
             children: [
               UserAvatar(
-                radius: 50,
+                size: 100,
                 user: userData,
               ),
               ValueListenableBuilder<bool>(

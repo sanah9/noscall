@@ -207,7 +207,7 @@ class CallingPageState extends State<CallingPage> {
   Widget _buildHeadImage() {
     return UserAvatar(
       user: controller.user,
-      radius: 120,
+      size: 240,
     );
   }
 
