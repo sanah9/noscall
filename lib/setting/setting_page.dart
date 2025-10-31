@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import '../utils/toast.dart';
 import '../auth/auth_service.dart';
@@ -135,7 +136,7 @@ class _SettingPageState extends State<SettingPage> {
   @override
   Widget build(BuildContext context) {
     theme = Theme.of(context);
-    
+
     if (_isLoading) {
       return _buildLoadingState(context);
     }
@@ -218,42 +219,86 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   Widget _buildProfileHeader(BuildContext context) {
+    const actionMargin = 8.0;
     return ValueListenableBuilder(
-      valueListenable: userNotifier!,
-      builder: (context, user, _) {
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: 24.0,
-            horizontal: 40.0,
-          ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomLeft,
-              colors: [
-                primary,
-                primary.withValues(alpha: 0.8),
-              ],
+        valueListenable: userNotifier!,
+        builder: (context, user, _) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomLeft,
+                colors: [
+                  primary,
+                  primary.withValues(alpha: 0.8),
+                ],
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                _buildProfileAvatar(context, user),
-                const SizedBox(height: 16),
-                _buildProfileInfo(context, user),
-              ],
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 24.0,
+                      horizontal: 40.0,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildProfileAvatar(context, user),
+                        const SizedBox(height: 16),
+                        _buildProfileInfo(context, user),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: actionMargin,
+                    left: actionMargin,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.qr_code,
+                        color: onPrimary,
+                      ),
+                      onPressed: () => _showQrCodeDialog(context),
+                      tooltip: 'Show QR Code',
+                    ),
+                  ),
+                  Positioned(
+                    top: actionMargin,
+                    right: actionMargin,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.edit,
+                        color: onPrimary,
+                      ),
+                      onPressed: () => _navigateToProfileSettings(context),
+                      tooltip: 'Edit Profile',
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      }
+          );
+        }
     );
   }
 
   Widget _buildProfileAvatar(BuildContext context, UserDBISAR user) {
-    return UserAvatar(
-      user: user,
-      size: 120,
+    return Container(
+      width: 126,
+      height: 126,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white,
+          width: 3,
+        ),
+      ),
+      child: UserAvatar(
+        user: user,
+        size: 120,
+      ),
     );
   }
 
@@ -290,11 +335,6 @@ class _SettingPageState extends State<SettingPage> {
 
   Widget _buildMenuSection(BuildContext context) {
     final menuItems = [
-      _MenuItem(
-        icon: Icons.edit,
-        title: 'Profile',
-        onTap: () => _navigateToProfileSettings(context),
-      ),
       _MenuItem(
         icon: Icons.key,
         title: 'Keys',
@@ -350,7 +390,7 @@ class _SettingPageState extends State<SettingPage> {
 
   Widget _buildKeysDialog(BuildContext context) {
     final account = Account.sharedInstance;
-    
+
     // Convert pubkey to npub format
     final npub = Nip19.encodePubkey(account.currentPubkey);
     final nsec = Nip19.encodePrivkey(account.currentPrivkey);
@@ -442,8 +482,8 @@ class _SettingPageState extends State<SettingPage> {
   Widget _buildConnectionStatus(String relay) {
     final connect = Connect.sharedInstance;
     final socket = connect.webSockets[relay];
-    final status = socket?.connectStatus ?? 3; 
-    
+    final status = socket?.connectStatus ?? 3;
+
     Color statusColor;
     switch (status) {
       case 0: // connecting
@@ -460,7 +500,7 @@ class _SettingPageState extends State<SettingPage> {
         statusColor = Colors.red;
         break;
     }
-    
+
     return Container(
       width: 12,
       height: 12,
@@ -473,6 +513,166 @@ class _SettingPageState extends State<SettingPage> {
 
   void _navigateToProfileSettings(BuildContext context) {
     context.push('/profile-settings');
+  }
+
+  void _showQrCodeDialog(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _buildQrCodeDialog(context);
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        // Combine slide from bottom and fade animation
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 1.0), // Start from bottom
+            end: Offset.zero, // End at center
+          ).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            ),
+          ),
+          child: FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildQrCodeDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final account = Account.sharedInstance;
+    final npub = Nip19.encodePubkey(account.currentPubkey);
+    final user = Account.sharedInstance.me;
+    final displayName = user?.displayName() ?? '';
+    const spacerHeight = 12.0;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Stack(
+        children: [
+          // White card with QR code
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            decoration: BoxDecoration(
+              color: primary,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: spacerHeight),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        displayName,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          icon: Icon(Icons.close, color: primary),
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            shape: const CircleBorder(),
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+                // QR Code with embedded icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      QrImageView(
+                        data: npub,
+                        size: 240,
+                        errorCorrectionLevel: QrErrorCorrectLevel.M,
+                        backgroundColor: Colors.white,
+                        eyeStyle: QrEyeStyle(
+                          eyeShape: QrEyeShape.circle,
+                          color: primary,
+                        ),
+                        dataModuleStyle: QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.circle,
+                          color: primary,
+                        ),
+                      ),
+                      // Center icon overlay
+                      if (user != null)
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 3,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: UserAvatar(
+                              user: user,
+                              size: 58,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: spacerHeight),
+                // Copy button
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: npub));
+                    AppToast.showSuccess(context, 'npub copied to clipboard');
+                  },
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text('Copy npub'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: spacerHeight),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showRelaysDialog(BuildContext context) {
@@ -578,7 +778,7 @@ class _SettingPageState extends State<SettingPage> {
     required String value,
   }) {
     final theme = Theme.of(context);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
