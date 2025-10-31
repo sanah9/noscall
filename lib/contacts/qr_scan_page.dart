@@ -67,10 +67,10 @@ class _QRScanPageState extends State<QRScanPage> {
         ),
         // Instructions
         Positioned(
-          bottom: 150,
+          bottom: 50,
           left: 0,
           right: 0,
-          child: _buildInstructions(context),
+          child: SafeArea(child: _buildInstructions(context)),
         ),
       ],
     );

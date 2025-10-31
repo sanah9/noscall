@@ -556,121 +556,117 @@ class _SettingPageState extends State<SettingPage> {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Stack(
-        children: [
-          // White card with QR code
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              color: primary,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        decoration: BoxDecoration(
+          color: primary,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: spacerHeight),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Text(
-                        displayName,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: IconButton(
-                          icon: Icon(Icons.close, color: primary),
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            shape: const CircleBorder(),
-                          ),
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-                // QR Code with embedded icon
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      QrImageView(
-                        data: npub,
-                        size: 240,
-                        errorCorrectionLevel: QrErrorCorrectLevel.M,
-                        backgroundColor: Colors.white,
-                        eyeStyle: QrEyeStyle(
-                          eyeShape: QrEyeShape.circle,
-                          color: primary,
-                        ),
-                        dataModuleStyle: QrDataModuleStyle(
-                          dataModuleShape: QrDataModuleShape.circle,
-                          color: primary,
-                        ),
-                      ),
-                      // Center icon overlay
-                      if (user != null)
-                        Container(
-                          width: 64,
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: UserAvatar(
-                              user: user,
-                              size: 58,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: spacerHeight),
-                // Copy button
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: npub));
-                    AppToast.showSuccess(context, 'npub copied to clipboard');
-                  },
-                  icon: const Icon(Icons.copy, size: 18),
-                  label: const Text('Copy npub'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: spacerHeight),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    displayName,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
-                ),
-                const SizedBox(height: spacerHeight),
-              ],
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: primary),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        shape: const CircleBorder(),
+                      ),
+                    ),
+                  )
+                ],
+              ),
             ),
-          ),
-        ],
+            // QR Code with embedded icon
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  QrImageView(
+                    data: npub,
+                    size: 240,
+                    errorCorrectionLevel: QrErrorCorrectLevel.M,
+                    backgroundColor: Colors.white,
+                    eyeStyle: QrEyeStyle(
+                      eyeShape: QrEyeShape.circle,
+                      color: primary,
+                    ),
+                    dataModuleStyle: QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.circle,
+                      color: primary,
+                    ),
+                  ),
+                  // Center icon overlay
+                  if (user != null)
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: UserAvatar(
+                          user: user,
+                          size: 58,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: spacerHeight * 2),
+            // Copy button
+            OutlinedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: npub));
+                AppToast.showSuccess(context, 'npub copied to clipboard');
+              },
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Copy npub'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: spacerHeight * 2),
+          ],
+        ),
       ),
     );
   }
