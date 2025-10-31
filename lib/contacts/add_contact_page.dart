@@ -20,6 +20,10 @@ class _AddContactPageState extends State<AddContactPage> {
   late ThemeData theme;
   Color get surface => theme.colorScheme.surface;
   Color get onSurface => theme.colorScheme.onSurface;
+  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant;
+  Color get primary => theme.colorScheme.primary;
+  Color get onPrimary => theme.colorScheme.onPrimary;
+  Color get outline => theme.colorScheme.outline;
 
   @override
   void dispose() {
@@ -63,23 +67,28 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildSearchSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             'Search by npub or DNS',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface,
+              color: onSurface,
             ),
           ),
           const SizedBox(height: 12),
-          _buildSearchInputRow(context),
+          SizedBox(
+            height: 50,
+            child: _buildSearchInputRow(context),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 50,
+            child: _buildSearchButton(),
+          ),
         ],
       ),
     );
@@ -89,53 +98,51 @@ class _AddContactPageState extends State<AddContactPage> {
     return Row(
       children: [
         Expanded(
-          child: _buildSearchTextField(context),
+          child: _buildSearchTextField(),
         ),
         const SizedBox(width: 12),
-        _buildSearchButton(context),
+        _buildScanButton(),
       ],
     );
   }
 
-  Widget _buildSearchTextField(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Widget _buildSearchTextField() {
     return TextField(
       controller: _searchController,
       decoration: InputDecoration(
         hintText: 'Enter npub (e.g., npub1abc...) or DNS (e.g., user@domain.com)',
         hintStyle: TextStyle(
-          color: colorScheme.onSurfaceVariant,
+          color: onSurfaceVariant,
         ),
         prefixIcon: Icon(
           Icons.search,
-          color: colorScheme.onSurfaceVariant,
+          color: onSurfaceVariant,
         ),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-          icon: Icon(
-            Icons.clear,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          onPressed: _clearSearch,
-        )
+              icon: Icon(
+                Icons.clear,
+                color: onSurfaceVariant,
+              ),
+              onPressed: _clearSearch,
+            )
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: colorScheme.outline,
+            color: outline,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: colorScheme.outline,
+            color: outline,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: colorScheme.primary,
+            color: primary,
             width: 2,
           ),
         ),
@@ -147,16 +154,34 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildSearchButton(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildScanButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: outline,
+        ),
+      ),
+      child: IconButton(
+        onPressed: () => _navigateToScanPage(),
+        icon: Icon(
+          Icons.qr_code_scanner,
+          color: onSurface,
+        ),
+        tooltip: 'Scan QR Code',
+      ),
+    );
+  }
 
+  Widget _buildSearchButton() {
     return ElevatedButton(
       onPressed: _isSearching
           ? null
           : () => _searchUser(_searchController.text),
       style: ElevatedButton.styleFrom(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
+        backgroundColor: primary,
+        foregroundColor: onPrimary,
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -164,15 +189,15 @@ class _AddContactPageState extends State<AddContactPage> {
       ),
       child: _isSearching
           ? SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            colorScheme.onPrimary,
-          ),
-        ),
-      )
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                onPrimary,
+              ),
+            ),
+          )
           : const Text('Search'),
     );
   }
@@ -186,9 +211,6 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -196,20 +218,20 @@ class _AddContactPageState extends State<AddContactPage> {
           Icon(
             Icons.search,
             size: 64,
-            color: colorScheme.onSurfaceVariant,
+            color: onSurfaceVariant,
           ),
           const SizedBox(height: 16),
           Text(
             'Search for users by npub or DNS',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Enter a valid npub or DNS to find and add contacts',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: onSurfaceVariant,
             ),
           ),
         ],
@@ -236,10 +258,7 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildUserCard(BuildContext context, UserDBISAR user) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final displayName = user.displayName();
-
     return ListTile(
       leading: _buildUserAvatar(context, displayName),
       title: Text(
@@ -251,7 +270,7 @@ class _AddContactPageState extends State<AddContactPage> {
       subtitle: _buildUserSubtitle(context, user),
       trailing: Icon(
         Icons.arrow_forward_ios,
-        color: colorScheme.onSurfaceVariant,
+        color: onSurfaceVariant,
         size: 16,
       ),
       onTap: () {
@@ -265,14 +284,12 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildUserAvatar(BuildContext context, String displayName) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return CircleAvatar(
-      backgroundColor: colorScheme.primary,
+      backgroundColor: primary,
       child: Text(
         displayName[0].toUpperCase(),
         style: TextStyle(
-          color: colorScheme.onPrimary,
+          color: onPrimary,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -280,20 +297,16 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildUserSubtitle(BuildContext context, UserDBISAR user) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Text(
       user.encodedPubkey,
       style: theme.textTheme.bodySmall?.copyWith(
         fontFamily: 'monospace',
-        color: colorScheme.onSurfaceVariant,
+        color: onSurfaceVariant,
       ),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
   }
-
 
   void _searchUser(String query) async {
     _dismissKeyboard();
@@ -325,8 +338,7 @@ class _AddContactPageState extends State<AddContactPage> {
         pubkey = await Account.getDNSPubkey(
           query.substring(0, query.indexOf('@')),
           query.substring(query.indexOf('@') + 1),
-        ) ??
-            '';
+        ) ?? '';
       }
 
       if (pubkey.isEmpty) {
@@ -389,5 +401,19 @@ class _AddContactPageState extends State<AddContactPage> {
 
   void _dismissKeyboard() {
     FocusScope.of(context).unfocus();
+  }
+
+  void _navigateToScanPage() async {
+    _dismissKeyboard();
+
+    final result = await context.push<String>('/qr-scan');
+
+    if (result != null && result.isNotEmpty) {
+      // Set the scanned text to the search controller
+      _searchController.text = result;
+
+      // Trigger search automatically
+      _searchUser(result);
+    }
   }
 }

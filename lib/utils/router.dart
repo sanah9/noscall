@@ -10,6 +10,7 @@ import '../auth/signup_page.dart';
 import '../auth/account_info_page.dart';
 import '../home/home_page.dart';
 import '../contacts/add_contact_page.dart';
+import '../contacts/qr_scan_page.dart';
 import '../contacts/user_detail_page.dart';
 import '../contacts/edit_nickname_page.dart';
 import '../profile/profile_settings_page.dart';
@@ -55,6 +56,11 @@ class AppRouter {
         path: '/add-contact',
         name: 'add-contact',
         builder: (context, state) => const AddContactPage(),
+      ),
+      GoRoute(
+        path: '/qr-scan',
+        name: 'qr-scan',
+        builder: (context, state) => const QRScanPage(),
       ),
       GoRoute(
         path: '/user-detail',
