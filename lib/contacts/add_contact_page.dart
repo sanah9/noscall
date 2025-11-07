@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/contacts/user_avatar.dart';
 import '../utils/toast.dart';
 import '../core/account/account.dart';
 import '../core/account/account+profile.dart';
 import '../core/account/model/userDB_isar.dart';
+import '../core/call/contacts/contacts.dart';
 
 class AddContactPage extends StatefulWidget {
   const AddContactPage({super.key});
@@ -14,8 +16,11 @@ class AddContactPage extends StatefulWidget {
 
 class _AddContactPageState extends State<AddContactPage> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   final List<UserDBISAR> _searchResults = [];
+  final List<UserDBISAR> _followerSuggestions = [];
   bool _isSearching = false;
+  bool _isLoadingFollowers = true;
 
   late ThemeData theme;
   Color get surface => theme.colorScheme.surface;
@@ -25,10 +30,86 @@ class _AddContactPageState extends State<AddContactPage> {
   Color get onPrimary => theme.colorScheme.onPrimary;
   Color get outline => theme.colorScheme.outline;
 
+  bool get _isSearchMode {
+    final query = _searchController.text.trim();
+    if (_isSearching) return true;
+    if (query.isEmpty) return false;
+    if (_searchFocusNode.hasFocus) return true;
+    if (_searchResults.isNotEmpty) return true;
+    return false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_handleSearchTextChanged);
+    _searchFocusNode.addListener(_handleSearchFocusChanged);
+    _loadFollowerSuggestions();
+  }
+
   @override
   void dispose() {
+    _searchController.removeListener(_handleSearchTextChanged);
+    _searchFocusNode.removeListener(_handleSearchFocusChanged);
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _handleSearchTextChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _handleSearchFocusChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _loadFollowerSuggestions() async {
+    try {
+      final followers = Account.sharedInstance.me?.followingList ?? [];
+      if (followers.isEmpty) return;
+
+      final contacts = Contacts.sharedInstance.allContacts;
+      final seen = <String>{};
+      final filteredPubkeys = <String>[];
+      for (final pubkey in followers) {
+        final normalized = pubkey.trim();
+        if (normalized.isEmpty) continue;
+        if (contacts.containsKey(normalized)) continue;
+        if (seen.add(normalized)) {
+          filteredPubkeys.add(normalized);
+        }
+      }
+      if (filteredPubkeys.isEmpty) return;
+
+      const suggestionLimit = 50;
+      final limitedPubkeys = filteredPubkeys.take(suggestionLimit).toList();
+
+      final users = await Future.wait(
+        limitedPubkeys.map((pubkey) async {
+          final user = await Account.sharedInstance.getUserInfo(pubkey);
+          return user;
+        }),
+      );
+
+      final suggestions = users.whereType<UserDBISAR>().toList()
+        ..sort(
+              (a, b) => a
+              .displayName()
+              .toLowerCase()
+              .compareTo(b.displayName().toLowerCase()),
+        );
+
+      _followerSuggestions.addAll(suggestions);
+    } finally {
+      _isLoadingFollowers = false;
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -42,11 +123,20 @@ class _AddContactPageState extends State<AddContactPage> {
         child: Column(
           children: [
             _buildSearchSection(context),
-            _buildSearchResults(context),
+            Expanded(
+              child: _buildMainContent(context),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildMainContent(BuildContext context) {
+    if (_isSearchMode) {
+      return _buildSearchResults(context);
+    }
+    return _buildFollowersSection(context);
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
@@ -109,8 +199,11 @@ class _AddContactPageState extends State<AddContactPage> {
   Widget _buildSearchTextField() {
     return TextField(
       controller: _searchController,
+      focusNode: _searchFocusNode,
+      textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: 'Enter npub (e.g., npub1abc...) or DNS (e.g., user@domain.com)',
+        hintText:
+        'Enter npub (e.g., npub1abc...) or DNS (e.g., user@domain.com)',
         hintStyle: TextStyle(
           color: onSurfaceVariant,
         ),
@@ -120,12 +213,12 @@ class _AddContactPageState extends State<AddContactPage> {
         ),
         suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
-              icon: Icon(
-                Icons.clear,
-                color: onSurfaceVariant,
-              ),
-              onPressed: _clearSearch,
-            )
+          icon: Icon(
+            Icons.clear,
+            color: onSurfaceVariant,
+          ),
+          onPressed: _clearSearch,
+        )
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -176,9 +269,8 @@ class _AddContactPageState extends State<AddContactPage> {
 
   Widget _buildSearchButton() {
     return ElevatedButton(
-      onPressed: _isSearching
-          ? null
-          : () => _searchUser(_searchController.text),
+      onPressed:
+      _isSearching ? null : () => _searchUser(_searchController.text),
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
         foregroundColor: onPrimary,
@@ -189,28 +281,65 @@ class _AddContactPageState extends State<AddContactPage> {
       ),
       child: _isSearching
           ? SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                onPrimary,
-              ),
-            ),
-          )
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            onPrimary,
+          ),
+        ),
+      )
           : const Text('Search'),
     );
   }
 
   Widget _buildSearchResults(BuildContext context) {
-    return Expanded(
-      child: _searchResults.isEmpty
-          ? _buildEmptyState(context)
-          : _buildResultsList(context),
+    if (_isSearching) {
+      return const SizedBox();
+    }
+
+    if (_searchResults.isEmpty) {
+      return _buildSearchEmptyState(context);
+    }
+
+    return _buildResultsList(context, _searchResults);
+  }
+
+  Widget _buildFollowersSection(BuildContext context) {
+    if (_isLoadingFollowers) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(primary),
+        ),
+      );
+    }
+
+    if (_followerSuggestions.isEmpty) {
+      return _buildEmptyFollowersState(context);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Text(
+            'People you may know',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: onSurface,
+            ),
+          ),
+        ),
+        Expanded(
+          child: _buildResultsList(context, _followerSuggestions),
+        ),
+      ],
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildSearchEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -239,7 +368,37 @@ class _AddContactPageState extends State<AddContactPage> {
     );
   }
 
-  Widget _buildResultsList(BuildContext context) {
+  Widget _buildEmptyFollowersState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.people_outline,
+            size: 64,
+            color: onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No followers to suggest',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Followers you are not already connected with will appear here',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsList(BuildContext context, List<UserDBISAR> users) {
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification notification) {
         if (notification is ScrollStartNotification) {
@@ -248,9 +407,9 @@ class _AddContactPageState extends State<AddContactPage> {
         return false;
       },
       child: ListView.builder(
-        itemCount: _searchResults.length,
+        itemCount: users.length,
         itemBuilder: (context, index) {
-          final user = _searchResults[index];
+          final user = users[index];
           return _buildUserCard(context, user);
         },
       ),
@@ -260,7 +419,7 @@ class _AddContactPageState extends State<AddContactPage> {
   Widget _buildUserCard(BuildContext context, UserDBISAR user) {
     final displayName = user.displayName();
     return ListTile(
-      leading: _buildUserAvatar(context, displayName),
+      leading: UserAvatar(user: user),
       title: Text(
         displayName,
         style: theme.textTheme.titleMedium?.copyWith(
@@ -273,26 +432,22 @@ class _AddContactPageState extends State<AddContactPage> {
         color: onSurfaceVariant,
         size: 16,
       ),
-      onTap: () {
+      onTap: () async {
         _dismissKeyboard();
-        context.push(
-          '/user-detail',
-          extra: {'pubkey': user.pubKey},
-        );
-      },
-    );
-  }
 
-  Widget _buildUserAvatar(BuildContext context, String displayName) {
-    return CircleAvatar(
-      backgroundColor: primary,
-      child: Text(
-        displayName[0].toUpperCase(),
-        style: TextStyle(
-          color: onPrimary,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+        final pubkey = user.pubKey;
+        await context.push(
+          '/user-detail',
+          extra: {'pubkey': pubkey},
+        );
+        if (!mounted) return;
+
+        final isContact =
+        Contacts.sharedInstance.allContacts.containsKey(pubkey);
+        if (isContact) {
+          _followerSuggestions.remove(user);
+        }
+      },
     );
   }
 
@@ -361,11 +516,11 @@ class _AddContactPageState extends State<AddContactPage> {
       // Search user profile from relay with 15s timeout
       final user = await Account.sharedInstance.reloadProfileFromRelay(pubkey)
           .timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          throw Exception('Search timeout');
-        },
-      );
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw Exception('Search timeout');
+            },
+          );
 
       setState(() {
         _searchResults.clear();
