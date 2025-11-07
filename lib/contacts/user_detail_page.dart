@@ -668,11 +668,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
     if (isUpdatingFromRemote.value) return; // Prevent multiple simultaneous updates
 
     isUpdatingFromRemote.value = true;
-    try {
-      await Account.sharedInstance.reloadProfileFromRelay(widget.pubkey);
-      // The user notifier will automatically update the UI when the data changes
-    } finally {
-      isUpdatingFromRemote.value = false;
-    }
+    await Account.sharedInstance.reloadProfileFromRelay(widget.pubkey);
+
+    if (!mounted) return;
+    isUpdatingFromRemote.value = false;
   }
 }
