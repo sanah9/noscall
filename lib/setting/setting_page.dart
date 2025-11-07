@@ -236,6 +236,7 @@ class _SettingPageState extends State<SettingPage> {
             ),
             child: SafeArea(
               child: Stack(
+                alignment: Alignment.center,
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -243,7 +244,7 @@ class _SettingPageState extends State<SettingPage> {
                       horizontal: 40.0,
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         _buildProfileAvatar(context, user),
                         const SizedBox(height: 16),
@@ -297,7 +298,6 @@ class _SettingPageState extends State<SettingPage> {
       ),
       child: UserAvatar(
         user: user,
-        size: 120,
       ),
     );
   }
@@ -549,7 +549,7 @@ class _SettingPageState extends State<SettingPage> {
     final theme = Theme.of(context);
     final account = Account.sharedInstance;
     final npub = Nip19.encodePubkey(account.currentPubkey);
-    final user = Account.sharedInstance.me;
+    final user = userNotifier?.value;
     final displayName = user?.displayName() ?? '';
     const spacerHeight = 12.0;
 

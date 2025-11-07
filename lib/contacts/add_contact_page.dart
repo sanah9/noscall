@@ -133,10 +133,19 @@ class _AddContactPageState extends State<AddContactPage> {
   }
 
   Widget _buildMainContent(BuildContext context) {
-    if (_isSearchMode) {
-      return _buildSearchResults(context);
-    }
-    return _buildFollowersSection(context);
+    final child = _isSearchMode
+        ? _buildSearchResults(context)
+        : _buildFollowersSection(context);
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: KeyedSubtree(
+        key: ValueKey<bool>(_isSearchMode),
+        child: child,
+      ),
+    );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {

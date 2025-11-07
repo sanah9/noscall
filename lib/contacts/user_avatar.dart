@@ -61,9 +61,7 @@ class UserAvatar extends StatelessWidget {
 
     return avatarWidget;
   }
-
-  // Widget _build
-
+  
   Widget _buildInitialsAvatar(
     BuildContext context,
     ColorScheme colorScheme,
