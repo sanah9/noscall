@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'constant/call_type.dart';
 import 'callkeep_manager.dart';
 import 'calling_controller.dart';
+import 'pip_manager.dart';
 import '../core/common/utils/log_utils.dart';
 
 class CallKitManager with WidgetsBindingObserver {
@@ -91,6 +92,11 @@ class CallKitManager with WidgetsBindingObserver {
 
       // Setup Nostr call state handler
       ChatCore.Contacts.sharedInstance.onCallStateChange = nostrCallStateChangeHandler;
+
+      // Initialize PiP manager
+      await PipManager.initialize();
+      final isSupported = await PipManager.isPipSupported();
+      LogUtils.i(() => 'PiP supported: $isSupported');
 
       // Audio management will be handled by WebRTC
 
