@@ -48,12 +48,12 @@ flutter run -d android
 Future versions will continue improving decentralized communication and customization capabilities.
 
 ### Planned Features
-- [ ] **QR code scanning** for easy contact discovery
-- [ ] **Profile settings** - Customize your user experience
+- [*] **QR code scanning** for easy contact discovery
+- [*] **Profile settings** - Customize your user experience
 - [ ] **Custom relay configuration** (Inbox relay)
 - [ ] **ICE server configuration UI** - Advanced connectivity options
 - [ ] **Login via Nostr Signer** - Enhanced security
-- [ ] **Import follower/following list** - Seamless migration
+- [*] **Import follower/following list** - Seamless migration
 - [ ] **Friend grouping and favorites** - Organize your contacts efficiently
 - [ ] **NIP-05 identity support** - Use your Nostr identity seamlessly
 - [ ] **Tor network support** - Additional privacy and anonymity
