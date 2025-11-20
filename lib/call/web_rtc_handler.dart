@@ -7,6 +7,7 @@ import 'package:noscall/core/native_method_channel.dart';
 import '../core/common/utils/log_utils.dart';
 import 'ice_server_manager.dart';
 import 'constant/call_type.dart';
+import 'pip_manager.dart';
 
 class WebRTCHandler {
   WebRTCHandler._({
@@ -214,6 +215,51 @@ class WebRTCHandler {
     localRenderer.dispose();
     remoteRenderer.dispose();
   }
+
+  /// Start PiP for video track (iOS only)
+  /// Called when video track arrives in onTrackHandler
+  Future<void> _startPiPForVideoTrack(MediaStream stream) async {
+    if (!callType.isVideo) return;
+
+    try {
+      // Get video track ID
+      final videoTracks = stream.getVideoTracks();
+      if (videoTracks.isEmpty) {
+        LogUtils.w(() => 'No video tracks in stream for PiP');
+        return;
+      }
+
+      final videoTrack = videoTracks.first;
+      final trackId = videoTrack.id;
+
+      if (trackId == null || trackId.isEmpty) {
+        LogUtils.w(() => 'Video track has empty ID');
+        return;
+      }
+
+      // Check if PiP is available (iOS only)
+      final isAvailable = await PipManager.isPipSupported();
+      if (!isAvailable) {
+        LogUtils.i(() => 'PiP is not available on this device');
+        return;
+      }
+
+      // Start PiP with trackId
+      // Native code will:
+      // 1. Get the track using FlutterWebRTCPlugin.sharedSingleton().remoteTrack(forId: trackId)
+      // 2. Attach the PiP renderer to the track
+      // 3. Start PiP
+      final success = await PipManager.startPiP(trackId: trackId);
+
+      if (success) {
+        LogUtils.i(() => 'PiP started with trackId: $trackId');
+      } else {
+        LogUtils.w(() => 'Failed to start PiP');
+      }
+    } catch (e) {
+      LogUtils.e(() => 'Failed to start PiP for video track: $e');
+    }
+  }
 }
 
 extension WebRTCPeerConnectionMediaEx on WebRTCHandler {
@@ -286,6 +332,16 @@ extension WebRTCPeerConnectionCallbackEx on WebRTCHandler {
         break;
       case 'video':
         WebRTCHelper.addStreamToRenderer(stream, remoteRenderer);
+        remoteMedia = stream;
+        
+        // Start PiP when video track arrives (iOS only)
+        // This is the right moment because:
+        // 1. Video track is guaranteed to be available
+        // 2. remoteMedia is set
+        // 3. We can get trackId immediately
+        if (callType.isVideo) {
+          _startPiPForVideoTrack(stream);
+        }
         break;
     }
   }

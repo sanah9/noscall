@@ -585,7 +585,9 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
       // Restart auto-hide timer when call is connected
       _startAutoHideTimer();
 
-      PipManager.enablePip();
+      if (Platform.isAndroid) {
+        PipManager.enablePip();
+      }
     }
   }
 

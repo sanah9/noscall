@@ -22,11 +22,19 @@ import Flutter
     }
     
     private func registerCustomPlugins(with controller: FlutterViewController) {
-        guard let registrar = controller.registrar(forPlugin: "NativeMethodHandler") else {
+        // Register NativeMethodHandler
+        if let registrar = controller.registrar(forPlugin: "NativeMethodHandler") {
+            NativeMethodHandler.register(with: registrar)
+        } else {
             print("Failed to get registrar for NativeMethodHandler")
-            return
         }
-        NativeMethodHandler.register(with: registrar)
+        
+        // Register WebRTCPiPPlugin
+        if let registrar = controller.registrar(forPlugin: "WebRTCPiPPlugin") {
+            WebRTCPiPPlugin.register(with: registrar)
+        } else {
+            print("Failed to get registrar for WebRTCPiPPlugin")
+        }
     }
     
     override func applicationDidBecomeActive(_ application: UIApplication) {
