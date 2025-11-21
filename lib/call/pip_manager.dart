@@ -83,7 +83,6 @@ class PipManager {
     }
   }
 
-  /// Check if PiP is available (iOS) or supported (Android)
   static Future<bool> isPipSupported() async {
     try {
       if (Platform.isIOS) {
@@ -100,58 +99,34 @@ class PipManager {
     }
   }
 
-  /// Start Picture-in-Picture
-  /// For iOS: requires trackId parameter
-  /// For Android: no parameters needed
-  static Future<bool> startPiP({String? trackId}) async {
-    try {
-      if (Platform.isAndroid) {
-        await _channel.invokeMethod('enablePip');
-        LogUtils.i(() => 'PiP enabled (Android)');
-        return true;
-      } else if (Platform.isIOS) {
-        if (trackId == null || trackId.isEmpty) {
-          LogUtils.e(() => 'trackId is required for iOS PiP');
-          return false;
-        }
-        await _channel.invokeMethod('startPip', {'trackId': trackId});
-        LogUtils.i(() => 'PiP start requested (iOS)');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      LogUtils.e(() => 'Failed to start PiP: $e');
+  static Future<bool> startIOSPiP({String? trackId}) async {
+    if (trackId == null || trackId.isEmpty) {
+      LogUtils.e(() => 'trackId is required for iOS PiP');
       return false;
     }
+    await _channel.invokeMethod('startPip', {'trackId': trackId});
+    LogUtils.i(() => 'PiP start requested (iOS)');
+    return true;
   }
 
-  /// Stop Picture-in-Picture
-  static Future<void> disablePip() async {
-    try {
-      if (Platform.isAndroid) {
-        await _channel.invokeMethod('disablePip');
-        _isPipMode = false;
-        LogUtils.i(() => 'PiP disabled (Android)');
-      } else if (Platform.isIOS) {
-        await _channel.invokeMethod('stopPip');
-        LogUtils.i(() => 'PiP stopped (iOS)');
-      }
-    } catch (e) {
-      LogUtils.e(() => 'Failed to disable PiP: $e');
-    }
+  static Future<void> stopIOSPiP() async {
+    await _channel.invokeMethod('stopPip');
+    LogUtils.i(() => 'PiP stopped (iOS)');
   }
 
-  /// Enter PiP mode (Android only - legacy method)
-  static Future<bool> enterPip() async {
-    if (Platform.isAndroid) {
-      return await startPiP();
-    }
-    return false;
+  static Future<void> enableAndroidPip() async {
+    if (!Platform.isAndroid) return;
+
+    await _channel.invokeMethod('enablePip');
+    LogUtils.i(() => 'PiP enabled (Android)');
   }
 
-  /// Enable PiP (alias for startPiP for backward compatibility)
-  static Future<void> enablePip() async {
-    await startPiP();
+  static Future<void> disableAndroidPip() async {
+    if (!Platform.isAndroid) return;
+
+    await _channel.invokeMethod('disablePip');
+    _isPipMode = false;
+    LogUtils.i(() => 'PiP disabled (Android)');
   }
 
   static void dispose() {

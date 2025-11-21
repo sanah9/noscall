@@ -153,7 +153,8 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    PipManager.disablePip();
+    PipManager.disableAndroidPip();
+    PipManager.stopIOSPiP();
     _pipStateSubscription?.cancel();
     _cancelAutoHideTimer();
     if (controller.state.value != CallingState.ended) {

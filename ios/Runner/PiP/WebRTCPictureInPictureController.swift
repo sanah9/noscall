@@ -25,7 +25,6 @@ class WebRTCPictureInPictureController: NSObject {
     }
 
     func attach(track: RTCVideoTrack) {
-        // Remove previous binding
         currentTrack?.remove(sink)
         currentTrack = track
         track.add(sink)
@@ -33,14 +32,11 @@ class WebRTCPictureInPictureController: NSObject {
 
     func start() {
         guard let controller else { return }
-        if AVPictureInPictureController.isPictureInPictureSupported(),
-           !controller.isPictureInPictureActive {
-            controller.startPictureInPicture()
-        }
+        sink.attachToRootView()
     }
 
     func stop() {
-        controller?.stopPictureInPicture()
+        sink.detachFromRootView()
     }
 
     func pipEvent(_ name: String, extra: Any? = nil) {
