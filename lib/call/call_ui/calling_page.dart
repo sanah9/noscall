@@ -86,7 +86,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     if (controller.callType.isVideo &&
         controller.state.value == CallingState.connected) {
       _autoHideTimer?.cancel();
-      _autoHideTimer = Timer(const Duration(seconds: 5), () {
+      _autoHideTimer = Timer(const Duration(seconds: 10), () {
         if (mounted && _showControls) {
           setState(() {
             _showControls = false;
@@ -177,17 +177,22 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _getStatusBarStyle(),
       child: Scaffold(
-        appBar: _showControls
-          ? AppBar(
-          backgroundColor: Colors.transparent,
-          systemOverlayStyle: _getStatusBarStyle(),
-          leading: BackButton(
-            onPressed: () {
-              controller.hangup(CallEndReason.hangup);
-            },
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: AnimatedOpacity(
+            opacity: _showControls ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              systemOverlayStyle: _getStatusBarStyle(),
+              leading: BackButton(
+                onPressed: () {
+                  controller.hangup(CallEndReason.hangup);
+                },
+              ),
+            ),
           ),
-          )
-          : null,
+        ),
         extendBodyBehindAppBar: true,
         body: Overlay(
           key: overlayKey,
@@ -284,9 +289,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
                   child: AnimatedOpacity(
                     opacity: _showControls ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 300),
-                    child: _showControls
-                        ? _buildControlsBar()
-                        : const SizedBox.shrink(),
+                    child: _buildControlsBar(),
                   ),
                 ),
               ),
@@ -312,10 +315,10 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     return Visibility(
       visible: controller.callType.isVideo,
       child: ValueListenableBuilder(
-        valueListenable: controller.state,
-        builder: (BuildContext context, state, Widget? child) {
+        valueListenable: controller.hasConnected,
+        builder: (BuildContext context, hasConnected, Widget? child) {
           // Determine which renderer to use
-          final renderer = state == CallingState.connected
+          final renderer = hasConnected
               ? controller.webRTCHandler.remoteRenderer
               : controller.webRTCHandler.localRenderer;
 
@@ -581,13 +584,12 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
 
     if (state == CallingState.ended) {
       context.pop();
-    } else if (state == CallingState.connected &&
-        controller.callType.isVideo) {
+    } else if (state == CallingState.connected && controller.callType.isVideo) {
       // Restart auto-hide timer when call is connected
       _startAutoHideTimer();
 
       if (Platform.isAndroid) {
-        PipManager.enablePip();
+        PipManager.enableAndroidPip();
       }
     }
   }

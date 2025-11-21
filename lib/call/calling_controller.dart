@@ -52,6 +52,7 @@ class CallingController {
     this.callKeepManager,
   }) :
         state = ValueNotifier(state),
+        hasConnected = ValueNotifier(state == CallingState.connected),
         speakerType = ValueNotifier(speakerType),
         isCameraOn = ValueNotifier(isCameraOn),
         isRecordOn = ValueNotifier(isRecordOn),
@@ -76,6 +77,7 @@ class CallingController {
 
   CallingRole role;
   ValueNotifier<CallingState> state;
+  ValueNotifier<bool> hasConnected;
   ValueNotifier<AudioOutputType> speakerType;
   ValueNotifier<bool> isCameraOn;
   ValueNotifier<bool> isRecordOn;
@@ -178,7 +180,7 @@ class CallingController {
 
     // Convert string reason to CallEndReason enum for consistent handling
     final callEndReason = CallEndReasonEx.fromValue(reason) ?? CallEndReason.disconnect;
-    if (state.value == CallingState.connected) {
+    if (hasConnected.value) {
       status = CallStatus.completed;
     } else {
       switch (callEndReason) {
@@ -257,7 +259,7 @@ extension CallingControllerUserActionEx on CallingController {
 extension CallingControllerSignalingEx on CallingController {
   Future<bool> invitePeer({Function? timeoutHandler}) async {
     Future.delayed(const Duration(seconds: 60), () {
-      if (state.value != CallingState.connected && state.value != CallingState.ended) {
+      if (hasConnected.value) {
         timeoutHandler?.call();
         _recordCallHistory(CallEndReason.timeout.value);
       }
@@ -286,7 +288,7 @@ extension CallingControllerSignalingEx on CallingController {
 
     // Determine the appropriate reason based on call state using Dart 3.0 switch
     final finalReason = switch (reason) {
-      CallEndReason.hangup => [CallingState.ringing, CallingState.connecting].contains(state.value)
+      CallEndReason.hangup => !hasConnected.value
           ? CallEndReason.hangup
           : CallEndReason.disconnect,
       _ => reason,
@@ -711,6 +713,7 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
     );
     switch (connectionState) {
       case RTCIceConnectionState.RTCIceConnectionStateConnected:
+        hasConnected.value = true;
         state.value = CallingState.connected;
         connectedStopwatch.start();
         webRTCHandler.setSpeakerType(speakerType.value);

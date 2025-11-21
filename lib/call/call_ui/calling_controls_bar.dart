@@ -22,7 +22,6 @@ class CallingControlsBarState extends State<CallingControlsBar> {
 
   CallingController get controller => widget.controller;
 
-
   double get iconSize => 48;
   double get mainIconSize => 60;
 
@@ -45,59 +44,59 @@ class CallingControlsBarState extends State<CallingControlsBar> {
 
   Widget content() {
     return ValueListenableBuilder(
-      valueListenable: controller.state,
-      builder: (_, state, __) {
-        final items = controlWidgets(state);
-        return Container(
-          decoration: BoxDecoration(
-            color: surface.withValues(alpha: 0.6),
-            borderRadius: const BorderRadius.all(Radius.circular(24)),
-            border: Border.all(
-              color: outline.withValues(alpha: 0.6),
-              width: 0.5,
-            ),
-          ),
-          height: 100,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: items,
-          ),
+      valueListenable: controller.hasConnected,
+      builder: (_, hasConnected, __) {
+        return ValueListenableBuilder(
+          valueListenable: controller.state,
+          builder: (_, state, __) {
+            final items = controlWidgets(state, hasConnected);
+            return Container(
+              decoration: BoxDecoration(
+                color: surface.withValues(alpha: 0.6),
+                borderRadius: const BorderRadius.all(Radius.circular(24)),
+                border: Border.all(
+                  color: outline.withValues(alpha: 0.6),
+                  width: 0.5,
+                ),
+              ),
+              height: 100,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: items,
+              ),
+            );
+          },
         );
-      },
+      }
     );
   }
 
-  List<Widget> controlWidgets(CallingState state) {
+  List<Widget> controlWidgets(CallingState state, bool hasConnected) {
     final role = controller.role;
     final type = controller.callType;
-    final isConnected = state == CallingState.connected;
     final isEnded = state == CallingState.ended;
 
+    List<Widget> widgets = switch ((hasConnected, role, type)) {
+      (false, CallingRole.callee, CallType.audio) => controlsForInvitedAudio(),
+      (false, CallingRole.callee, CallType.video) => controlsForInvitedVideo(),
+      (false, CallingRole.caller, CallType.audio) => controlsForInvitingAudio(),
+      (false, CallingRole.caller, CallType.video) => controlsForInvitingVideo(),
+      (true, _, CallType.audio) => controlsForConnectedAudio(),
+      (true, _, CallType.video) => controlsForConnectedVideo(),
+    };
+
+    // If ended, wrap all widgets to disable them
     if (isEnded) {
-      return [];
+      widgets = widgets.map((widget) => Opacity(
+        opacity: 0.5,
+        child: IgnorePointer(
+          child: widget,
+        ),
+      )).toList();
     }
 
-    switch ((isConnected, role, type)) {
-      case (false, CallingRole.callee, CallType.audio):
-      // Audio - Invited
-        return controlsForInvitedAudio();
-      case (false, CallingRole.callee, CallType.video):
-      // Video - Invited
-        return controlsForInvitedVideo();
-      case (false, CallingRole.caller, CallType.audio):
-      // Audio - Inviting
-        return controlsForInvitingAudio();
-      case (false, CallingRole.caller, CallType.video):
-      // Video - Inviting
-        return controlsForInvitingVideo();
-      case (true, _, CallType.audio):
-      // Audio - Connected
-        return controlsForConnectedAudio();
-      case (true, _, CallType.video):
-      // Video - Connected
-        return controlsForConnectedVideo();
-    }
+    return widgets;
   }
 
   List<Widget> controlsForInvitedAudio([bool toggleMode = false]) => [
