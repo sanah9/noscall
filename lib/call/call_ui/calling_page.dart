@@ -56,6 +56,10 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
   // Track if video view is ready to render (for Android)
   bool _isVideoViewReady = false;
 
+  bool get _isVideoConnected =>
+      controller.state.value == CallingState.connected &&
+      controller.callType.isVideo;
+
   @override
   void initState() {
     super.initState();
@@ -80,25 +84,6 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     }
 
     _startAutoHideTimer();
-  }
-
-  void _startAutoHideTimer() {
-    if (controller.callType.isVideo &&
-        controller.state.value == CallingState.connected) {
-      _autoHideTimer?.cancel();
-      _autoHideTimer = Timer(const Duration(seconds: 10), () {
-        if (mounted && _showControls) {
-          setState(() {
-            _showControls = false;
-          });
-        }
-      });
-    }
-  }
-
-  void _cancelAutoHideTimer() {
-    _autoHideTimer?.cancel();
-    _autoHideTimer = null;
   }
 
   void _checkVideoRendererReady() {
@@ -138,18 +123,6 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     }
   }
 
-  void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-    });
-
-    if (_showControls) {
-      _startAutoHideTimer();
-    } else {
-      _cancelAutoHideTimer();
-    }
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -165,9 +138,20 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  void counterValueChange(value) {
-    if (mounted) {
-      setState(() {});
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (!mounted) return;
+
+    final appStateBackground = state == AppLifecycleState.paused || state == AppLifecycleState.inactive;
+    if (_isVideoConnected && appStateBackground) {
+      if (appStateBackground && _showControls) {
+        setState(() {
+          _showControls = false;
+        });
+        _cancelAutoHideTimer();
+      }
     }
   }
 
@@ -204,13 +188,6 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
         ),
       ),
     );
-  }
-
-  void _handleBackgroundTap() {
-    if (controller.callType.isVideo &&
-        controller.state.value == CallingState.connected) {
-      _toggleControls();
-    }
   }
 
   Widget _buildContent() {
@@ -334,89 +311,6 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     );
   }
 
-  void _handleCameraPanStart(double screenWidth, double screenHeight) {
-    // Calculate initial absolute position from current ratios
-    // Don't use setState here to avoid rebuild that might interrupt gesture
-    _dragStartTop = screenHeight * _cameraPosTopRatio;
-    _dragStartLeft = screenWidth * _cameraPosLeftRatio;
-    _cumulativeDeltaX = 0.0;
-    _cumulativeDeltaY = 0.0;
-  }
-
-  void _handleCameraPanUpdate(
-    DragUpdateDetails details,
-    double screenWidth,
-    double screenHeight,
-    double width,
-    double height,
-  ) {
-    // Validate screen dimensions
-    if (screenWidth <= 0 || screenHeight <= 0 ||
-        !screenWidth.isFinite || !screenHeight.isFinite) {
-      return;
-    }
-
-    // Ensure we have initial drag position (fallback if onPanStart didn't fire)
-    if (_dragStartTop == null || _dragStartLeft == null) {
-      _dragStartTop = screenHeight * _cameraPosTopRatio;
-      _dragStartLeft = screenWidth * _cameraPosLeftRatio;
-      _cumulativeDeltaX = 0.0;
-      _cumulativeDeltaY = 0.0;
-    }
-
-    // Accumulate delta values for accurate 1:1 drag tracking
-    // details.delta is the incremental movement since last update
-    _cumulativeDeltaX += details.delta.dx;
-    _cumulativeDeltaY += details.delta.dy;
-
-    // Calculate constraints
-    const minMargin = 8.0;
-    final maxTop = (screenHeight - height - minMargin).clamp(0.0, screenHeight);
-    final maxLeft = (screenWidth - width - minMargin).clamp(0.0, screenWidth);
-
-    // Calculate new position from initial drag position + accumulated delta
-    // This ensures 1:1 drag tracking (finger movement = widget movement)
-    final newTop = _dragStartTop! + _cumulativeDeltaY;
-    final newLeft = _dragStartLeft! + _cumulativeDeltaX;
-
-    // Constrain within bounds
-    final constrainedTop = newTop.clamp(0.0, maxTop);
-    final constrainedLeft = newLeft.clamp(0.0, maxLeft);
-
-    // If constrained, adjust cumulative delta to match constrained position
-    // This prevents dragging from getting stuck at boundaries
-    if (constrainedTop != newTop) {
-      _cumulativeDeltaY = constrainedTop - _dragStartTop!;
-    }
-    if (constrainedLeft != newLeft) {
-      _cumulativeDeltaX = constrainedLeft - _dragStartLeft!;
-    }
-
-    // Update ratios and trigger rebuild
-    setState(() {
-      if (screenHeight > 0 && screenWidth > 0) {
-        _cameraPosTopRatio = (constrainedTop / screenHeight).clamp(0.0, 1.0);
-        _cameraPosLeftRatio = (constrainedLeft / screenWidth).clamp(0.0, 1.0);
-      }
-    });
-  }
-
-  void _handleCameraPanEnd() {
-    // Clear drag state when drag ends
-    _dragStartTop = null;
-    _dragStartLeft = null;
-    _cumulativeDeltaX = 0.0;
-    _cumulativeDeltaY = 0.0;
-  }
-
-  void _handleCameraPanCancel() {
-    // Clear drag state if drag is cancelled
-    _dragStartTop = null;
-    _dragStartLeft = null;
-    _cumulativeDeltaX = 0.0;
-    _cumulativeDeltaY = 0.0;
-  }
-
   Widget _buildCameraScreen({
     required double width,
     required double height,
@@ -429,8 +323,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
       valueListenable: controller.state,
       builder: (BuildContext context, state, Widget? child) {
         return Visibility(
-          visible: controller.callType.isVideo
-              && state == CallingState.connected,
+          visible: _isVideoConnected,
           child: GestureDetector(
             // Use behavior: HitTestBehavior.opaque to ensure gestures are captured
             behavior: HitTestBehavior.opaque,
@@ -476,7 +369,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     return ValueListenableBuilder(
       valueListenable: controller.state,
       builder: (BuildContext context, state, Widget? child) {
-        if (controller.callType.isVideo  && state == CallingState.connected) {
+        if (_isVideoConnected) {
           return const SizedBox();
         }
 
@@ -560,20 +453,124 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
         );
       },
     );
-
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
+  void _handleCameraPanStart(double screenWidth, double screenHeight) {
+    // Calculate initial absolute position from current ratios
+    // Don't use setState here to avoid rebuild that might interrupt gesture
+    _dragStartTop = screenHeight * _cameraPosTopRatio;
+    _dragStartLeft = screenWidth * _cameraPosLeftRatio;
+    _cumulativeDeltaX = 0.0;
+    _cumulativeDeltaY = 0.0;
+  }
 
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (mounted && _showControls) {
-        setState(() {
-          _showControls = false;
-        });
-        _cancelAutoHideTimer();
+  void _handleCameraPanUpdate(
+      DragUpdateDetails details,
+      double screenWidth,
+      double screenHeight,
+      double width,
+      double height,
+      ) {
+    // Validate screen dimensions
+    if (screenWidth <= 0 || screenHeight <= 0 ||
+        !screenWidth.isFinite || !screenHeight.isFinite) {
+      return;
+    }
+
+    // Ensure we have initial drag position (fallback if onPanStart didn't fire)
+    if (_dragStartTop == null || _dragStartLeft == null) {
+      _dragStartTop = screenHeight * _cameraPosTopRatio;
+      _dragStartLeft = screenWidth * _cameraPosLeftRatio;
+      _cumulativeDeltaX = 0.0;
+      _cumulativeDeltaY = 0.0;
+    }
+
+    // Accumulate delta values for accurate 1:1 drag tracking
+    // details.delta is the incremental movement since last update
+    _cumulativeDeltaX += details.delta.dx;
+    _cumulativeDeltaY += details.delta.dy;
+
+    // Calculate constraints
+    const minMargin = 8.0;
+    final maxTop = (screenHeight - height - minMargin).clamp(0.0, screenHeight);
+    final maxLeft = (screenWidth - width - minMargin).clamp(0.0, screenWidth);
+
+    // Calculate new position from initial drag position + accumulated delta
+    // This ensures 1:1 drag tracking (finger movement = widget movement)
+    final newTop = _dragStartTop! + _cumulativeDeltaY;
+    final newLeft = _dragStartLeft! + _cumulativeDeltaX;
+
+    // Constrain within bounds
+    final constrainedTop = newTop.clamp(0.0, maxTop);
+    final constrainedLeft = newLeft.clamp(0.0, maxLeft);
+
+    // If constrained, adjust cumulative delta to match constrained position
+    // This prevents dragging from getting stuck at boundaries
+    if (constrainedTop != newTop) {
+      _cumulativeDeltaY = constrainedTop - _dragStartTop!;
+    }
+    if (constrainedLeft != newLeft) {
+      _cumulativeDeltaX = constrainedLeft - _dragStartLeft!;
+    }
+
+    // Update ratios and trigger rebuild
+    setState(() {
+      if (screenHeight > 0 && screenWidth > 0) {
+        _cameraPosTopRatio = (constrainedTop / screenHeight).clamp(0.0, 1.0);
+        _cameraPosLeftRatio = (constrainedLeft / screenWidth).clamp(0.0, 1.0);
       }
+    });
+  }
+
+  void _handleCameraPanEnd() {
+    // Clear drag state when drag ends
+    _dragStartTop = null;
+    _dragStartLeft = null;
+    _cumulativeDeltaX = 0.0;
+    _cumulativeDeltaY = 0.0;
+  }
+
+  void _handleCameraPanCancel() {
+    // Clear drag state if drag is cancelled
+    _dragStartTop = null;
+    _dragStartLeft = null;
+    _cumulativeDeltaX = 0.0;
+    _cumulativeDeltaY = 0.0;
+  }
+
+  void _startAutoHideTimer() {
+    if (_isVideoConnected) {
+      _autoHideTimer?.cancel();
+      _autoHideTimer = Timer(const Duration(seconds: 10), () {
+        if (mounted && _showControls) {
+          setState(() {
+            _showControls = false;
+          });
+        }
+      });
+    }
+  }
+
+  void _cancelAutoHideTimer() {
+    _autoHideTimer?.cancel();
+    _autoHideTimer = null;
+  }
+
+  void _handleBackgroundTap() {
+    if (_isVideoConnected) {
+      _toggleControls();
+    }
+  }
+
+  void _toggleControls() {
+    setState(() {
+      _showControls = !_showControls;
+    });
+
+    if (_showControls) {
+      _startAutoHideTimer();
+    } else {
+      _cancelAutoHideTimer();
     }
   }
 
@@ -584,7 +581,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
 
     if (state == CallingState.ended) {
       context.pop();
-    } else if (state == CallingState.connected && controller.callType.isVideo) {
+    } else if (_isVideoConnected) {
       // Restart auto-hide timer when call is connected
       _startAutoHideTimer();
 
