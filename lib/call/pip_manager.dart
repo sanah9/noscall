@@ -99,18 +99,18 @@ class PipManager {
     }
   }
 
-  static Future<bool> startIOSPiP({String? trackId}) async {
+  static Future<bool> attachIOSPiP({String? trackId}) async {
     if (trackId == null || trackId.isEmpty) {
       LogUtils.e(() => 'trackId is required for iOS PiP');
       return false;
     }
-    await _channel.invokeMethod('startPip', {'trackId': trackId});
+    await _channel.invokeMethod('attach', {'trackId': trackId});
     LogUtils.i(() => 'PiP start requested (iOS)');
     return true;
   }
 
-  static Future<void> stopIOSPiP() async {
-    await _channel.invokeMethod('stopPip');
+  static Future<void> detachIOSPiP() async {
+    await _channel.invokeMethod('detach');
     LogUtils.i(() => 'PiP stopped (iOS)');
   }
 

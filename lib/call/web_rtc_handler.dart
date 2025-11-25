@@ -216,7 +216,7 @@ class WebRTCHandler {
     remoteRenderer.dispose();
   }
 
-  Future<void> _startIOSPiPForVideoTrack(MediaStream stream) async {
+  Future<void> _attachIOSPiPForVideoTrack(MediaStream stream) async {
     if (!callType.isVideo) return;
 
     final isAvailable = await PipManager.isPipSupported();
@@ -237,7 +237,7 @@ class WebRTCHandler {
       return;
     }
 
-    final success = await PipManager.startIOSPiP(trackId: trackId);
+    final success = await PipManager.attachIOSPiP(trackId: trackId);
     if (success) {
       LogUtils.i(() => 'PiP started with trackId: $trackId');
     } else {
@@ -306,7 +306,7 @@ extension WebRTCPeerConnectionCallbackEx on WebRTCHandler {
     if (state == RTCIceConnectionState.RTCIceConnectionStateConnected &&
         callType.isVideo &&
         remoteMedia != null) {
-      _startIOSPiPForVideoTrack(remoteMedia!);
+      _attachIOSPiPForVideoTrack(remoteMedia!);
     }
   }
 

@@ -30,10 +30,12 @@ import Flutter
         }
         
         // Register WebRTCPiPPlugin
-        if let registrar = controller.registrar(forPlugin: "WebRTCPiPPlugin") {
-            WebRTCPiPPlugin.register(with: registrar)
-        } else {
-            print("Failed to get registrar for WebRTCPiPPlugin")
+        if #available(iOS 15.0, *) {
+            if let registrar = controller.registrar(forPlugin: "WebRTCPiPPlugin") {
+                    WebRTCPiPPlugin.register(with: registrar)
+            } else {
+                print("Failed to get registrar for WebRTCPiPPlugin")
+            }
         }
     }
     
