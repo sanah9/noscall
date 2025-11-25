@@ -73,15 +73,9 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
           // Future: Could adjust UI based on PiP mode
         }
       });
-
-      // On Android, ensure video view is ready after renderer is initialized
-      // This fixes the issue where local video doesn't show during call invitation
-      // Check if local renderer has textureId (indicating it's initialized)
-      _checkVideoRendererReady();
-    } else {
-      // On iOS, mark as ready immediately
-      _isVideoViewReady = true;
     }
+
+    _checkVideoRendererReady();
 
     _startAutoHideTimer();
   }
@@ -299,8 +293,16 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
               ? controller.webRTCHandler.remoteRenderer
               : controller.webRTCHandler.localRenderer;
 
+          // Show black background while waiting for renderer to be ready
+          // This prevents white background flash on iOS when renderer is not initialized yet
+          if (!_isVideoViewReady && !hasConnected) {
+            return Container(
+              color: Colors.black,
+            );
+          }
+
           return Container(
-            color: Platform.isAndroid ? Colors.black : null,
+            color: Colors.black,
             child: RTCVideoView(
               renderer,
               objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
