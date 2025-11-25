@@ -259,7 +259,7 @@ extension CallingControllerUserActionEx on CallingController {
 extension CallingControllerSignalingEx on CallingController {
   Future<bool> invitePeer({Function? timeoutHandler}) async {
     Future.delayed(const Duration(seconds: 60), () {
-      if (hasConnected.value) {
+      if (!hasConnected.value) {
         timeoutHandler?.call();
         _recordCallHistory(CallEndReason.timeout.value);
       }
