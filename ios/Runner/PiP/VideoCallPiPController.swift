@@ -41,7 +41,6 @@ final class VideoCallPiPController: NSObject {
         currentTrack?.remove(videoCallView)
         currentTrack = track
         track.add(videoCallView)
-        
     }
     
     private func createPiPVideoCallViewController(videoCallView: SampleBufferVideoCallView) -> AVPictureInPictureVideoCallViewController {
