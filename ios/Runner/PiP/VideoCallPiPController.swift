@@ -5,8 +5,7 @@ import WebRTC
 @available(iOS 15.0, *)
 final class VideoCallPiPController: NSObject {
 
-    private let videoCallView = SampleBufferVideoCallView()
-    private let pipVideoCallViewController = AVPictureInPictureVideoCallViewController()
+    private var videoCallView: SampleBufferVideoCallView?
     private var pipController: AVPictureInPictureController?
 
     private weak var currentTrack: RTCVideoTrack?
@@ -15,47 +14,53 @@ final class VideoCallPiPController: NSObject {
     init(eventSink: FlutterEventSink?) {
         self.eventSink = eventSink
         super.init()
-
-        setupPiP()
-    }
-
-    private func setupPiP() {
-        guard AVPictureInPictureController.isPictureInPictureSupported() else {
-            print("PiP not supported on this device")
-            return
-        }
-        guard let activeVideoCallSourceView = ScreenTool.shared.rootViewController?.view else {
-            print("PiP not supported on this device")
-            return
-        }
-
-        pipVideoCallViewController.preferredContentSize = ScreenTool.shared.bounds.size
-        videoCallView.frame = pipVideoCallViewController.view.bounds
-        pipVideoCallViewController.view.addSubview(videoCallView)
-
-        let contentSource = AVPictureInPictureController.ContentSource(
-            activeVideoCallSourceView: activeVideoCallSourceView,
-            contentViewController: pipVideoCallViewController
-        )
-
-        let controller = AVPictureInPictureController(contentSource: contentSource)
-        controller.delegate = self
-        controller.canStartPictureInPictureAutomaticallyFromInline = true
-
-        self.pipController = controller
     }
 
     func attach(track: RTCVideoTrack) {
+        guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
+        guard let activeVideoCallSourceView = ScreenTool.shared.rootViewController?.view else {
+            return
+        }
+        
+        let videoCallView = SampleBufferVideoCallView()
+        self.videoCallView = videoCallView
+        let pipVideoCallViewController = createPiPVideoCallViewController(videoCallView: videoCallView)
+        
+        videoCallView.activate()
+        
+        let controller = AVPictureInPictureController(contentSource: AVPictureInPictureController.ContentSource(
+            activeVideoCallSourceView: activeVideoCallSourceView,
+            contentViewController: pipVideoCallViewController
+        ))
+        controller.delegate = self
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+
+        pipController = controller
+
+        // Bind track
         currentTrack?.remove(videoCallView)
         currentTrack = track
         track.add(videoCallView)
+        
+    }
+    
+    private func createPiPVideoCallViewController(videoCallView: SampleBufferVideoCallView) -> AVPictureInPictureVideoCallViewController {
+        let pipVideoCallViewController = AVPictureInPictureVideoCallViewController()
+        pipVideoCallViewController.preferredContentSize = ScreenTool.shared.bounds.size
+        pipVideoCallViewController.view.addSubview(videoCallView)
+        videoCallView.frame = pipVideoCallViewController.view.bounds
+        return pipVideoCallViewController
     }
 
     func detach() {
-        currentTrack?.remove(videoCallView)
+        if let videoCallView = videoCallView {
+            videoCallView.removeFromSuperview()
+            currentTrack?.remove(videoCallView)
+            videoCallView.deactivate()
+        }
+        videoCallView = nil
         currentTrack = nil
-        videoCallView.reset()
-        pipController?.contentSource = nil
+        pipController = nil
     }
 
     func start() {

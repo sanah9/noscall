@@ -36,8 +36,20 @@ final class SampleBufferVideoCallView: UIView {
             displayLayer.frame = superViewBounds
         }
     }
+    
+    func activate() {
+        renderQueue.async { [weak self] in
+            guard let self else { return }
 
-    func reset() {
+            self.displayLayer.flush()
+            
+            self.displayLayer.requestMediaDataWhenReady(on: self.renderQueue) {
+                // no-op but enables pull scheduling if needed
+            }
+        }
+    }
+
+    func deactivate() {
         renderQueue.async { [weak self] in
             guard let self = self else { return }
 
