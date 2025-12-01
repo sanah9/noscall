@@ -48,16 +48,22 @@ flutter run -d android
 Future versions will continue improving decentralized communication and customization capabilities.
 
 ### Planned Features
-- [*] **QR code scanning** for easy contact discovery
-- [*] **Profile settings** - Customize your user experience
-- [ ] **Custom relay configuration** (Inbox relay)
-- [ ] **ICE server configuration UI** - Advanced connectivity options
-- [ ] **Login via Nostr Signer** - Enhanced security
-- [*] **Import follower/following list** - Seamless migration
-- [ ] **Friend grouping and favorites** - Organize your contacts efficiently
-- [ ] **NIP-05 identity support** - Use your Nostr identity seamlessly
-- [ ] **Tor network support** - Additional privacy and anonymity
-- [ ] **Push notifications** - Stay connected with real-time notifications
-- [ ] **Voice messages and call recording** - Enhanced communication features
-- [ ] **Dark mode and custom themes** - Personalized user experience
-- [ ] **Desktop version support** - Full desktop experience
+
+#### Completed 
+- [x] **QR Code Scanning** - Easy contact discovery via QR code
+- [x] **Profile Settings** - Customize your user experience
+- [x] **Import Follower/Following List** - Seamless migration from other Nostr clients
+
+#### In Progress 
+- [ ] **Custom Relay Configuration** - Configure inbox relay and custom relay servers
+- [ ] **ICE Server Configuration UI** - Advanced WebRTC connectivity options
+- [ ] **Login via Nostr Signer** - Enhanced security with external signer support
+
+#### Upcoming Features 
+- [ ] **Friend Grouping & Favorites** - Organize contacts with groups and favorites
+- [ ] **NIP-05 Identity Support** - Use your Nostr identity (e.g., user@domain.com)
+- [ ] **Tor Network Support** - Additional privacy and anonymity layer
+- [ ] **Push Notifications** - Real-time notifications for incoming calls and messages
+- [ ] **Voice Messages & Call Recording** - Send voice messages and record calls
+- [ ] **Dark Mode & Custom Themes** - Personalized appearance customization
+- [ ] **Desktop Version** - Full desktop experience (Windows, macOS, Linux)
