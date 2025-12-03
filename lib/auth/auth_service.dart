@@ -4,12 +4,6 @@ import 'dart:math';
 import 'package:noscall/core/core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
-import '../core/common/utils/log_utils.dart';
-import '../core/account/account.dart';
-import '../core/account/model/userDB_isar.dart';
-import '../core/common/database/db_isar.dart';
-import '../core/core-manager.dart';
-import '../core/common/config/call_core_init_config.dart';
 import '../call/call_manager.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
@@ -119,7 +113,14 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           final bunkerUrl = prefs.getString(_userBunkerUrlKey);
           if (bunkerUrl != null) {
-            final user = await Account.sharedInstance.loginWithNip46URI(bunkerUrl);
+            final user = await Account.sharedInstance
+                .loginWithNip46URI(bunkerUrl)
+                .timeout(
+                  const Duration(seconds: 30),
+                  onTimeout: () {
+                    return null;
+                  },
+                );
             if (user == null) {
               throw Exception('login failed');
             }
