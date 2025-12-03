@@ -417,6 +417,7 @@ class _SettingPageState extends State<SettingPage> {
             title: 'Private Key',
             value: nsec.isEmpty ? 'login with signer' : nsec,
             isPrivate: nsec.isNotEmpty,
+            canCopy: nsec.isNotEmpty ,
           ),
         ],
       ),
@@ -434,6 +435,7 @@ class _SettingPageState extends State<SettingPage> {
     required String title,
     required String value,
     required bool isPrivate,
+    bool canCopy = true,
   }) {
     final theme = Theme.of(context);
     final displayValue = isPrivate ? '•' * value.length : value;
@@ -449,32 +451,36 @@ class _SettingPageState extends State<SettingPage> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                displayValue,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: isPrivate ? null : 'monospace',
-                  color: Colors.grey.shade600,
+        GestureDetector(
+          onTap: () {
+            if (!canCopy) return;
+            Clipboard.setData(ClipboardData(text: value));
+            AppToast.showInfo(context, '$title copied to clipboard');
+          },
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  displayValue,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: isPrivate ? null : 'monospace',
+                    color: Colors.grey.shade600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: value));
-                AppToast.showInfo(context, '$title copied to clipboard');
-              },
-              child: Icon(
-                Icons.copy,
-                color: Colors.grey.shade600,
-                size: 20,
+              const SizedBox(width: 8),
+              Visibility(
+                visible: canCopy,
+                child: Icon(
+                  Icons.copy,
+                  color: Colors.grey.shade600,
+                  size: 20,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
