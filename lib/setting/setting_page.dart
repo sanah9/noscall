@@ -11,6 +11,7 @@ import '../core/account/model/userDB_isar.dart';
 import '../core/account/relays.dart';
 import '../core/common/network/connect.dart';
 import 'package:nostr_core_dart/nostr.dart';
+import 'widgets/keys_dialog.dart';
 
 class _MenuItem {
   final IconData icon;
@@ -383,107 +384,7 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   void _showKeysDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _buildKeysDialog(context),
-    );
-  }
-
-  Widget _buildKeysDialog(BuildContext context) {
-    final account = Account.sharedInstance;
-
-    // Convert pubkey to npub format
-    final npub = Nip19.encodePubkey(account.currentPubkey);
-    final nsec = Nip19.encodePrivkey(account.currentPrivkey);
-
-    return AlertDialog(
-      title: const Text('Your Keys'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSimpleKeyItem(
-            context: context,
-            title: 'Public Key',
-            value: npub,
-            isPrivate: false,
-          ),
-          Container(
-            height: 1,
-            color: Colors.grey.shade300,
-            margin: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          _buildSimpleKeyItem(
-            context: context,
-            title: 'Private Key',
-            value: nsec.isEmpty ? 'login with signer' : nsec,
-            isPrivate: nsec.isNotEmpty,
-            canCopy: nsec.isNotEmpty ,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSimpleKeyItem({
-    required BuildContext context,
-    required String title,
-    required String value,
-    required bool isPrivate,
-    bool canCopy = true,
-  }) {
-    final theme = Theme.of(context);
-    final displayValue = isPrivate ? '•' * value.length : value;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            if (!canCopy) return;
-            Clipboard.setData(ClipboardData(text: value));
-            AppToast.showInfo(context, '$title copied to clipboard');
-          },
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  displayValue,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: isPrivate ? null : 'monospace',
-                    color: Colors.grey.shade600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Visibility(
-                visible: canCopy,
-                child: Icon(
-                  Icons.copy,
-                  color: Colors.grey.shade600,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    KeysDialog.show(context);
   }
 
   Widget _buildConnectionStatus(String relay) {
