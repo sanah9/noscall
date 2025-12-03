@@ -141,14 +141,11 @@ class _ScannerOverlayPainter extends CustomPainter {
 
     final scanRect = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(size.width / 2, size.height / 2),
-            width: scanArea,
-            height: scanArea,
-          ),
-          const Radius.circular(16),
-        ),
+        RRect.fromRectAndCorners(Rect.fromCenter(
+          center: Offset(size.width / 2, size.height / 2),
+          width: scanArea,
+          height: scanArea,
+        ))
       );
 
     final cutout = Path.combine(

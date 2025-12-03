@@ -379,30 +379,33 @@ class _AddContactPageState extends State<AddContactPage> {
 
   Widget _buildEmptyFollowersState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.people_outline,
-            size: 64,
-            color: onSurfaceVariant,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No followers to suggest',
-            style: theme.textTheme.titleMedium?.copyWith(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
               color: onSurfaceVariant,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Followers you are not already connected with will appear here',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: onSurfaceVariant,
+            const SizedBox(height: 16),
+            Text(
+              'No followers to suggest',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Followers you are not already connected with will appear here',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -298,6 +298,7 @@ class _SettingPageState extends State<SettingPage> {
       ),
       child: UserAvatar(
         user: user,
+        size: 126,
       ),
     );
   }

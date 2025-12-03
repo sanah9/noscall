@@ -74,7 +74,7 @@ class UserAvatar extends StatelessWidget {
       child: Text(
         displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
         style: TextStyle(
-          fontSize: (size / 2).floorToDouble(),
+          fontSize: (size * 0.4).floorToDouble(),
           color: colorScheme.onPrimary,
           fontWeight: FontWeight.bold,
         ),
