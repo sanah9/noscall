@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:noscall/component/icon.dart';
 
 class ModalDialogConfig {
   final bool barrierDismissible;
@@ -169,18 +170,11 @@ class AppModalDialog {
       ),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(Colors.white.withValues(alpha: 0.2), primaryColor),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              headerIcon,
-              color: Colors.white,
-              size: 24,
-            ),
+          SSIcon(
+            icon: headerIcon,
+            size: 36,
+            color: primaryColor,
+            isWhiteStyle: true,
           ),
           const SizedBox(width: 12),
           Text(

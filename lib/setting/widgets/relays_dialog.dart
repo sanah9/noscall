@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:noscall/component/icon.dart';
 import '../../core/account/relays.dart';
 import '../../core/common/network/connect.dart';
 import '../../utils/modal_dialog.dart';
@@ -89,18 +90,11 @@ class _RelaysDialogState extends State<RelaysDialog> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(Colors.white.withValues(alpha: 0.2), primaryColor),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.dns,
-              color: Colors.white,
-              size: 24,
-            ),
+          SSIcon(
+            icon: Icons.dns,
+            size: 36,
+            color: primaryColor,
+            isWhiteStyle: true,
           ),
           const SizedBox(width: 12),
           Expanded(
