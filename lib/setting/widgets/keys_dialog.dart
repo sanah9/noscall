@@ -9,92 +9,42 @@ class KeysDialog extends StatelessWidget {
   KeysDialog({super.key});
 
   late ThemeData theme;
-  BorderRadius get sectionRadius => BorderRadius.circular(16);
-  FontWeight fontWeight = FontWeight.w500;
+  final FontWeight fontWeight = FontWeight.w500;
   Color get primary => theme.colorScheme.primary;
   Color get primaryContainer => theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
   Color get onPrimaryContainer => theme.colorScheme.onPrimaryContainer;
-  Color get surface => theme.colorScheme.surface;
   Color get onSurface => theme.colorScheme.onSurface;
   Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
   Color get borderColor => theme.colorScheme.outline.withValues(alpha: 0.1);
 
   static void show(BuildContext context) {
-    AppModalDialog.showDialog(
+    AppModalDialog.showStandardDialog(
       context: context,
-      child: KeysDialog(),
+      headerIcon: Icons.key,
+      title: 'Your Keys',
+      content: KeysDialog(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
     final account = Account.sharedInstance;
     final npub = Nip19.encodePubkey(account.currentPubkey);
     final nsec = Nip19.encodePrivkey(account.currentPrivkey);
 
-    return Container(
-      color: surface,
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(context, primaryColor),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildPublicKeySection(context, npub),
-                Container(
-                  height: 1,
-                  color: onSurfaceVariant,
-                  margin: const EdgeInsets.symmetric(vertical: 20),
-                ),
-                _buildPrivateKeySection(context, nsec),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, Color primaryColor) {
-    return Container(
-      color: primaryColor,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
+          _buildPublicKeySection(context, npub),
           Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(Colors.white.withValues(alpha: 0.2), primaryColor),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.key,
-              color: Colors.white,
-              size: 24,
-            ),
+            height: 1,
+            color: onSurfaceVariant,
+            margin: const EdgeInsets.symmetric(vertical: 20),
           ),
-          const SizedBox(width: 12),
-          const Text(
-            'Your Keys',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white, size: 24),
-            onPressed: () => Navigator.of(context).pop(),
-            padding: EdgeInsets.zero,
-          ),
+          _buildPrivateKeySection(context, nsec),
         ],
       ),
     );
@@ -244,7 +194,7 @@ class KeysDialog extends StatelessWidget {
       text,
       style: theme.textTheme.bodyMedium?.copyWith(
         color: onSurface,
-        fontWeight: FontWeight.w500,
+        fontWeight: fontWeight,
       ),
     );
   }
@@ -261,7 +211,7 @@ class KeysDialog extends StatelessWidget {
         style: TextStyle(
           fontSize: 9,
           color: color,
-          fontWeight: FontWeight.w500,
+          fontWeight: fontWeight,
         ),
       ),
     );

@@ -120,4 +120,86 @@ class AppModalDialog {
       config: config,
     );
   }
+
+  static void showStandardDialog({
+    required BuildContext context,
+    required IconData headerIcon,
+    required String title,
+    String? subtitle,
+    required Widget content,
+    ModalDialogConfig? config,
+  }) {
+    showDialog(
+      context: context,
+      config: config,
+      child: Container(
+        color: Theme.of(context).colorScheme.surface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(
+              context: context,
+              headerIcon: headerIcon,
+              title: title,
+              subtitle: subtitle,
+            ),
+            content,
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildHeader({
+    required BuildContext context,
+    required IconData headerIcon,
+    required String title,
+    String? subtitle,
+  }) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    return Container(
+      color: primaryColor,
+      padding: const EdgeInsets.only(
+        left: 20,
+        right: 6,
+        top: 12,
+        bottom: 12,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(Colors.white.withValues(alpha: 0.2), primaryColor),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              headerIcon,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 24),
+            onPressed: () => Navigator.of(context).pop(),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
 }
