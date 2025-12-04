@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide AboutDialog;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import '../utils/toast.dart';
@@ -11,6 +10,7 @@ import '../core/account/model/userDB_isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'widgets/keys_dialog.dart';
 import 'widgets/relays_dialog.dart';
+import 'widgets/about_dialog.dart';
 
 class _MenuItem {
   final IconData icon;
@@ -37,7 +37,6 @@ class _SettingPageState extends State<SettingPage> {
   final AuthService _authService = AuthService();
   ValueNotifier<UserDBISAR>? userNotifier;
   bool _isLoading = true;
-  PackageInfo? _packageInfo;
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
@@ -50,14 +49,6 @@ class _SettingPageState extends State<SettingPage> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadPackageInfo();
-  }
-
-  Future<void> _loadPackageInfo() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    setState(() {
-      _packageInfo = packageInfo;
-    });
   }
 
   Future<void> _loadUserData() async {
@@ -551,81 +542,7 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _buildAboutDialog(context),
-    );
-  }
-
-  Widget _buildAboutDialog(BuildContext context) {
-    return AlertDialog(
-      title: const Text('About NosCall'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_packageInfo != null) ...[
-            _buildInfoSection(
-              context: context,
-              title: 'Version',
-              value: 'v${_packageInfo!.version}+${_packageInfo!.buildNumber}',
-            ),
-            const SizedBox(height: 12),
-            _buildInfoSection(
-              context: context,
-              title: 'Package',
-              value: _packageInfo!.packageName,
-            ),
-            const SizedBox(height: 12),
-            _buildInfoSection(
-              context: context,
-              title: 'GitHub',
-              value: 'https://github.com/noscall/noscall',
-            ),
-            const SizedBox(height: 12),
-            _buildInfoSection(
-              context: context,
-              title: 'Description',
-              value: 'A secure audio and video calls app built on Nostr',
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoSection({
-    required BuildContext context,
-    required String title,
-    required String value,
-  }) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$title:',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.grey.shade700,
-          ),
-        ),
-      ],
-    );
+    AboutDialog.show(context);
   }
 
   Widget _buildMenuTile({
