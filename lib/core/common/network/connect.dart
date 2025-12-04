@@ -9,6 +9,7 @@ import '../../account/account.dart';
 import '../thread/threadPoolManager.dart';
 import '../utils/log_utils.dart';
 import 'eventCache.dart';
+import 'reconnection_state.dart';
 
 /// notice callback
 typedef NoticeCallBack = void Function(String notice, String relay);
@@ -89,6 +90,7 @@ class Connect {
   static final Connect sharedInstance = Connect._internal();
 
   static const int timeout = 10;
+  static const int connectionTimeout = 10;
   static const int MAX_SUBSCRIPTIONS_COUNT = 15;
 
   NoticeCallBack? noticeCallBack;
@@ -112,8 +114,9 @@ class Connect {
 
   Map<String, List<String>> subscriptionsWaitingQueue = {};
 
-  // Track active reconnection tasks for proper cleanup
   final Map<String, Timer> _reconnectionTimers = {};
+  final Map<String, ReconnectionState> _reconnectionStates = {};
+  ConnectivityResult? _currentConnectivity;
 
   void startHeartBeat() {
     if (timer == null || timer!.isActive == false) {
@@ -137,12 +140,24 @@ class Connect {
   }
 
   void listenConnectivity() {
+    Connectivity().checkConnectivity().then((results) {
+      _currentConnectivity = results.isNotEmpty ? results.first : null;
+    });
+
     _connectivitySubscription ??=
         Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
+          _currentConnectivity = results.isNotEmpty ? results.first : null;
           if (results.any((result) => result != ConnectivityResult.none)) {
+            for (var state in _reconnectionStates.values) {
+              state.reset();
+            }
             resetConnection(force: false);
           }
         });
+  }
+
+  bool _hasNetworkConnectivity() {
+    return _currentConnectivity != null && _currentConnectivity != ConnectivityResult.none;
   }
 
   // void _stopCheckTimeOut() {
@@ -220,8 +235,11 @@ class Connect {
       relayKinds.add(relayKind);
     }
     webSockets[relay]?.relayKinds = relayKinds;
-    // connecting or open
+
     if (webSockets[relay]?.connectStatus == 0 || webSockets[relay]?.connectStatus == 1) return;
+
+    _reconnectionStates[relay]?.reset();
+
     LogUtils.v(() => "connecting... $relay");
     webSockets[relay] = ISocket(null, 0, relayKinds);
     try {
@@ -233,6 +251,7 @@ class Connect {
         webSockets[relay] = ISocket(socket, 1, relayKinds);
         LogUtils.v(() => "$relay connection initialized");
         _setConnectStatus(relay, 1);
+        _reconnectionStates[relay]?.recordSuccess();
       }
     } catch (_) {
       _onDisconnected(relay, relayKind);
@@ -297,9 +316,9 @@ class Connect {
 
     webSockets.remove(relay);
 
-    // Cancel any pending reconnection for this relay
     _reconnectionTimers[relay]?.cancel();
     _reconnectionTimers.remove(relay);
+    _reconnectionStates.remove(relay);
 
     await socket?.close();
   }
@@ -675,25 +694,43 @@ class Connect {
   }
 
   Future<void> _reConnectToRelay(String relay, RelayKind relayKind) async {
-    _setConnectStatus(relay, 3); // closed
+    _setConnectStatus(relay, 3);
 
-    // Check if this relay is still managed (not closed)
     if (!webSockets.containsKey(relay)) {
       LogUtils.v(() => 'Skipping reconnection for relay no longer managed: $relay');
       return;
     }
 
-    // Cancel any existing reconnection timer for this relay
-    _reconnectionTimers[relay]?.cancel();
+    final state = _reconnectionStates[relay] ??= ReconnectionState();
 
-    // Schedule new reconnection attempt
-    _reconnectionTimers[relay] = Timer(const Duration(milliseconds: 3000), () {
-      // Double check if reconnection is still needed
+    if (state.isReconnecting) {
+      LogUtils.v(() => 'Reconnection already in progress for $relay');
+      return;
+    }
+
+    if (!_hasNetworkConnectivity()) {
+      LogUtils.v(() => 'No network connectivity, skipping reconnection for $relay');
+      return;
+    }
+
+    if (!state.shouldReconnect()) {
+      LogUtils.v(() => 'Reconnection limit reached or in cooldown for $relay (attempts: ${state.attemptCount})');
+      return;
+    }
+
+    state.recordAttempt();
+    final backoffDelay = state.getBackoffDelay();
+
+    LogUtils.v(() => 'Scheduling reconnection for $relay in ${backoffDelay.inSeconds}s (attempt ${state.attemptCount})');
+
+    _reconnectionTimers[relay]?.cancel();
+    _reconnectionTimers[relay] = Timer(backoffDelay, () {
+      _reconnectionTimers.remove(relay);
+      state.isReconnecting = false;
+
       if (webSockets.containsKey(relay)) {
         connect(relay, relayKind: relayKind);
       }
-      // Clean up the timer reference
-      _reconnectionTimers.remove(relay);
     });
   }
 
@@ -711,31 +748,32 @@ class Connect {
 
   Future _connectWs(String relay) async {
     try {
-      _setConnectStatus(relay, 0); // connecting
+      _setConnectStatus(relay, 0);
       return await _connectWsSetting(relay);
     } catch (e) {
       LogUtils.v(() => "Error! can not connect WS connectWs $e relay:$relay");
-      _setConnectStatus(relay, 3); // closed
+      _setConnectStatus(relay, 3);
 
       List<RelayKind>? relayKinds = webSockets[relay]?.relayKinds;
       bool hasNonTempKind = relayKinds?.any((kind) => kind != RelayKind.temp) ?? false;
       if (hasNonTempKind && webSockets.containsKey(relay)) {
-        // Cancel any existing reconnection timer for this relay
-        _reconnectionTimers[relay]?.cancel();
-
-        // Schedule new connection attempt
-        _reconnectionTimers[relay] = Timer(const Duration(milliseconds: 3000), () {
-          if (webSockets.containsKey(relay)) {
-            _connectWs(relay);
-          }
-          _reconnectionTimers.remove(relay);
-        });
+        final relayKind = relayKinds?.firstWhere(
+          (kind) => kind != RelayKind.temp,
+          orElse: () => RelayKind.general,
+        ) ?? RelayKind.general;
+        _reConnectToRelay(relay, relayKind);
       }
     }
   }
 
   Future _connectWsSetting(String relay) async {
-    return await WebSocket.connect(relay);
+    return await WebSocket.connect(relay).timeout(
+      Duration(seconds: connectionTimeout),
+      onTimeout: () {
+        LogUtils.v(() => 'WebSocket connection timeout for $relay');
+        throw TimeoutException('Connection timeout after ${connectionTimeout}s', const Duration(seconds: connectionTimeout));
+      },
+    );
   }
 
   Future<void> _onDisconnected(String relay, RelayKind relayKind) async {
