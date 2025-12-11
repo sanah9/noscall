@@ -60,6 +60,7 @@ Future versions will continue improving decentralized communication and customiz
 - [ ] **Login via Nostr Signer** - Enhanced security with external signer support
 
 #### Upcoming Features 
+- [ ] **Pay to Call** - Pay to call
 - [ ] **Friend Grouping & Favorites** - Organize contacts with groups and favorites
 - [ ] **NIP-05 Identity Support** - Use your Nostr identity (e.g., user@domain.com)
 - [ ] **Tor Network Support** - Additional privacy and anonymity layer
