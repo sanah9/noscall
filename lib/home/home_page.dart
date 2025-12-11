@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../contacts/contacts_page.dart';
 import '../call_history/widget/recent_calls_page.dart';
 import '../setting/setting_page.dart';
+import '../core/account/account.dart';
+import '../core/account/account+profile.dart';
+import '../core/account/model/userDB_isar.dart';
+import '../core/common/network/connect.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,6 +17,45 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 1;
+  bool _profileSynced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for relay connection changes so we can sync profile once connected
+    Connect.sharedInstance.addConnectStatusListener(_onConnectStatusChanged);
+    // If already connected when entering home, attempt sync immediately
+    _syncProfileIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    Connect.sharedInstance.removeConnectStatusListener(_onConnectStatusChanged);
+    super.dispose();
+  }
+
+  void _onConnectStatusChanged(String relay, int status, List<RelayKind> relayKinds) {
+    if (status == 1 && relayKinds.contains(RelayKind.general)) {
+      _syncProfileIfNeeded();
+    }
+  }
+
+  Future<void> _syncProfileIfNeeded() async {
+    if (_profileSynced) return;
+
+    final connectedRelays = Connect.sharedInstance.relays(relayKinds: [RelayKind.general]);
+    if (connectedRelays.isEmpty) return;
+
+    final me = Account.sharedInstance.me;
+    if (me == null || (me.name ?? '').isEmpty) return;
+
+    final result = await Account.sharedInstance.updateProfile(me);
+    if (result != null) {
+      setState(() {
+        _profileSynced = true;
+      });
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
