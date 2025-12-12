@@ -47,12 +47,12 @@ class CallKeepManager {
       );
 
       _setupEventHandlers();
-      LogUtils.i(() => 'CallKeep initialized successfully');
+      LogUtils.i(() => 'CallKeepManager: CallKeep initialized successfully');
     } catch (e) {
       if (Platform.isAndroid && e is PlatformException) {
         // PhoneAccount connection service requires BIND_TELECOM_CONNECTION_SERVICE permission
       } else {
-        LogUtils.e(() => 'Failed to initialize CallKeep: $e');
+        LogUtils.e(() => 'CallKeepManager: Failed to initialize CallKeep: $e');
         rethrow;
       }
     }
@@ -60,7 +60,7 @@ class CallKeepManager {
 
   void _setupEventHandlers() {
     _callKeep.on<CallKeepPerformAnswerCallAction>((event) {
-      LogUtils.i(() => 'Call answered: ${event.callData.callUUID}');
+      LogUtils.i(() => 'CallKeepManager: Call answered: ${event.callData.callUUID}');
       _callEventController.add({
         'action': 'answer',
         'callId': event.callData.callUUID,
@@ -69,7 +69,7 @@ class CallKeepManager {
     });
 
     _callKeep.on<CallKeepPerformEndCallAction>((event) {
-      LogUtils.i(() => 'Call ended: ${event.callUUID}');
+      LogUtils.i(() => 'CallKeepManager: Call ended: ${event.callUUID}');
       _callEventController.add({
         'action': 'end',
         'callId': event.callUUID,
@@ -79,7 +79,7 @@ class CallKeepManager {
     });
 
     _callKeep.on<CallKeepDidPerformSetMutedCallAction>((event) {
-      LogUtils.i(() => 'Call muted: ${event.muted}');
+      LogUtils.i(() => 'CallKeepManager: Call muted: ${event.muted}');
       _callEventController.add({
         'action': 'mute',
         'callId': event.callUUID,
@@ -109,9 +109,9 @@ class CallKeepManager {
         hasVideo: hasVideo,
       );
 
-      LogUtils.i(() => 'Incoming call displayed: $callId from $callerName');
+      LogUtils.i(() => 'CallKeepManager: Incoming call displayed: $callId from $callerName');
     } catch (e) {
-      LogUtils.e(() => 'Failed to display incoming call: $e');
+      LogUtils.e(() => 'CallKeepManager: Failed to display incoming call: $e');
       rethrow;
     }
   }
@@ -129,9 +129,9 @@ class CallKeepManager {
         hasVideo: hasVideo,
       );
 
-      LogUtils.i(() => 'Outgoing call started: $callId to $calleeName');
+      LogUtils.i(() => 'CallKeepManager: Outgoing call started: $callId to $calleeName');
     } catch (e) {
-      LogUtils.e(() => 'Failed to start call: $e');
+      LogUtils.e(() => 'CallKeepManager: Failed to start call: $e');
       rethrow;
     }
   }
@@ -139,10 +139,10 @@ class CallKeepManager {
   Future<void> endCall(String callId) async {
     try {
       await _callKeep.endCall(callId);
-      LogUtils.i(() => 'Call ended: $callId');
+      LogUtils.i(() => 'callkepp: Call ended: $callId');
       _resetCallState();
     } catch (e) {
-      LogUtils.e(() => 'Failed to end call: $e');
+      LogUtils.e(() => 'callkepp: Failed to end call: $e');
       rethrow;
     }
   }
@@ -150,9 +150,9 @@ class CallKeepManager {
   Future<void> answerCall(String callId) async {
     try {
       await _callKeep.answerIncomingCall(callId);
-      LogUtils.i(() => 'Call answered: $callId');
+      LogUtils.i(() => 'CallKeepManager: Call answered: $callId');
     } catch (e) {
-      LogUtils.e(() => 'Failed to answer call: $e');
+      LogUtils.e(() => 'CallKeepManager: Failed to answer call: $e');
       rethrow;
     }
   }
@@ -160,10 +160,10 @@ class CallKeepManager {
   Future<void> rejectCall(String callId) async {
     try {
       await _callKeep.endCall(callId);
-      LogUtils.i(() => 'Call rejected: $callId');
+      LogUtils.i(() => 'CallKeepManager: Call rejected: $callId');
       _resetCallState();
     } catch (e) {
-      LogUtils.e(() => 'Failed to reject call: $e');
+      LogUtils.e(() => 'CallKeepManager: Failed to reject call: $e');
       rethrow;
     }
   }

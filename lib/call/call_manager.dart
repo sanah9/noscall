@@ -176,6 +176,7 @@ class CallKitManager with WidgetsBindingObserver {
       return controller;
     } catch (e) {
       LogUtils.e(() => 'Failed to start call: $e');
+      clean();
       return null;
     }
   }
@@ -343,6 +344,10 @@ class CallKitManager with WidgetsBindingObserver {
 
   void callControllerDisposeHandler(String offerId) {
     disconnectOfferId.add(offerId);
+    clean();
+  }
+
+  void clean() {
     activeControllerCmp = null;
   }
 
