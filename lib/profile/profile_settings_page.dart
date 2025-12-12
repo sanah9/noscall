@@ -10,6 +10,7 @@ import '../core/account/model/userDB_isar.dart';
 import '../contacts/user_avatar.dart';
 import '../utils/toast.dart';
 import '../utils/file_upload_manager.dart';
+import '../utils/macos_permissions.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -206,8 +207,18 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   }
 
   Future<void> _takePhoto() async {
-    final ok = await _ensurePermission(Permission.camera);
-    if (!ok) return;
+    bool ok;
+    if (Platform.isMacOS) {
+      ok = await MacOSPermissions.requestCamera();
+    } else {
+      ok = await _ensurePermission(Permission.camera);
+    }
+
+    if (!ok) {
+      AppToast.showError(context, 'Camera permission denied. Please enable it in Settings.');
+      return;
+    }
+
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,

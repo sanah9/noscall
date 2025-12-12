@@ -15,6 +15,7 @@ import 'callkeep_manager.dart';
 import 'calling_controller.dart';
 import 'pip_manager.dart';
 import '../core/common/utils/log_utils.dart';
+import '../utils/macos_permissions.dart';
 
 class CallKitManager with WidgetsBindingObserver {
   static final CallKitManager instance = CallKitManager._internal();
@@ -50,19 +51,33 @@ class CallKitManager with WidgetsBindingObserver {
 
   Future<bool> _checkPermissions(CallType callType) async {
     try {
-      // Check microphone permission (required for all calls)
-      final microphoneStatus = await Permission.microphone.request();
-      if (microphoneStatus != PermissionStatus.granted) {
-        LogUtils.e(() => 'Microphone permission denied');
-        return false;
-      }
-
-      // Check camera permission (required for video calls)
-      if (callType.isVideo) {
-        final cameraStatus = await Permission.camera.request();
-        if (cameraStatus != PermissionStatus.granted) {
-          LogUtils.e(() => 'Camera permission denied');
+      if (Platform.isMacOS) {
+        final microphoneGranted = await MacOSPermissions.requestMicrophone();
+        if (!microphoneGranted) {
+          LogUtils.e(() => 'Microphone permission denied on macOS');
           return false;
+        }
+
+        if (callType.isVideo) {
+          final cameraGranted = await MacOSPermissions.requestCamera();
+          if (!cameraGranted) {
+            LogUtils.e(() => 'Camera permission denied on macOS');
+            return false;
+          }
+        }
+      } else {
+        final microphoneStatus = await Permission.microphone.request();
+        if (microphoneStatus != PermissionStatus.granted) {
+          LogUtils.e(() => 'Microphone permission denied');
+          return false;
+        }
+
+        if (callType.isVideo) {
+          final cameraStatus = await Permission.camera.request();
+          if (cameraStatus != PermissionStatus.granted) {
+            LogUtils.e(() => 'Camera permission denied');
+            return false;
+          }
         }
       }
 

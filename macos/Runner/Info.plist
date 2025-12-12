@@ -28,5 +28,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>noscall requires access to your camera for video calls and scanning QR codes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>noscall requires access to your microphone for voice and video calls.</string>
 </dict>
 </plist>
