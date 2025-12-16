@@ -280,8 +280,8 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
     return Column(
       children: [
         Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               _buildSettingItem(
@@ -309,8 +309,8 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
         ),
         const SizedBox(height: 16),
         Card(
-          elevation: 0,
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
           child: _buildSettingItem(
             context: context,
             icon: Icons.logout,
@@ -334,44 +334,41 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
     final colorScheme = theme.colorScheme;
     final effectiveTextColor = textColor ?? colorScheme.onSurface;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: textColor != null
-                      ? colorScheme.error.withValues(alpha: 0.1)
-                      : colorScheme.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: textColor != null
+                    ? colorScheme.error.withValues(alpha: 0.1)
+                    : colorScheme.primaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: effectiveTextColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
                   color: effectiveTextColor,
-                  size: 20,
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: effectiveTextColor,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ],
         ),
       ),
     );
