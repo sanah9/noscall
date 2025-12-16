@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -217,6 +218,8 @@ class WebRTCHandler {
   }
 
   Future<void> _attachIOSPiPForVideoTrack(MediaStream stream) async {
+    if (!Platform.isIOS) return;
+
     if (!callType.isVideo) return;
 
     final isAvailable = await PipManager.isPipSupported();

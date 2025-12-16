@@ -100,6 +100,8 @@ class PipManager {
   }
 
   static Future<bool> attachIOSPiP({String? trackId}) async {
+    if (!Platform.isIOS) return false;
+
     if (trackId == null || trackId.isEmpty) {
       LogUtils.e(() => 'trackId is required for iOS PiP');
       return false;
@@ -110,6 +112,8 @@ class PipManager {
   }
 
   static Future<void> detachIOSPiP() async {
+    if (!Platform.isIOS) return;
+
     await _channel.invokeMethod('detach');
     LogUtils.i(() => 'PiP stopped (iOS)');
   }
