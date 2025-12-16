@@ -12,6 +12,7 @@ import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import '../utils/toast.dart';
+import '../utils/navigation_helper.dart';
 
 class UserDetailPage extends StatefulWidget {
   final String pubkey;
@@ -83,7 +84,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () => context.safePop(),
         ),
       ),
       extendBodyBehindAppBar: true,

@@ -67,6 +67,7 @@ class AppModalDialog {
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: dialogConfig.barrierColor ?? Colors.black.withValues(alpha: 0.5),
       transitionDuration: dialogConfig.transitionDuration,
+      useRootNavigator: false,
       pageBuilder: (context, animation, secondaryAnimation) {
         return builder(context);
       },
@@ -104,9 +105,17 @@ class AppModalDialog {
     required BuildContext context,
     required Widget child,
     ModalDialogConfig? config,
+    double? maxWidth = 700,
   }) {
     final dialogConfig = config ?? const ModalDialogConfig();
-    final insetPadding = dialogConfig.insetPadding ?? const EdgeInsets.symmetric(horizontal: 20);
+    EdgeInsets insetPadding = dialogConfig.insetPadding ?? const EdgeInsets.symmetric(horizontal: 20);
+
+    // If maxWidth is specified, calculate horizontal padding based on screen width
+    if (maxWidth != null) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      final horizontalPadding = ((screenWidth - maxWidth) / 2).clamp(20.0, screenWidth / 2 - 100);
+      insetPadding = EdgeInsets.symmetric(horizontal: horizontalPadding);
+    }
 
     show(
       context,
@@ -129,10 +138,12 @@ class AppModalDialog {
     String? subtitle,
     required Widget content,
     ModalDialogConfig? config,
+    double? maxWidth = 700,
   }) {
     showDialog(
       context: context,
       config: config,
+      maxWidth: maxWidth,
       child: Container(
         color: Theme.of(context).colorScheme.surface,
         child: Column(

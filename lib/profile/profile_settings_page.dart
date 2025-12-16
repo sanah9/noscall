@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../core/account/account.dart';
@@ -11,6 +10,7 @@ import '../contacts/user_avatar.dart';
 import '../utils/toast.dart';
 import '../utils/file_upload_manager.dart';
 import '../utils/macos_permissions.dart';
+import '../utils/navigation_helper.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -379,7 +379,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           _isLoading = false;
         });
         AppToast.showSuccess(context, 'Profile updated successfully');
-        context.pop();
+        context.safePop();
       } else {
         setState(() {
           _isLoading = false;

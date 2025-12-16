@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import '../contacts/contacts_page.dart';
-import '../call_history/widget/recent_calls_page.dart';
-import '../setting/setting_page.dart';
 import '../core/account/account.dart';
 import '../core/account/account+profile.dart';
 import '../core/common/network/connect.dart';
 import 'desktop_scaffold.dart';
+import 'desktop_navigator.dart';
 
 class DesktopHomePage extends StatefulWidget {
   const DesktopHomePage({super.key});
@@ -24,6 +22,8 @@ class _DesktopHomePageState extends State<DesktopHomePage> {
 
   static const double _minSidebarWidth = 200;
   static const double _maxSidebarWidth = 400;
+
+  final GlobalKey<DesktopNavigatorState> _navigatorKey = GlobalKey<DesktopNavigatorState>();
 
   @override
   void initState() {
@@ -79,13 +79,10 @@ class _DesktopHomePageState extends State<DesktopHomePage> {
                 ),
               ),
               Expanded(
-                child: IndexedStack(
-                  index: _selectedIndex,
-                  children: const [
-                    RecentCallsPage(),
-                    ContactsPage(),
-                    SettingPage(),
-                  ],
+                child: DesktopNavigator(
+                  key: _navigatorKey,
+                  selectedIndex: _selectedIndex,
+                  onNavigationChanged: _onNavigationChanged,
                 ),
               ),
             ],
