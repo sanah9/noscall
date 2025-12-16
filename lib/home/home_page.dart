@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../contacts/contacts_page.dart';
 import '../call_history/widget/recent_calls_page.dart';
 import '../setting/setting_page.dart';
@@ -7,12 +9,18 @@ import '../core/account/account.dart';
 import '../core/account/account+profile.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../core/common/network/connect.dart';
+import '../desktop/desktop_home_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
+}
+
+bool get isDesktop {
+  if (kIsWeb) return false;
+  return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 }
 
 class _HomePageState extends State<HomePage> {
@@ -65,6 +73,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isDesktop) {
+      return const DesktopHomePage();
+    }
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
