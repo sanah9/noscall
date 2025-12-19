@@ -88,6 +88,7 @@ class CallingController {
   ValueNotifier<Duration> connectedDuration;
   final connectedStopwatch = Stopwatch();
   late Timer connectedTimer;
+  Timer? _inviteTimeoutTimer;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
@@ -157,6 +158,7 @@ class CallingController {
   }
 
   void _dispose() async {
+    _inviteTimeoutTimer?.cancel();
     connectedTimer.cancel();
     _connectivitySubscription?.cancel();
     webRTCHandler.dispose();
@@ -258,8 +260,12 @@ extension CallingControllerUserActionEx on CallingController {
 
 extension CallingControllerSignalingEx on CallingController {
   Future<bool> invitePeer({Function? timeoutHandler}) async {
-    Future.delayed(const Duration(seconds: 60), () {
-      if (!hasConnected.value) {
+    // Cancel any existing timeout timer
+    _inviteTimeoutTimer?.cancel();
+
+    // Create and save timeout timer reference
+    _inviteTimeoutTimer = Timer(const Duration(seconds: 60), () {
+      if (!hasConnected.value && state.value != CallingState.ended) {
         timeoutHandler?.call();
         _recordCallHistory(CallEndReason.timeout.value);
       }
@@ -267,6 +273,7 @@ extension CallingControllerSignalingEx on CallingController {
 
     var offerId = await _sendOffer();
     if (offerId == null || offerId.isEmpty) {
+      _inviteTimeoutTimer?.cancel();
       LogUtils.error(
         className: 'CallingController',
         funcName: 'invitePeer',
@@ -526,7 +533,7 @@ extension CallingControllerNostrSignalingEx on CallingController {
         }
         final remoteSdp = description['sdp'];
         final remoteType = description['type'];
-        if (remoteSdp is! String? || remoteType is! String?) {
+        if (remoteSdp is! String || remoteType is! String) {
           LogUtils.error(
             className: 'CallingController',
             funcName: 'signalingCallbackHandler',
@@ -554,7 +561,7 @@ extension CallingControllerNostrSignalingEx on CallingController {
 
         final remoteSdp = description['sdp'];
         final remoteType = description['type'];
-        if (remoteSdp is! String? || remoteType is! String?) {
+        if (remoteSdp is! String || remoteType is! String) {
           LogUtils.error(
             className: 'CallingController',
             funcName: 'signalingCallbackHandler',
@@ -582,7 +589,10 @@ extension CallingControllerNostrSignalingEx on CallingController {
         final candidate = data['candidate'];
         final sdpMid = data['sdpMid'];
         final sdpMLineIndex = data['sdpMLineIndex'];
-        if (candidate is! String? || sdpMid is! String? || sdpMLineIndex is! int?) {
+        // Check if types are correct (can be String/int or null)
+        if ((candidate != null && candidate is! String) ||
+            (sdpMid != null && sdpMid is! String) ||
+            (sdpMLineIndex != null && sdpMLineIndex is! int)) {
           LogUtils.error(
             className: 'CallingController',
             funcName: 'signalingCallbackHandler',
@@ -592,9 +602,9 @@ extension CallingControllerNostrSignalingEx on CallingController {
         }
 
         signalingCandidateCallbackHandler(
-          candidate: candidate,
-          sdpMid: sdpMid,
-          sdpMLineIndex: sdpMLineIndex,
+          candidate: candidate as String?,
+          sdpMid: sdpMid as String?,
+          sdpMLineIndex: sdpMLineIndex as int?,
         );
         break;
       case SignalingState.disconnect:
