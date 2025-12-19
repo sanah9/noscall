@@ -35,7 +35,22 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   void _generateNewAccount() {
-    _generatedPrivateKey = _authService.generatePrivateKey();
+    try {
+      _generatedPrivateKey = _authService.generatePrivateKey();
+    } catch (e) {
+      // If key generation fails, show error and retry
+      AppToast.showError(context, 'Failed to generate secure key. Please try again.');
+      // Retry once after a short delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          try {
+            _generatedPrivateKey = _authService.generatePrivateKey();
+          } catch (retryError) {
+            AppToast.showError(context, 'Critical error: Unable to generate secure key. Please restart the app.');
+          }
+        }
+      });
+    }
   }
 
   @override
