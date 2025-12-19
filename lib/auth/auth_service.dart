@@ -52,6 +52,7 @@ class AuthService {
   bool isAuthenticated = false;
 
   final StreamController<bool> _authStateController = StreamController<bool>.broadcast();
+  bool _isDisposed = false;
 
   // Getters
   String? get currentUserPubkey => _currentUserPubkey;
@@ -116,11 +117,11 @@ class AuthService {
             final user = await Account.sharedInstance
                 .loginWithNip46URI(bunkerUrl)
                 .timeout(
-                  const Duration(seconds: 30),
-                  onTimeout: () {
-                    return null;
-                  },
-                );
+              const Duration(seconds: 30),
+              onTimeout: () {
+                return null;
+              },
+            );
             if (user == null) {
               throw Exception('login failed');
             }
@@ -290,14 +291,28 @@ class AuthService {
     LogUtils.i(() => 'Contact list updated');
   }
 
+  /// Generate a secure random private key
+  ///
+  /// Returns a 64-character hexadecimal string representing a 32-byte private key.
+  /// Throws an exception if key generation fails.
+  ///
+  /// Throws [Exception] if secure random number generation fails.
   String generatePrivateKey() {
     try {
       final random = Random.secure();
       final randomBytes = List<int>.generate(32, (i) => random.nextInt(256));
-      return randomBytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+      final privateKey = randomBytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+
+      // Validate the generated key
+      if (privateKey.length != 64) {
+        throw Exception('Generated private key has invalid length: ${privateKey.length}');
+      }
+
+      return privateKey;
     } catch (e) {
       LogUtils.e(() => 'Failed to generate private key: $e');
-      return 'a'.padRight(64, '0');
+      // Throw exception instead of returning unsafe fixed value
+      throw Exception('Failed to generate secure private key: $e');
     }
   }
 
@@ -332,7 +347,9 @@ class AuthService {
       _currentUserNpub = null;
       _currentLoginMethod = null;
 
-      _authStateController.add(false);
+      if (!_isDisposed) {
+        _authStateController.add(false);
+      }
       isAuthenticated = false;
 
       LogUtils.i(() => 'User logged out successfully');
@@ -412,11 +429,23 @@ class AuthService {
       _currentLoginMethod = null;
       isAuthenticated = false;
 
-      _authStateController.add(false);
+      if (!_isDisposed) {
+        _authStateController.add(false);
+      }
 
     } catch (e) {
       LogUtils.e(() => 'Failed to reset authentication state: $e');
       rethrow;
+    }
+  }
+
+  /// Dispose resources. Should be called when the service is no longer needed,
+  /// typically during app shutdown.
+  void dispose() {
+    if (!_isDisposed) {
+      _authStateController.close();
+      _isDisposed = true;
+      LogUtils.i(() => 'AuthService disposed');
     }
   }
 }
