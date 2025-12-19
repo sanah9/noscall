@@ -10,6 +10,7 @@ import 'utils/router.dart';
 import 'utils/loading.dart';
 
 import 'auth/auth_service.dart';
+import 'call/call_manager.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
@@ -23,12 +24,43 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Failed to initialize services: $e');
   }
-  
+
   runApp(const MainApp());
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // Cleanup resources on app shutdown
+    ThreadPoolManager.sharedInstance.dispose();
+    AuthService().dispose();
+    CallKitManager().dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      // App is being terminated, cleanup resources
+      ThreadPoolManager.sharedInstance.dispose();
+      AuthService().dispose();
+      CallKitManager().dispose();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

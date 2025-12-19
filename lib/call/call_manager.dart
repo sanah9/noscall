@@ -366,6 +366,17 @@ class CallKitManager with WidgetsBindingObserver {
     activeControllerCmp = null;
   }
 
+  /// Dispose resources. Should be called when the manager is no longer needed,
+  /// typically during app shutdown.
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    deviceChangeSubscription?.cancel();
+    deviceChangeSubscription = null;
+    isBluetoothHeadsetConnected.dispose();
+    clean();
+    LogUtils.i(() => 'CallKitManager disposed');
+  }
+
   void presentPageWithController(CallingController controller) {
     AppRouter.router.push('/call', extra: controller);
   }
