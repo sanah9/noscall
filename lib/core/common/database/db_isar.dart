@@ -71,7 +71,6 @@ class DBISAR {
       _sharedEncKey = encryptionKey;
     }
 
-    final String key = encryptionKey ?? _sharedEncKey ?? pubkey;
     isar = await Isar.open(
       schemas,
       directory: dbPath,
@@ -141,9 +140,21 @@ class DBISAR {
   }
 
   Future<void> saveObjectsToDB<T>(List<T> objects) async {
-    for (var object in objects) {
-      await saveToDB(object);
+    if (objects.isEmpty) return;
+
+    final type = T;
+    if (!_buffers.containsKey(type)) {
+      _buffers[type] = <T>[];
     }
+
+    // Batch add all objects to the buffer
+    _buffers[type]!.addAll(objects);
+
+    // Cancel any existing timer and set a new one for batch save
+    _timer?.cancel();
+    _timer = Timer(const Duration(milliseconds: 200), () async {
+      await _putAll();
+    });
   }
 
   Future<void> saveToDB<T>(T object) async {
