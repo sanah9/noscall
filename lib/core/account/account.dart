@@ -329,6 +329,10 @@ class Account {
   }
 
   Future<void> logout() async {
+    // Cancel heartbeat timer
+    timer?.cancel();
+    timer = null;
+    
     await Connect.sharedInstance.closeAllConnects();
     Contacts.sharedInstance.allContacts.clear();
     Relays.sharedInstance.relays.clear();

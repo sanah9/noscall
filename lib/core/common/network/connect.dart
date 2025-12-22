@@ -292,6 +292,14 @@ class Connect {
   }
 
   Future closeAllConnects() async {
+    // Cancel heartbeat timer
+    timer?.cancel();
+    timer = null;
+    
+    // Cancel connectivity subscription
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
+    
     // Cancel all pending reconnection timers
     for (var timer in _reconnectionTimers.values) {
       timer.cancel();
