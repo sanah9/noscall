@@ -19,7 +19,7 @@ class ChatCoreManager {
       await _initCoreComponentsWithConfig(config);
     } catch (e, stack) {
       // Log error and rethrow
-      print('ChatCoreManager initialization failed: $e, $stack');
+      LogUtils.e(() => 'ChatCoreManager initialization failed: $e, $stack');
       rethrow;
     }
   }
