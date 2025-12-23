@@ -501,103 +501,54 @@ extension CallingControllerNostrSignalingEx on CallingController {
     try {
       meta = jsonDecode(content);
     } catch (e, stack) {
-      LogUtils.error(
-        className: 'CallingController',
-        funcName: 'signalingCallbackHandler',
-        message: '$e, $stack',
-      );
+      _logSignalingError('JSON decode failed', '$e, $stack');
     }
 
     if (meta.isEmpty) return;
 
     switch (nostrState) {
       case SignalingState.offer:
-        final sessionId = meta['session_id'];
-        if (sessionId is! String || sessionId.isEmpty) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error sessionId: $sessionId',
-          );
-          return;
-        }
+        final sessionId = _validateStringField(meta, 'session_id', required: true);
+        if (sessionId == null) return;
 
-        final description = meta['description'];
-        if (description is! Map) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error description: $description',
-          );
-          return;
-        }
-        final remoteSdp = description['sdp'];
-        final remoteType = description['type'];
-        if (remoteSdp is! String || remoteType is! String) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error remoteSdp: $sessionId, remoteType: $remoteType',
-          );
+        final description = _validateDescription(meta);
+        if (description == null) return;
+
+        final remoteSdp = description['sdp'] as String?;
+        final remoteType = description['type'] as String?;
+        if (!_validateSdpFields(remoteSdp, remoteType, sessionId: sessionId)) {
           return;
         }
 
         signalingOfferCallbackHandler(
           sessionId: sessionId,
-          remoteSdp: remoteSdp,
-          remoteType: remoteType,
+          remoteSdp: remoteSdp!,
+          remoteType: remoteType!,
         );
         break;
       case SignalingState.answer:
-        final description = meta['description'];
-        if (description is! Map) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error description: $description',
-          );
-          return;
-        }
+        final description = _validateDescription(meta);
+        if (description == null) return;
 
-        final remoteSdp = description['sdp'];
-        final remoteType = description['type'];
-        if (remoteSdp is! String || remoteType is! String) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error remoteSdp: $remoteSdp, remoteType: $remoteType',
-          );
+        final remoteSdp = description['sdp'] as String?;
+        final remoteType = description['type'] as String?;
+        if (!_validateSdpFields(remoteSdp, remoteType)) {
           return;
         }
 
         signalingAnswerCallbackHandler(
-          remoteSdp: remoteSdp,
-          remoteType: remoteType,
+          remoteSdp: remoteSdp!,
+          remoteType: remoteType!,
         );
         break;
       case SignalingState.candidate:
-        final data = meta['candidate'];
-        if (data is! Map) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error data: $data',
-          );
-          return;
-        }
+        final candidateData = _validateMapField(meta, 'candidate');
+        if (candidateData == null) return;
 
-        final candidate = data['candidate'];
-        final sdpMid = data['sdpMid'];
-        final sdpMLineIndex = data['sdpMLineIndex'];
-        // Check if types are correct (can be String/int or null)
-        if ((candidate != null && candidate is! String) ||
-            (sdpMid != null && sdpMid is! String) ||
-            (sdpMLineIndex != null && sdpMLineIndex is! int)) {
-          LogUtils.error(
-            className: 'CallingController',
-            funcName: 'signalingCallbackHandler',
-            message: 'Error candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex',
-          );
+        final candidate = candidateData['candidate'];
+        final sdpMid = candidateData['sdpMid'];
+        final sdpMLineIndex = candidateData['sdpMLineIndex'];
+        if (!_validateCandidateFields(candidate, sdpMid, sdpMLineIndex)) {
           return;
         }
 
@@ -611,6 +562,61 @@ extension CallingControllerNostrSignalingEx on CallingController {
         signalingDisconnectCallbackHandler();
         break;
     }
+  }
+
+  /// Log signaling error with consistent format
+  void _logSignalingError(String field, dynamic value) {
+    LogUtils.error(
+      className: 'CallingController',
+      funcName: 'signalingCallbackHandler',
+      message: 'Error $field: $value',
+    );
+  }
+
+  /// Validate and return string field from map
+  String? _validateStringField(Map meta, String fieldName, {bool required = false}) {
+    final value = meta[fieldName];
+    if (value is! String || (required && value.isEmpty)) {
+      _logSignalingError(fieldName, value);
+      return null;
+    }
+    return value;
+  }
+
+  /// Validate and return Map field from meta
+  Map<String, dynamic>? _validateMapField(Map meta, String fieldName) {
+    final value = meta[fieldName];
+    if (value is! Map) {
+      _logSignalingError(fieldName, value);
+      return null;
+    }
+    return Map<String, dynamic>.from(value);
+  }
+
+  /// Validate description object from meta
+  Map<String, dynamic>? _validateDescription(Map meta) {
+    return _validateMapField(meta, 'description');
+  }
+
+  /// Validate SDP fields (sdp and type must be non-null String)
+  bool _validateSdpFields(String? remoteSdp, String? remoteType, {String? sessionId}) {
+    if (remoteSdp is! String || remoteType is! String) {
+      final context = sessionId != null ? 'sessionId: $sessionId, ' : '';
+      _logSignalingError('remoteSdp/remoteType', '$context remoteSdp: $remoteSdp, remoteType: $remoteType');
+      return false;
+    }
+    return true;
+  }
+
+  /// Validate candidate fields (can be null, but if not null must be correct type)
+  bool _validateCandidateFields(dynamic candidate, dynamic sdpMid, dynamic sdpMLineIndex) {
+    if ((candidate != null && candidate is! String) ||
+        (sdpMid != null && sdpMid is! String) ||
+        (sdpMLineIndex != null && sdpMLineIndex is! int)) {
+      _logSignalingError('candidate fields', 'candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex');
+      return false;
+    }
+    return true;
   }
 
   void signalingOfferCallbackHandler({
