@@ -92,7 +92,7 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Widget _buildTitle() {
-    return Text(
+    return const Text(
       'Sign In',
       style: TextStyle(
         fontSize: 28,

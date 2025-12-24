@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:noscall/core/account/account.dart';
 import '../core/core.dart';
 import '../utils/toast.dart';
 

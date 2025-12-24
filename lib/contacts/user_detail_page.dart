@@ -520,7 +520,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     } else {
       final difference = today.difference(startDate).inDays;
       if (difference < 7) {
-        return '${difference} days ago・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+        return '$difference days ago・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
       } else {
         return '${startTime.month}/${startTime.day}・${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
       }

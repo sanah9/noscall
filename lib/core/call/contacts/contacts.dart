@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:noscall/core/account/account+profile.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 import '../../account/model/relayDB_isar.dart';

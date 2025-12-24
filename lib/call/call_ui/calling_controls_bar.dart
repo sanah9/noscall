@@ -335,7 +335,7 @@ class CallingControlsBarState extends State<CallingControlsBar> {
     final isBluetoothConnected = CallKitManager.instance.isBluetoothHeadsetConnected.value;
 
     return AlertDialog(
-      title: Text('Select Audio Output'),
+      title: const Text('Select Audio Output'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -363,7 +363,7 @@ class CallingControlsBarState extends State<CallingControlsBar> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel'),
+          child: const Text('Cancel'),
         ),
       ],
     );

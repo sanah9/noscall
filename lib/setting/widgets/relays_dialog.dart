@@ -196,7 +196,7 @@ class _RelaysDialogState extends State<RelaysDialog> {
 
   Widget _buildStatusIndicator(bool isConnected, bool isWarning) {
     if (isConnected) {
-      return Icon(
+      return const Icon(
         CupertinoIcons.check_mark_circled,
         color: Colors.green,
         size: 20,

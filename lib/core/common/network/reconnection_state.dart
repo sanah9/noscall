@@ -32,8 +32,8 @@ class ReconnectionState {
   Duration getBackoffDelay() {
     if (attemptCount == 0) return const Duration(seconds: 3);
 
-    final baseDelay = 3;
-    final maxDelay = 60;
+    const baseDelay = 3;
+    const maxDelay = 60;
     final delay = (baseDelay * (1 << (attemptCount - 1))).clamp(baseDelay, maxDelay);
     return Duration(seconds: delay);
   }

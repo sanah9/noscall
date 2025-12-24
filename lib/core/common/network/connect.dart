@@ -776,7 +776,7 @@ class Connect {
 
   Future _connectWsSetting(String relay) async {
     return await WebSocket.connect(relay).timeout(
-      Duration(seconds: connectionTimeout),
+      const Duration(seconds: connectionTimeout),
       onTimeout: () {
         LogUtils.v(() => 'WebSocket connection timeout for $relay');
         throw TimeoutException('Connection timeout after ${connectionTimeout}s', const Duration(seconds: connectionTimeout));
