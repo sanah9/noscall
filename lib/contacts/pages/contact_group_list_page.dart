@@ -19,6 +19,15 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
   int? _editingGroupId;
   final Map<int, TextEditingController> _editingControllers = {};
 
+  late ThemeData theme;
+  BorderRadius get sectionRadius => BorderRadius.circular(16);
+  Color get primary => theme.colorScheme.primary;
+  Color get primaryContainer => theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+  Color get surface => theme.colorScheme.surface;
+  Color get onSurface => theme.colorScheme.onSurface;
+  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant;
+  Color get borderColor => theme.colorScheme.outline.withValues(alpha: 0.1);
+
   @override
   void initState() {
     super.initState();
@@ -35,20 +44,16 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
 
   Future<void> _loadGroups() async {
     final groups = await _groupService.getAllGroups();
-    setState(() {
-      _groups = groups;
-    });
+    if (mounted) {
+      setState(() {
+        _groups = groups;
+      });
+    }
   }
 
   Future<void> _createGroup() async {
-    final group = await _groupService.createGroup();
+    await _groupService.createGroup();
     await _loadGroups();
-    // Automatically enter edit mode for the newly created group
-    setState(() {
-      _isEditing = true;
-      _editingGroupId = group.id;
-      _editingControllers[group.id] = TextEditingController(text: group.name);
-    });
   }
 
   Future<void> _deleteGroup(ContactGroup group) async {
@@ -113,15 +118,14 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Contacts'),
         centerTitle: true,
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
+        backgroundColor: surface,
+        foregroundColor: onSurface,
         elevation: 0,
         leading: _isEditing
             ? IconButton(
@@ -155,221 +159,218 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
             ),
         ],
       ),
-      body: Column(
+      body: ListView(
         children: [
+          const SizedBox(height: 12),
           // Pinned section: All Contacts
-          _buildAllContactsSection(colorScheme),
-          const Divider(height: 1),
+          _buildAllContactsSection(),
           // Custom groups section
-          Expanded(
-            child: _groups.isEmpty
-                ? _buildEmptyState(colorScheme)
-                : _buildGroupsList(colorScheme),
-          ),
+          _buildGroupsSection(),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  Widget _buildAllContactsSection(ColorScheme colorScheme) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+  Widget _buildAllContactsSection() {
+    return _buildSectionContainer(
+      child: ListTile(
+        title: Text(
+          'All Contacts',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          '$_allContactsCount contacts',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: onSurfaceVariant,
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: onSurfaceVariant,
+          size: 20,
+        ),
         onTap: () {
-          // Push contacts list page - same API as global router
           context.pushContactsList();
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'All Contacts',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.onSurface,
+      ),
+    );
+  }
+
+  Widget _buildGroupsSection() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: _groups.isEmpty
+          ? const SizedBox.shrink()
+          : _buildSectionContainer(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 16,
+                    ),
+                    child: Text(
+                      'Custom Groups',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
+                  ..._groups.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final group = entry.value;
+                    final isEditing = _isEditing && _editingGroupId == group.id;
+                    final isLast = index == _groups.length - 1;
+
+                    if (isEditing && _editingGroupId == group.id) {
+                      return _buildEditingGroupItem(group, isLast);
+                    }
+                    return _buildGroupItem(group, isEditing, isLast);
+                  }).toList(),
+                ],
               ),
-              Text(
-                '$_allContactsCount',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.onSurfaceVariant,
-                size: 20,
-              ),
-            ],
+            ),
+    );
+  }
+
+  Widget _buildGroupItem(ContactGroup group, bool isEditing, bool isLast) {
+    return Container(
+      decoration: BoxDecoration(
+        border: isLast ? null : Border(
+          bottom: BorderSide(
+            color: borderColor,
+            width: 0.5,
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildEmptyState(ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.folder_outlined,
-            size: 64,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No custom groups',
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.onSurfaceVariant,
+      child: FutureBuilder<int>(
+        future: _getGroupContactCount(group.id),
+        builder: (context, snapshot) {
+          final count = snapshot.data ?? 0;
+          return ListTile(
+            title: Text(
+              group.name,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: onSurface,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap the top right to add a group',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+            subtitle: Text(
+              '$count ${count == 1 ? 'contact' : 'contacts'}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupsList(ColorScheme colorScheme) {
-    return ListView.builder(
-      itemCount: _groups.length,
-      itemBuilder: (context, index) {
-        final group = _groups[index];
-        final isEditing = _isEditing && _editingGroupId == group.id;
-
-        return _buildGroupItem(group, isEditing, colorScheme);
-      },
-    );
-  }
-
-  Widget _buildGroupItem(
-      ContactGroup group, bool isEditing, ColorScheme colorScheme) {
-    if (isEditing && _editingGroupId == group.id) {
-      return _buildEditingGroupItem(group, colorScheme);
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _isEditing
-            ? () {
-                _startEditing(group.id, group.name);
-              }
-            : () {
-                context.push(
-                  '/group-contacts',
-                  extra: {'groupId': group.id, 'groupName': group.name},
-                );
-              },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FutureBuilder<int>(
-                  future: _getGroupContactCount(group.id),
-                  builder: (context, snapshot) {
-                    final count = snapshot.data ?? 0;
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            group.name,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '$count',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+            trailing: _isEditing
+                ? IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    color: theme.colorScheme.error,
+                    onPressed: () => _deleteGroup(group),
+                    tooltip: 'Delete',
+                  )
+                : Icon(
+                    Icons.chevron_right,
+                    color: onSurfaceVariant,
+                    size: 20,
+                  ),
+            onTap: _isEditing
+                ? () {
+                    _startEditing(group.id, group.name);
+                  }
+                : () {
+                    context.push(
+                      '/group-contacts',
+                      extra: {'groupId': group.id, 'groupName': group.name},
                     );
                   },
-                ),
-              ),
-              if (_isEditing) ...[
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  color: colorScheme.error,
-                  onPressed: () => _deleteGroup(group),
-                  tooltip: 'Delete',
-                ),
-              ] else ...[
-                Icon(
-                  Icons.chevron_right,
-                  color: colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-              ],
-            ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildEditingGroupItem(
-      ContactGroup group, ColorScheme colorScheme) {
+  Widget _buildEditingGroupItem(ContactGroup group, bool isLast) {
     final controller = _editingControllers[group.id];
     if (controller == null) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              autofocus: true,
-              style: TextStyle(
-                fontSize: 16,
-                color: colorScheme.onSurface,
-              ),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+    return Container(
+      decoration: BoxDecoration(
+        border: isLast ? null : Border(
+          bottom: BorderSide(
+            color: borderColor,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: onSurface,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onSubmitted: (_) => _saveGroupName(group.id),
               ),
-              onSubmitted: (_) => _saveGroupName(group.id),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.check),
-            color: colorScheme.primary,
-            onPressed: () => _saveGroupName(group.id),
-            tooltip: 'Save',
-          ),
-          IconButton(
-            icon: const Icon(Icons.close),
-            color: colorScheme.onSurfaceVariant,
-            onPressed: () => _cancelEditing(group.id),
-            tooltip: 'Cancel',
-          ),
-        ],
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.check),
+              color: primary,
+              onPressed: () => _saveGroupName(group.id),
+              tooltip: 'Save',
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              color: onSurfaceVariant,
+              onPressed: () => _cancelEditing(group.id),
+              tooltip: 'Cancel',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionContainer({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      decoration: _buildBlurBackgroundDecoration(),
+      child: ClipRRect(
+        borderRadius: sectionRadius,
+        child: Material(
+          color: Colors.transparent,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _buildBlurBackgroundDecoration() {
+    return BoxDecoration(
+      color: primaryContainer,
+      borderRadius: sectionRadius,
+      border: Border.all(
+        color: borderColor,
+        width: 0.5,
       ),
     );
   }
