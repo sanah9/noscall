@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../contacts/contacts_page.dart';
+import '../contacts/contact_navigator.dart';
 import '../call_history/widget/recent_calls_page.dart';
 import '../setting/setting_page.dart';
 import '../core/account/account.dart';
@@ -84,7 +84,7 @@ class _HomePageState extends State<HomePage> {
         index: _selectedIndex,
         children: const [
           RecentCallsPage(),
-          ContactsPage(),
+          ContactNavigator(),
           SettingPage(),
         ],
       ),

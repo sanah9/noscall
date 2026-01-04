@@ -13,6 +13,8 @@ import '../contacts/add_contact_page.dart';
 import '../contacts/qr_scan_page.dart';
 import '../contacts/user_detail_page.dart';
 import '../contacts/edit_nickname_page.dart';
+import '../contacts/pages/group_contacts_page.dart';
+import '../contacts/pages/contact_select_page.dart';
 import '../profile/profile_settings_page.dart';
 
 class AppRouter {
@@ -106,6 +108,37 @@ class AppRouter {
         path: '/profile-settings',
         name: 'profile-settings',
         builder: (context, state) => const ProfileSettingsPage(),
+      ),
+      GoRoute(
+        path: '/group-contacts',
+        name: 'group-contacts',
+        builder: (context, state) {
+          final params = state.extra as Map? ?? {};
+          final groupId = params['groupId'] as int?;
+          final groupName = params['groupName'] as String?;
+          if (groupId == null) {
+            return const Scaffold(
+              body: Center(
+                child: Text('Group ID not found'),
+              ),
+            );
+          }
+          return GroupContactsPage(
+            groupId: groupId,
+            groupName: groupName ?? 'Group',
+          );
+        },
+      ),
+      GoRoute(
+        path: '/contact-select',
+        name: 'contact-select',
+        builder: (context, state) {
+          final params = state.extra as Map? ?? {};
+          final excludePubKeys = params['excludePubKeys'] as List<String>?;
+          return ContactSelectPage(
+            excludePubKeys: excludePubKeys,
+          );
+        },
       ),
     ],
   );

@@ -7,6 +7,7 @@ import '../call/call_manager.dart';
 import '../call/constant/call_type.dart';
 import '../utils/toast.dart';
 import 'user_avatar.dart';
+import 'contact_navigator.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -118,12 +119,20 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final navigatorState = ContactNavigatorProvider.of(context);
+
     return AppBar(
       title: const Text('Contacts'),
       centerTitle: true,
       backgroundColor: surface,
       foregroundColor: onSurface,
       elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () {
+          navigatorState?.pushGroupListPage();
+        },
+      ),
       actions: [
         IconButton(
           onPressed: () {
