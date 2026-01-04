@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/account/account.dart' as ChatCore;
 import '../core/call/contacts/contacts.dart';
 import '../call/call_manager.dart';
 import '../call/constant/call_type.dart';
 import '../utils/toast.dart';
+import '../utils/router.dart';
 import 'user_avatar.dart';
-import 'contact_navigator.dart';
+import 'contact_navigation_extension.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -119,8 +119,6 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    final navigatorState = ContactNavigatorProvider.of(context);
-
     return AppBar(
       title: const Text('Contacts'),
       centerTitle: true,
@@ -130,13 +128,15 @@ class _ContactsPageState extends State<ContactsPage> {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
-          navigatorState?.pushGroupListPage();
+          // Pop back to group list page - same API as global router
+          context.popContactPage();
         },
       ),
       actions: [
         IconButton(
           onPressed: () {
-            context.push('/add-contact');
+            // Use global router for add contact page
+            AppRouter.router.push('/add-contact');
           },
           icon: const Icon(Icons.person_add),
           tooltip: 'Add Contact',
@@ -192,7 +192,8 @@ class _ContactsPageState extends State<ContactsPage> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              context.push(
+              // Use global router for user detail page
+              AppRouter.router.push(
                 '/user-detail',
                 extra: {'pubkey': contact.pubKey},
               );

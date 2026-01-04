@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'pages/contact_group_list_page.dart';
 import 'contacts_page.dart';
+import 'pages/contact_group_list_page.dart';
 
 class ContactNavigator extends StatefulWidget {
   const ContactNavigator({super.key});
@@ -10,39 +10,55 @@ class ContactNavigator extends StatefulWidget {
 }
 
 class _ContactNavigatorState extends State<ContactNavigator> {
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  final List<Page> _pages = [];
+  List<Page> _pages = [];
 
   @override
   void initState() {
     super.initState();
-    _pages.add(
+    _pages = [
+      const MaterialPage(
+        key: ValueKey('contacts-groups'),
+        child: ContactGroupListPage(),
+      ),
       const MaterialPage(
         key: ValueKey('contacts-list'),
         child: ContactsPage(),
       ),
-    );
+    ];
+  }
+
+  void pushPage(Widget page, String key) {
+    if (!mounted) return;
+    final pageKey = ValueKey(key);
+    setState(() {
+      _pages = [
+        ..._pages,
+        MaterialPage(
+          key: pageKey,
+          child: page,
+        ),
+      ];
+    });
+  }
+
+  void popPage() {
+    if (_pages.length > 1) {
+      setState(() {
+        _pages = _pages.sublist(0, _pages.length - 1);
+      });
+    }
   }
 
   bool _onPopPage(Route<dynamic> route, dynamic result) {
+    if (!route.didPop(result)) {
+      return false;
+    }
     if (_pages.length > 1) {
       setState(() {
-        _pages.removeLast();
+        _pages = _pages.sublist(0, _pages.length - 1);
       });
-      return true;
     }
-    return false;
-  }
-
-  void pushGroupListPage() {
-    setState(() {
-      _pages.add(
-        const MaterialPage(
-          key: ValueKey('group-list'),
-          child: ContactGroupListPage(),
-        ),
-      );
-    });
+    return true;
   }
 
   @override
@@ -50,7 +66,6 @@ class _ContactNavigatorState extends State<ContactNavigator> {
     return ContactNavigatorProvider(
       state: this,
       child: Navigator(
-        key: navigatorKey,
         pages: _pages,
         onPopPage: _onPopPage,
       ),
@@ -74,9 +89,11 @@ class ContactNavigatorProvider extends InheritedWidget {
     return provider?.state;
   }
 
+  /// Get pages count (for canPop check)
+  int get pagesCount => state._pages.length;
+
   @override
   bool updateShouldNotify(ContactNavigatorProvider oldWidget) {
     return false;
   }
 }
-

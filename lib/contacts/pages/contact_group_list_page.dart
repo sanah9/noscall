@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../models/contact_group_isar.dart';
 import '../services/contact_group_service.dart';
 import '../../core/call/contacts/contacts.dart';
-import '../contact_navigator.dart';
+import '../contact_navigation_extension.dart';
 
 class ContactGroupListPage extends StatefulWidget {
   const ContactGroupListPage({super.key});
@@ -172,19 +172,12 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
   }
 
   Widget _buildAllContactsSection(ColorScheme colorScheme) {
-    final navigatorState = ContactNavigatorProvider.of(context);
-    
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          // Tap "All Contacts" to return to contacts list page
-          if (navigatorState != null) {
-            final navigator = navigatorState.navigatorKey.currentState;
-            if (navigator?.canPop() ?? false) {
-              navigator?.pop();
-            }
-          }
+          // Push contacts list page - same API as global router
+          context.pushContactsList();
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -381,4 +374,3 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
     );
   }
 }
-
