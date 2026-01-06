@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../models/contact_group_isar.dart';
 import '../services/contact_group_service.dart';
 import '../../core/call/contacts/contacts.dart';
+import '../../core/common/database/db_isar.dart';
 import '../contact_navigation_extension.dart';
 
 class ContactGroupListPage extends StatefulWidget {
@@ -98,7 +99,6 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
       } else {
         try {
           await _groupService.createGroup(name: name);
-          await _loadGroups();
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -115,78 +115,34 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
     }
   }
 
-  Future<void> _saveChanges() async {
-    final invalidNewGroups = _groups.where((g) => g.id < 0 && g.name.trim().isEmpty).toList();
-    for (final group in invalidNewGroups) {
-      setState(() {
-        _groups = _groups.where((g) => g.id != group.id).toList();
-        _editingControllers.remove(group.id)?.dispose();
-      });
+  void preCheckGroupsData() {
+    bool isChanged = false;
+    _groups.removeWhere((g) {
+      final isInvalid = g.name.trim().isEmpty;
+      if (isInvalid) isChanged = true;
+      return isInvalid;
+    });
+    if (isChanged) {
+      setState(() {});
     }
+  }
 
+  Future<void> _syncToDatabase() async {
+    final validGroups = _groups.where((g) => g.name.trim().isNotEmpty).toList();
+    
+    for (final group in validGroups) {
+      group.name = group.name.trim();
+    }
+    
+    await DBISAR.sharedInstance.saveObjectsToDB(validGroups);
+    await Future.delayed(const Duration(milliseconds: 250));
+    
     final dbGroups = await _groupService.getAllGroups();
-    final dbGroupsMap = {for (var g in dbGroups) g.id: g};
+    final validGroupIds = validGroups.where((g) => g.id > 0).map((g) => g.id).toSet();
     
-    final newGroups = _groups.where((g) => g.id < 0 && g.name.trim().isNotEmpty).toList();
-    final dbIds = dbGroupsMap.keys.toSet();
-    final memoryIds = _groups.where((g) => g.id > 0).map((g) => g.id).toSet();
-    final deletedIds = dbIds.difference(memoryIds);
-    
-    final updatedGroups = <ContactGroup>[];
-    for (final group in _groups) {
-      if (group.id > 0) {
-        final dbGroup = dbGroupsMap[group.id];
-        if (dbGroup != null && dbGroup.name != group.name) {
-          updatedGroups.add(group);
-        }
-      }
-    }
-
-    try {
-      for (final group in newGroups) {
-        await _groupService.createGroup(name: group.name.trim());
-      }
-
-      for (final id in deletedIds) {
-        await _groupService.deleteGroup(id);
-      }
-
-      for (final group in updatedGroups) {
-        await _groupService.updateGroupName(group.id, group.name.trim());
-      }
-
-      await _loadGroups();
-      
-      if (mounted) {
-        setState(() {
-          _isEditing = false;
-          for (var controller in _editingControllers.values) {
-            controller.dispose();
-          }
-          for (var focusNode in _focusNodes.values) {
-            focusNode.dispose();
-          }
-          _editingControllers.clear();
-          _focusNodes.clear();
-        });
-      }
-    } catch (e) {
-      await _loadGroups();
-      if (mounted) {
-        setState(() {
-          _isEditing = false;
-          for (var controller in _editingControllers.values) {
-            controller.dispose();
-          }
-          for (var focusNode in _focusNodes.values) {
-            focusNode.dispose();
-          }
-          _editingControllers.clear();
-          _focusNodes.clear();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save changes: $e')),
-        );
+    for (final dbGroup in dbGroups) {
+      if (!validGroupIds.contains(dbGroup.id)) {
+        await _groupService.deleteGroup(dbGroup.id);
       }
     }
   }
@@ -211,7 +167,31 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
         leading: _isEditing
             ? IconButton(
                 icon: const Text('Done', style: TextStyle(fontSize: 16)),
-                onPressed: _saveChanges,
+                onPressed: () async {
+                  try {
+                    preCheckGroupsData();
+                    await _syncToDatabase();
+                    if (mounted) {
+                      setState(() {
+                        _isEditing = false;
+                        for (var controller in _editingControllers.values) {
+                          controller.dispose();
+                        }
+                        for (var focusNode in _focusNodes.values) {
+                          focusNode.dispose();
+                        }
+                        _editingControllers.clear();
+                        _focusNodes.clear();
+                      });
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to sync to database: $e')),
+                      );
+                    }
+                  }
+                },
               )
             : IconButton(
                 icon: const Icon(Icons.edit),
@@ -297,19 +277,25 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
                       ),
                     ),
                   ),
-                  ..._groups.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final group = entry.value;
-                    final isLast = index == _groups.length - 1;
-                    return _buildGroupItem(group, isLast);
-                  }).toList(),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    itemBuilder: (_, index) {
+                      final group = _groups[index];
+                      return _buildGroupItem(group);
+                    },
+                    separatorBuilder: (_, __) => Container(
+                      color: borderColor,
+                      height: 0.5,
+                    ),
+                    itemCount: _groups.length,
+                  ),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildGroupItem(ContactGroup group, bool isLast) {
+  Widget _buildGroupItem(ContactGroup group) {
     final isNewGroup = group.id < 0;
     final controller = _editingControllers[group.id] ?? 
         TextEditingController(text: group.name);
@@ -334,98 +320,58 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
       });
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        border: isLast ? null : Border(
-          bottom: BorderSide(
-            color: borderColor,
-            width: 0.5,
+    return FutureBuilder<int>(
+      future: group.id > 0 ? _getGroupContactCount(group.id) : Future.value(0),
+      builder: (context, snapshot) {
+        final count = snapshot.data ?? 0;
+        return ListTile(
+          leading: _isEditing
+              ? IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  color: theme.colorScheme.error,
+                  onPressed: () => _deleteGroup(group),
+                  tooltip: 'Delete',
+                )
+              : null,
+          title: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: _isEditing || isNewGroup,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              disabledBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
+            ),
           ),
-        ),
-      ),
-      child: FutureBuilder<int>(
-        future: group.id > 0 ? _getGroupContactCount(group.id) : Future.value(0),
-        builder: (context, snapshot) {
-          final count = snapshot.data ?? 0;
-          return ListTile(
-            leading: _isEditing && !isNewGroup
-                ? IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    color: theme.colorScheme.error,
-                    onPressed: () => _deleteGroup(group),
-                    tooltip: 'Delete',
-                  )
-                : null,
-            title: _isEditing || isNewGroup
-                ? TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: true,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (value) {
-                      final index = _groups.indexWhere((g) => g.id == group.id);
-                      if (index != -1) {
-                        setState(() {
-                          _groups[index] = ContactGroup(
-                            name: value,
-                            createTime: _groups[index].createTime,
-                            updateTime: DateTime.now().millisecondsSinceEpoch,
-                          )..id = _groups[index].id;
-                        });
-                      }
-                    },
-                  )
-                : TextField(
-                    controller: controller,
-                    enabled: false,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      disabledBorder: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                    ),
-                  ),
-            subtitle: group.id > 0
-                ? Text(
-                    '$count ${count == 1 ? 'contact' : 'contacts'}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: onSurfaceVariant,
-                    ),
-                  )
-                : null,
-            trailing: _isEditing
-                ? null
-                : group.id > 0
-                    ? Icon(
-                        Icons.chevron_right,
-                        color: onSurfaceVariant,
-                        size: 20,
-                      )
-                    : null,
-            onTap: !_isEditing && group.id > 0
-                ? () {
-                    context.push(
-                      '/group-contacts',
-                      extra: {'groupId': group.id, 'groupName': group.name},
-                    );
-                  }
-                : null,
-          );
-        },
-      ),
+          subtitle: Text(
+            '$count ${count == 1 ? 'contact' : 'contacts'}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+          trailing: _isEditing
+              ? null
+              : Icon(
+                Icons.chevron_right,
+                color: onSurfaceVariant,
+                size: 20,
+              ),
+          onTap: _isEditing
+              ? null
+              : () {
+                context.push(
+                  '/group-contacts',
+                  extra: {'groupId': group.id, 'groupName': group.name},
+                );
+              },
+        );
+      },
     );
   }
 

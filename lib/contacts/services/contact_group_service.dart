@@ -11,7 +11,7 @@ class ContactGroupService {
 
   /// Get all groups
   Future<List<ContactGroup>> getAllGroups() async {
-    return await _isar.contactGroups.where().sortByUpdateTimeDesc().findAll();
+    return await _isar.contactGroups.where().sortByCreateTime().findAll();
   }
 
   /// Create a new group
