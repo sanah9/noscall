@@ -19,6 +19,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
   bool _isEditing = false;
   final Map<int, TextEditingController> _editingControllers = {};
   final Map<int, FocusNode> _focusNodes = {};
+  final Map<int, int> _groupCountCache = {};
   int _tempIdCounter = -1;
 
   late ThemeData theme;
@@ -52,6 +53,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
     if (mounted) {
       setState(() {
         _groups = groups;
+        _groupCountCache.clear();
       });
     }
   }
@@ -321,9 +323,18 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
     }
 
     return FutureBuilder<int>(
-      future: group.id > 0 ? _getGroupContactCount(group.id) : Future.value(0),
+      future: group.id > 0 
+          ? (_groupCountCache.containsKey(group.id) 
+              ? Future.value(_groupCountCache[group.id]!) 
+              : _getGroupContactCount(group.id).then((count) {
+                  if (mounted) {
+                    _groupCountCache[group.id] = count;
+                  }
+                  return count;
+                }))
+          : Future.value(0),
       builder: (context, snapshot) {
-        final count = snapshot.data ?? 0;
+        final count = snapshot.data ?? _groupCountCache[group.id] ?? 0;
         return ListTile(
           leading: _isEditing
               ? IconButton(
@@ -364,11 +375,16 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
               ),
           onTap: _isEditing
               ? null
-              : () {
-                context.push(
+              : () async {
+                final result = await context.push<int>(
                   '/group-contacts',
                   extra: {'groupId': group.id, 'groupName': group.name},
                 );
+                if (result != null && mounted) {
+                  setState(() {
+                    _groupCountCache[group.id] = result;
+                  });
+                }
               },
         );
       },

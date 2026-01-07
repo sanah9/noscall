@@ -54,31 +54,73 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
     }
   }
 
+  Future<void> _removeContact(String pubKey, String displayName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Contact'),
+        content: Text('Remove "$displayName" from this group?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _groupService.removeContactsFromGroup(widget.groupId, [pubKey]);
+      await _loadContacts();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.groupName),
-        centerTitle: true,
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: _addContacts,
-            tooltip: 'Add Contact',
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          context.pop(_contactPubKeys.length);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.groupName),
+          centerTitle: true,
+          backgroundColor: colorScheme.surface,
+          foregroundColor: colorScheme.onSurface,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+            onPressed: () {
+              context.pop(_contactPubKeys.length);
+            },
           ),
-        ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.person_add),
+              onPressed: _addContacts,
+              tooltip: 'Add Contact',
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _contactPubKeys.isEmpty
+                ? _buildEmptyState(colorScheme)
+                : _buildContactsList(colorScheme),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _contactPubKeys.isEmpty
-              ? _buildEmptyState(colorScheme)
-              : _buildContactsList(colorScheme),
     );
   }
 
@@ -146,6 +188,9 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
                 '/user-detail',
                 extra: {'pubkey': contact.pubKey},
               );
+            },
+            onLongPress: () {
+              _removeContact(contact.pubKey, updatedUser.displayName());
             },
             child: Padding(
               padding: const EdgeInsets.all(16),

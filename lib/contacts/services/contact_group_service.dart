@@ -69,7 +69,9 @@ class ContactGroupService {
         .toList();
 
     if (newMembers.isNotEmpty) {
-      await DBISAR.sharedInstance.saveObjectsToDB(newMembers);
+      await _isar.writeTxn(() async {
+        _isar.contactGroupMembers.putAll(newMembers);
+      });
     }
   }
 
