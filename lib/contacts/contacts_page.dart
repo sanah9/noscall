@@ -18,6 +18,8 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
@@ -41,6 +43,18 @@ class _ContactsPageState extends State<ContactsPage> {
         setState(() {});
       }
     });
+
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _startVoiceCall(String peerId, String displayName) async {
@@ -107,14 +121,120 @@ class _ContactsPageState extends State<ContactsPage> {
     }
   }
 
+  List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
+    if (_searchQuery.isEmpty) return contacts;
+
+    final query = _searchQuery.toLowerCase();
+    return contacts.where((contact) {
+      final name = (contact.name ?? '').toLowerCase();
+      final nickName = (contact.nickName ?? '').toLowerCase();
+      
+      return name.contains(query) || nickName.contains(query);
+    }).toList();
+  }
+
+  bool _isNameMatched(UserDBISAR user) {
+    if (_searchQuery.isEmpty) return false;
+    final query = _searchQuery.toLowerCase();
+    final name = (user.name ?? '').toLowerCase();
+    return name.contains(query);
+  }
+
+  String _getDisplayNameWithRemark(UserDBISAR user) {
+    final nickName = (user.nickName ?? '').trim();
+    final name = (user.name ?? '').trim();
+    final isNameMatched = _isNameMatched(user);
+    
+    if (isNameMatched && nickName.isNotEmpty && name.isNotEmpty) {
+      return '$nickName($name)';
+    } else if (nickName.isNotEmpty) {
+      return nickName;
+    } else if (name.isNotEmpty) {
+      return name;
+    } else {
+      return user.shortEncodedPubkey;
+    }
+  }
+
+  Widget _buildHighlightedText(String text, String query) {
+    if (query.isEmpty) {
+      return Text(text);
+    }
+
+    final queryLower = query.toLowerCase();
+    final textLower = text.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+
+    while (start < text.length) {
+      final index = textLower.indexOf(queryLower, start);
+      if (index == -1) {
+        if (start < text.length) {
+          spans.add(TextSpan(
+            text: text.substring(start),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ));
+        }
+        break;
+      }
+
+      if (index > start) {
+        spans.add(TextSpan(
+          text: text.substring(start, index),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(index, index + query.length),
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: primary,
+          fontWeight: FontWeight.w600,
+          backgroundColor: primary.withValues(alpha: 0.2),
+        ),
+      ));
+
+      start = index + query.length;
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     theme = Theme.of(context);
+    final allContacts = Contacts.sharedInstance.allContacts.values.toList();
+    final filteredContacts = _filterContacts(allContacts);
+    final hasContacts = Contacts.sharedInstance.allContacts.isNotEmpty;
+    final hasSearchResults = filteredContacts.isNotEmpty;
+    
     return Scaffold(
       appBar: _buildAppBar(context),
-      body: Contacts.sharedInstance.allContacts.isEmpty
-          ? _buildEmptyContactsState(context)
-          : _buildContactsList(context),
+      body: GestureDetector(
+        onTap: () {
+          FocusScope.of(context).unfocus();
+        },
+        child: Column(
+          children: [
+            _buildSearchBar(),
+            Expanded(
+              child: !hasContacts
+                  ? _buildEmptyContactsState(context)
+                  : !hasSearchResults && _searchQuery.isNotEmpty
+                      ? _buildNoSearchResultsState(context)
+                      : _buildContactsList(context, filteredContacts),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -174,11 +294,92 @@ class _ContactsPageState extends State<ContactsPage> {
     );
   }
 
-  Widget _buildContactsList(BuildContext context) {
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: surface,
+        border: Border(
+          bottom: BorderSide(
+            color: onSurfaceVariant.withValues(alpha: 0.1),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search contacts...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: onSurfaceVariant.withValues(alpha: 0.2),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: onSurfaceVariant.withValues(alpha: 0.2),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: primary,
+              width: 2,
+            ),
+          ),
+          filled: true,
+          fillColor: onSurfaceVariant.withValues(alpha: 0.05),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResultsState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No results found',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try a different search term',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactsList(BuildContext context, List<UserDBISAR> contacts) {
     return ListView.builder(
-      itemCount: Contacts.sharedInstance.allContacts.length,
+      itemCount: contacts.length,
       itemBuilder: (context, index) {
-        final contact = Contacts.sharedInstance.allContacts.values.elementAt(index);
+        final contact = contacts[index];
         return _buildContactCard(context, contact);
       },
     );
@@ -232,13 +433,125 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildContactName(UserDBISAR user) {
+    if (_searchQuery.isNotEmpty) {
+      final nickName = (user.nickName ?? '').trim();
+      final name = (user.name ?? '').trim();
+      final isNameMatched = _isNameMatched(user);
+      final query = _searchQuery.toLowerCase();
+      final nickNameLower = nickName.toLowerCase();
+      final isNickNameMatched = nickNameLower.contains(query);
+      
+      if (isNameMatched && nickName.isNotEmpty && name.isNotEmpty) {
+        return _buildHighlightedTextWithRemark(nickName, name);
+      } else if (isNickNameMatched && nickName.isNotEmpty) {
+        return _buildHighlightedText(nickName, _searchQuery);
+      } else if (name.isNotEmpty) {
+        return _buildHighlightedText(name, _searchQuery);
+      } else {
+        return Text(
+          user.shortEncodedPubkey,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        );
+      }
+    }
+    
+    final displayText = _getDisplayNameWithRemark(user);
     return Text(
-      user.displayName(),
+      displayText,
       style: theme.textTheme.titleMedium?.copyWith(
         color: onSurface,
         fontWeight: FontWeight.w500,
       ),
     );
+  }
+
+  Widget _buildHighlightedTextWithRemark(String nickName, String name) {
+    final query = _searchQuery.toLowerCase();
+    final nameLower = name.toLowerCase();
+    
+    if (nameLower.contains(query)) {
+      final spans = <TextSpan>[];
+      
+      spans.add(TextSpan(
+        text: '$nickName(',
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      ));
+      
+      final nameSpans = _buildHighlightedSpans(name, query);
+      spans.addAll(nameSpans);
+      
+      spans.add(TextSpan(
+        text: ')',
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      ));
+      
+      return RichText(
+        text: TextSpan(children: spans),
+      );
+    } else {
+      return Text(
+        nickName,
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+    }
+  }
+
+  List<TextSpan> _buildHighlightedSpans(String text, String query) {
+    final queryLower = query.toLowerCase();
+    final textLower = text.toLowerCase();
+    final spans = <TextSpan>[];
+    int start = 0;
+
+    while (start < text.length) {
+      final index = textLower.indexOf(queryLower, start);
+      if (index == -1) {
+        if (start < text.length) {
+          spans.add(TextSpan(
+            text: text.substring(start),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: onSurface,
+              fontWeight: FontWeight.w500,
+            ),
+          ));
+        }
+        break;
+      }
+
+      if (index > start) {
+        spans.add(TextSpan(
+          text: text.substring(start, index),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ));
+      }
+
+      spans.add(TextSpan(
+        text: text.substring(index, index + query.length),
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: primary,
+          fontWeight: FontWeight.w600,
+          backgroundColor: primary.withValues(alpha: 0.2),
+        ),
+      ));
+
+      start = index + query.length;
+    }
+
+    return spans;
   }
 
   Widget _buildContactSubtitle(UserDBISAR user) {
