@@ -166,8 +166,10 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
         backgroundColor: surface,
         foregroundColor: onSurface,
         elevation: 0,
+        leadingWidth: 70,
         leading: _isEditing
             ? IconButton(
+                padding: const EdgeInsets.only(left: 16),
                 icon: const Text('Done', style: TextStyle(fontSize: 16)),
                 onPressed: () async {
                   try {
@@ -206,6 +208,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
               ),
         actions: [
           IconButton(
+            padding: const EdgeInsets.only(right: 20),
             icon: const Icon(Icons.add),
             onPressed: _createGroup,
             tooltip: 'Add Group',

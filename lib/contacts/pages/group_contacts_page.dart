@@ -303,6 +303,7 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
           ),
           actions: [
             IconButton(
+              padding: const EdgeInsets.only(right: 12),
               icon: const Icon(Icons.person_add),
               onPressed: _addContacts,
               tooltip: 'Add Contact',

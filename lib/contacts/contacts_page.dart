@@ -254,6 +254,7 @@ class _ContactsPageState extends State<ContactsPage> {
       ),
       actions: [
         IconButton(
+          padding: const EdgeInsets.only(right: 12),
           onPressed: () {
             // Use global router for add contact page
             AppRouter.router.push('/add-contact');
