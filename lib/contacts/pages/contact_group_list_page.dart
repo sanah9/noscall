@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../models/contact_group_isar.dart';
 import '../services/contact_group_service.dart';
 import '../../core/call/contacts/contacts.dart';
@@ -379,10 +378,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
           onTap: _isEditing
               ? null
               : () async {
-                final result = await context.push<int>(
-                  '/group-contacts',
-                  extra: {'groupId': group.id, 'groupName': group.name},
-                );
+                final result = await context.pushGroupContacts(group.id, group.name);
                 if (result != null && mounted) {
                   setState(() {
                     _groupCountCache[group.id] = result;

@@ -8,6 +8,7 @@ import '../utils/toast.dart';
 import '../utils/router.dart';
 import 'user_avatar.dart';
 import 'contact_navigation_extension.dart';
+import 'services/contact_navigation_service.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -31,6 +32,9 @@ class _ContactsPageState extends State<ContactsPage> {
   @override
   void initState() {
     super.initState();
+    // Clear group ID when on "All Contacts" page
+    ContactNavigationService.sharedInstance.clearLastGroupId();
+    
     // Register callback to update UI when contacts change
     Contacts.sharedInstance.contactUpdatedCallBack = () {
       if (mounted) {

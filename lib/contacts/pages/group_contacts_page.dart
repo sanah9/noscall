@@ -4,6 +4,8 @@ import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/account/account.dart' as ChatCore;
 import '../../core/call/contacts/contacts.dart';
 import '../services/contact_group_service.dart';
+import '../services/contact_navigation_service.dart';
+import '../contact_navigation_extension.dart';
 import '../user_avatar.dart';
 
 class GroupContactsPage extends StatefulWidget {
@@ -30,6 +32,9 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
   @override
   void initState() {
     super.initState();
+    // Save group ID when this page is opened
+    ContactNavigationService.sharedInstance.saveLastGroupId(widget.groupId);
+    
     _loadContacts();
     _searchController.addListener(() {
       setState(() {
@@ -285,7 +290,7 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
       canPop: false,
       onPopInvoked: (didPop) {
         if (!didPop) {
-          context.pop(_contactPubKeys.length);
+          context.popContactPage(_contactPubKeys.length);
         }
       },
       child: Scaffold(
@@ -298,7 +303,7 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
             onPressed: () {
-              context.pop(_contactPubKeys.length);
+              context.popContactPage(_contactPubKeys.length);
             },
           ),
           actions: [

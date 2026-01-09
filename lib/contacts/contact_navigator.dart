@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'contacts_page.dart';
 import 'pages/contact_group_list_page.dart';
+import 'pages/group_contacts_page.dart';
+import 'services/contact_navigation_service.dart';
+import 'services/contact_group_service.dart';
 
 class ContactNavigator extends StatefulWidget {
   const ContactNavigator({super.key});
@@ -11,20 +14,52 @@ class ContactNavigator extends StatefulWidget {
 
 class _ContactNavigatorState extends State<ContactNavigator> {
   List<Page> _pages = [];
+  late Future _initialize;
 
   @override
   void initState() {
     super.initState();
+    _initialize = _initializePages();
+  }
+
+  Future<void> _initializePages() async {
+    final navService = ContactNavigationService.sharedInstance;
+    final groupId = await navService.getLastGroupId();
     _pages = [
       const MaterialPage(
-        key: ValueKey('contacts-groups'),
         child: ContactGroupListPage(),
       ),
-      const MaterialPage(
-        key: ValueKey('contacts-list'),
-        child: ContactsPage(),
-      ),
     ];
+
+    Widget page = const ContactsPage();
+    if (groupId != null) {
+      page = await _getGroupPage(groupId) ?? page;
+    }
+    _pages.add(
+      MaterialPage(
+        child: page,
+      ),
+    );
+  }
+
+  Future<Widget?> _getGroupPage(int groupId) async {
+    try {
+      final groupService = ContactGroupService.sharedInstance;
+      final groups = await groupService.getAllGroups();
+      final group = groups.firstWhere(
+        (g) => g.id == groupId,
+        orElse: () => throw Exception('Group not found'),
+      );
+
+      return GroupContactsPage(
+        groupId: groupId,
+        groupName: group.name,
+      );
+    } catch (e) {
+      ContactNavigationService.sharedInstance.clearLastGroupId();
+    }
+
+    return null;
   }
 
   void pushPage(Widget page, String key) {
@@ -63,12 +98,18 @@ class _ContactNavigatorState extends State<ContactNavigator> {
 
   @override
   Widget build(BuildContext context) {
-    return ContactNavigatorProvider(
-      state: this,
-      child: Navigator(
-        pages: _pages,
-        onPopPage: _onPopPage,
-      ),
+    return FutureBuilder(
+      future: _initialize,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) return Container();
+        return ContactNavigatorProvider(
+          state: this,
+          child: Navigator(
+            pages: _pages,
+            onPopPage: _onPopPage,
+          ),
+        );
+      }
     );
   }
 }
