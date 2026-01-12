@@ -14,6 +14,7 @@ import 'constant/call_type.dart';
 import 'callkeep_manager.dart';
 import 'calling_controller.dart';
 import 'pip_manager.dart';
+import 'voip_push_service.dart';
 import '../core/common/utils/log_utils.dart';
 import '../utils/macos_permissions.dart';
 
@@ -40,6 +41,7 @@ class CallKitManager with WidgetsBindingObserver {
 
   CallHistoryManager? callHistoryManager;
   CallKeepManager? _callKeepManager;
+  VoIPPushService? _voipPushService;
 
   CallType? callType;
   bool get getInCallIng => hasActiveCalling;
@@ -107,6 +109,12 @@ class CallKitManager with WidgetsBindingObserver {
 
       // Setup Nostr call state handler
       ChatCore.Contacts.sharedInstance.onCallStateChange = nostrCallStateChangeHandler;
+
+      // Initialize VoIP push service (iOS only)
+      if (Platform.isIOS) {
+        _voipPushService = VoIPPushService();
+        await _voipPushService?.initialize(this);
+      }
 
       // Initialize PiP manager
       await PipManager.initialize();
@@ -373,6 +381,7 @@ class CallKitManager with WidgetsBindingObserver {
     deviceChangeSubscription?.cancel();
     deviceChangeSubscription = null;
     isBluetoothHeadsetConnected.dispose();
+    _voipPushService?.dispose();
     clean();
     LogUtils.i(() => 'CallKitManager disposed');
   }
