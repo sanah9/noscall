@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'package:noscall/auth/auth_service.dart';
 import 'call_manager.dart';
 import 'constant/call_type.dart';
+import 'push_token_service.dart';
 
 /// Service for handling iOS VoIP push notifications
 /// 
@@ -69,7 +71,6 @@ class VoIPPushService {
   }
 
   /// Handle VoIP push token update
-  /// The token should be sent to the server for VoIP push notifications
   Future<void> _handleVoIPTokenUpdated(String? token) async {
     if (token == null || token.isEmpty) {
       LogUtils.w(() => 'VoIPPushService: Received empty token');
@@ -78,11 +79,25 @@ class VoIPPushService {
 
     LogUtils.i(() => 'VoIPPushService: VoIP push token updated: ${token.substring(0, 20)}...');
     
-    // TODO: Send token to server
-    // This token should be sent to your backend server
-    // The server will use this token to send VoIP push notifications
-    // Example:
-    // await yourServerApi.updateVoIPToken(token);
+    // Only upload token when user is authenticated
+    final authService = AuthService();
+    if (!authService.isAuthenticated) {
+      LogUtils.v(() => 'VoIPPushService: User not authenticated, token upload deferred');
+      return;
+    }
+
+    // Only upload token when it changes (avoid duplicate uploads)
+    final shouldUpload = await PushTokenService().shouldUploadVoIPToken(token);
+    if (shouldUpload) {
+      final success = await PushTokenService().uploadVoIPToken(token);
+      if (success) {
+        LogUtils.i(() => 'VoIPPushService: VoIP token uploaded to server successfully');
+      } else {
+        LogUtils.w(() => 'VoIPPushService: Failed to upload VoIP token to server');
+      }
+    } else {
+      LogUtils.v(() => 'VoIPPushService: VoIP token unchanged, skipping upload');
+    }
   }
 
   /// Handle received VoIP push notification

@@ -5,6 +5,7 @@ import 'package:noscall/core/core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import '../call/call_manager.dart';
+import '../call/push_token_service.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 enum LoginMethod {
@@ -342,6 +343,9 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_userKey);
       await prefs.remove(_loginMethodKey);
+
+      // Clear VoIP push token data (best practice: clear on logout)
+      await PushTokenService().clearVoIPToken();
 
       _currentUserPubkey = null;
       _currentUserNpub = null;
