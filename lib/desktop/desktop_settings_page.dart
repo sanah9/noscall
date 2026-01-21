@@ -6,7 +6,6 @@ import '../auth/auth_service.dart';
 import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../setting/widgets/keys_dialog.dart';
-import '../setting/widgets/relays_dialog.dart';
 import '../setting/widgets/about_dialog.dart' as app_about;
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
@@ -295,7 +294,7 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                 context: context,
                 icon: Icons.cloud_outlined,
                 title: 'Relays',
-                onTap: () => RelaysDialog.show(context),
+                onTap: () => context.push('/relay-management'),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(

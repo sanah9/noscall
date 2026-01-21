@@ -9,7 +9,6 @@ import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'widgets/keys_dialog.dart';
-import 'widgets/relays_dialog.dart';
 import 'widgets/about_dialog.dart';
 
 class _MenuItem {
@@ -335,7 +334,7 @@ class _SettingPageState extends State<SettingPage> {
       _MenuItem(
         icon: Icons.cloud_circle,
         title: 'Relays',
-        onTap: () => _showRelaysDialog(context),
+        onTap: () => context.push('/relay-management'),
       ),
       // _MenuItem(
       //   icon: Icons.settings_ethernet,
@@ -537,9 +536,6 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-  void _showRelaysDialog(BuildContext context) {
-    RelaysDialog.show(context);
-  }
 
   void _showAboutDialog(BuildContext context) {
     AboutDialog.show(context);
