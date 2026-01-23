@@ -59,6 +59,14 @@ dev_dependencies:
   isar_generator: ^3.1.0+1
   json_serializable: ^6.1.5
   watcher: ^1.1.0
+  
+  # Testing tools
+  mockito: ^5.4.4                    # Mock object generation
+  mocktail: ^1.0.4                   # Mock library without code generation
+  fake_async: ^1.3.1                 # Time control
+  integration_test:                   # Integration testing
+    sdk: flutter
+  coverage: ^1.7.0                    # Coverage report generation
 #  flutter_socks_proxy: ^0.0.3
 
 flutter:

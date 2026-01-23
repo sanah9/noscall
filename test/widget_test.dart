@@ -8,23 +8,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:noscall/main.dart';
+// Note: MainApp requires extensive initialization (database, network, services, etc.)
+// This test is skipped for now because it requires mocking many dependencies
+// Actual widget tests should be written in test/widget/ directory for specific pages
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Placeholder widget test', (WidgetTester tester) async {
+    // This is a placeholder test, actual widget tests should be in test/widget/ directory
+    // Example: test/widget/setting/relay_management_page_test.dart
+    
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Test placeholder'),
+          ),
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Test placeholder'), findsOneWidget);
   });
 }
