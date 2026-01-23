@@ -49,6 +49,18 @@ case $TEST_TYPE in
         print_info "Running integration tests..."
         flutter test test/integration/ --coverage
         ;;
+    account)
+        print_info "Running Account module tests..."
+        flutter test test/unit/core/account/ --coverage
+        ;;
+    relay)
+        print_info "Running Relay management tests..."
+        flutter test test/unit/core/account/account+relay_test.dart --coverage
+        ;;
+    core)
+        print_info "Running Core module tests..."
+        flutter test test/unit/core/ --coverage
+        ;;
     all)
         print_info "Running all tests..."
         flutter test --coverage
@@ -65,7 +77,14 @@ case $TEST_TYPE in
         ;;
     *)
         print_error "Unknown test type: $TEST_TYPE"
-        echo "Usage: $0 [unit|widget|integration|all]"
+        echo "Usage: $0 [unit|widget|integration|account|relay|core|all]"
+        echo ""
+        echo "Examples:"
+        echo "  $0 unit          # Run all unit tests"
+        echo "  $0 account       # Run Account module tests"
+        echo "  $0 relay         # Run Relay management tests"
+        echo "  $0 core          # Run Core module tests"
+        echo "  $0 all           # Run all tests with coverage report"
         exit 1
         ;;
 esac
