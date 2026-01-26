@@ -27,4 +27,22 @@ class TestData {
   
   /// Test user nickname
   static const String testUserNickname = 'testuser';
+  
+  /// Valid STUN server URL
+  static const String validStunUrl = 'stun:stun.l.google.com:19302';
+  
+  /// Valid STUNS server URL
+  static const String validStunsUrl = 'stuns:stun.l.google.com:19302';
+  
+  /// Valid TURN server URL
+  static const String validTurnUrl = 'turn:username:password@turn.example.com:3478';
+  
+  /// Valid TURNS server URL
+  static const String validTurnsUrl = 'turns:username:password@turn.example.com:5349';
+  
+  /// Invalid ICE server URL
+  static const String invalidIceServerUrl = 'invalid-url';
+  
+  /// Empty ICE server URL
+  static const String emptyIceServerUrl = '';
 }
