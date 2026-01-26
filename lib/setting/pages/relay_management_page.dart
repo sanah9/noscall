@@ -319,7 +319,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
     );
 
     if (confirmed == true) {
-      // 更新默认列表（以防有变化）
+      // Update default list (in case it has changed)
       _defaultRelays = List.from(Relays.sharedInstance.recommendGeneralRelays);
       setState(() {
         _relays = List.from(_defaultRelays);

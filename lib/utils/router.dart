@@ -17,6 +17,7 @@ import '../contacts/pages/group_contacts_page.dart';
 import '../contacts/pages/contact_select_page.dart';
 import '../profile/profile_settings_page.dart';
 import '../setting/pages/relay_management_page.dart';
+import '../setting/pages/ice_server_management_page.dart';
 
 class AppRouter {
   static final GoRouter _router = GoRouter(
@@ -145,6 +146,11 @@ class AppRouter {
         path: '/relay-management',
         name: 'relay-management',
         builder: (context, state) => const RelayManagementPage(),
+      ),
+      GoRoute(
+        path: '/ice-server-management',
+        name: 'ice-server-management',
+        builder: (context, state) => const IceServerManagementPage(),
       ),
     ],
   );

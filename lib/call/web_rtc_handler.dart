@@ -77,7 +77,7 @@ class WebRTCHandler {
   }
 
   Future preparePeerConnection() async {
-    final iceServers = ICEServerManager.shared.defaultICEServers;
+    final iceServers = await ICEServerManager.shared.getICEServers();
     peerConnection = await WebRTCHelper.createConnection(
       iceServers: iceServers,
     );

@@ -299,6 +299,13 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
+                icon: Icons.settings_ethernet,
+                title: 'ICE Servers',
+                onTap: () => context.push('/ice-server-management'),
+              ),
+              _buildDivider(colorScheme),
+              _buildSettingItem(
+                context: context,
                 icon: Icons.info_outline,
                 title: 'About',
                 onTap: () => app_about.AboutDialog.show(context),

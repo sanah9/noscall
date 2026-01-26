@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class ICEServerManager {
   ICEServerManager._();
 
   static final ICEServerManager shared = ICEServerManager._();
+
+  static const String _prefsKey = 'noscall_custom_ice_servers';
 
   List<ICEServerModel> get defaultICEServers => [
     ICEServerModel(
@@ -23,6 +28,55 @@ class ICEServerManager {
     //   url: 'turn:0xchat:Prettyvs511@rtc6.0xchat.com:5349',
     // ),
   ];
+
+  /// Get ICE servers (custom if available, otherwise default)
+  Future<List<ICEServerModel>> getICEServers() async {
+    final customServers = await loadCustomServers();
+    if (customServers.isNotEmpty) {
+      return customServers;
+    }
+    return defaultICEServers;
+  }
+
+  /// Load custom ICE servers from SharedPreferences
+  Future<List<ICEServerModel>> loadCustomServers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString(_prefsKey);
+      if (jsonString == null || jsonString.isEmpty) {
+        return [];
+      }
+
+      final List<dynamic> jsonList = jsonDecode(jsonString);
+      return jsonList
+          .map((json) => ICEServerModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Save custom ICE servers to SharedPreferences
+  Future<bool> saveCustomServers(List<ICEServerModel> servers) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = servers.map((server) => server.toJson()).toList();
+      final jsonString = jsonEncode(jsonList);
+      return await prefs.setString(_prefsKey, jsonString);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Clear custom ICE servers (reset to default)
+  Future<bool> clearCustomServers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return await prefs.remove(_prefsKey);
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
 class ICEServerModel {
@@ -90,8 +144,7 @@ class ICEServerModel {
   @override
   int get hashCode => url.hashCode;
 
-  Map<String, dynamic> toJson(ICEServerModel iceServerModel) =>
-      <String, dynamic>{
-        'url': iceServerModel.url,
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'url': url,
       };
 }

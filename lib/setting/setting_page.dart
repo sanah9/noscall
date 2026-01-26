@@ -336,11 +336,11 @@ class _SettingPageState extends State<SettingPage> {
         title: 'Relays',
         onTap: () => context.push('/relay-management'),
       ),
-      // _MenuItem(
-      //   icon: Icons.settings_ethernet,
-      //   title: 'ICE Servers',
-      //   onTap: () => _showIceServersDialog(context),
-      // ),
+      _MenuItem(
+        icon: Icons.settings_ethernet,
+        title: 'ICE Servers',
+        onTap: () => context.push('/ice-server-management'),
+      ),
       _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
