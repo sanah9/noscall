@@ -11,6 +11,7 @@ import 'utils/loading.dart';
 
 import 'auth/auth_service.dart';
 import 'call/call_manager.dart';
+import 'setting/services/theme_service.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
@@ -49,6 +50,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     ThreadPoolManager.sharedInstance.dispose();
     AuthService().dispose();
     CallKitManager().dispose();
+    ThemeService().dispose();
     super.dispose();
   }
 
@@ -64,15 +66,36 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'NosCall',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0x3937a3)),
-        useMaterial3: true,
-      ),
-      routerConfig: AppRouter.router,
-      debugShowCheckedModeBanner: false,
-      builder: EasyLoading.init(),
+    final themeService = ThemeService();
+    const seedColor = Color(0xFF3937A3);
+
+    return ValueListenableBuilder<ThemeModeOption>(
+      valueListenable: themeService.themeModeNotifier,
+      builder: (context, themeModeOption, _) {
+        final themeMode = themeService.toFlutterThemeMode(themeModeOption);
+
+        return MaterialApp.router(
+          title: 'NosCall',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: seedColor,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: seedColor,
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+          ),
+          themeMode: themeMode,
+          routerConfig: AppRouter.router,
+          debugShowCheckedModeBanner: false,
+          builder: EasyLoading.init(),
+        );
+      },
     );
   }
 }

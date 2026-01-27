@@ -7,6 +7,7 @@ import '../core/account/account.dart';
 import '../core/account/model/userDB_isar.dart';
 import '../setting/widgets/keys_dialog.dart';
 import '../setting/widgets/about_dialog.dart' as app_about;
+import '../setting/widgets/theme_dialog.dart';
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
 
@@ -279,7 +280,6 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
     return Column(
       children: [
         Card(
-          color: Colors.white,
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
@@ -306,6 +306,13 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
+                icon: Icons.palette,
+                title: 'Theme',
+                onTap: () => ThemeDialog.show(context),
+              ),
+              _buildDivider(colorScheme),
+              _buildSettingItem(
+                context: context,
                 icon: Icons.info_outline,
                 title: 'About',
                 onTap: () => app_about.AboutDialog.show(context),
@@ -315,7 +322,6 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
         ),
         const SizedBox(height: 16),
         Card(
-          color: Colors.white,
           clipBehavior: Clip.antiAlias,
           child: _buildSettingItem(
             context: context,

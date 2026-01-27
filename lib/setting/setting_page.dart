@@ -10,6 +10,7 @@ import '../core/account/model/userDB_isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'widgets/keys_dialog.dart';
 import 'widgets/about_dialog.dart';
+import 'widgets/theme_dialog.dart';
 
 class _MenuItem {
   final IconData icon;
@@ -340,6 +341,11 @@ class _SettingPageState extends State<SettingPage> {
         icon: Icons.settings_ethernet,
         title: 'ICE Servers',
         onTap: () => context.push('/ice-server-management'),
+      ),
+      _MenuItem(
+        icon: Icons.palette,
+        title: 'Theme',
+        onTap: () => ThemeDialog.show(context),
       ),
       _MenuItem(
         icon: Icons.info_outline,
