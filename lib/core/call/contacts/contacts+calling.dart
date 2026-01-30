@@ -152,6 +152,20 @@ extension Calling on Contacts {
       MessageDBISAR callMessageDB = callMessageToDB(callMessage);
       await Messages.saveMessageToDB(callMessageDB);
       privateChatMessageCallBack?.call(callMessageDB);
+
+      // If this was an incoming call we didn't answer (missed/timeout/cancel), notify app to add to call history and show badge.
+      if (callMessage.receiver == pubkey &&
+          (state == CallMessageState.cancel ||
+              state == CallMessageState.timeout ||
+              state == CallMessageState.reject)) {
+        final media = callMessage.media.isEmpty ? 'audio' : callMessage.media;
+        onMissedCallFromRelay?.call(
+          callMessage.callId,
+          callMessage.sender,
+          media,
+          callMessage.start,
+        );
+      }
     }
 
     return true;

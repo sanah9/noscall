@@ -21,7 +21,7 @@ class RecentCallsPage extends StatefulWidget {
 }
 
 class _RecentCallsPageState extends State<RecentCallsPage> {
-  final CallHistoryManager _manager = CallHistoryManager();
+  late final CallHistoryManager _manager = CallKitManager.instance.callHistoryManager;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -42,13 +42,13 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   @override
   void initState() {
     super.initState();
-    CallKitManager.instance.callHistoryManager = _manager;
     _manager.initialize();
+    _manager.loadUnreadMissedCount();
+    _manager.persistUnreadCleared();
   }
 
   @override
   void dispose() {
-    CallKitManager.instance.callHistoryManager = null;
     _manager.dispose();
     _searchController.dispose();
     _showSearchController.close();

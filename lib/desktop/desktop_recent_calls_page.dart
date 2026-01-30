@@ -18,20 +18,20 @@ class DesktopRecentCallsPage extends StatefulWidget {
 }
 
 class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage> {
-  final CallHistoryManager _manager = CallHistoryManager();
+  late final CallHistoryManager _manager = CallKitManager.instance.callHistoryManager;
   final TextEditingController _searchController = TextEditingController();
   final StreamController<String> _searchTextController = StreamController<String>.broadcast();
 
   @override
   void initState() {
     super.initState();
-    CallKitManager.instance.callHistoryManager = _manager;
     _manager.initialize();
+    _manager.loadUnreadMissedCount();
+    _manager.persistUnreadCleared();
   }
 
   @override
   void dispose() {
-    CallKitManager.instance.callHistoryManager = null;
     _manager.dispose();
     _searchController.dispose();
     _searchTextController.close();

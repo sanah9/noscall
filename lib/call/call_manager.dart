@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
+import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/core/core.dart' as ChatCore;
 import 'package:noscall/utils/router.dart';
@@ -39,7 +40,9 @@ class CallKitManager with WidgetsBindingObserver {
   StreamSubscription? deviceChangeSubscription;
   ValueNotifier<bool> isBluetoothHeadsetConnected = ValueNotifier(false);
 
-  CallHistoryManager? callHistoryManager;
+  CallHistoryManager? _callHistoryManager;
+  CallHistoryManager get callHistoryManager =>
+      _callHistoryManager ??= CallHistoryManager();
   CallKeepManager? _callKeepManager;
   VoIPPushService? _voipPushService;
 
@@ -109,6 +112,9 @@ class CallKitManager with WidgetsBindingObserver {
 
       // Setup Nostr call state handler
       ChatCore.Contacts.sharedInstance.onCallStateChange = nostrCallStateChangeHandler;
+
+      // When user was offline and receives missed call (disconnect before answer), add to history and badge
+      ChatCore.Contacts.sharedInstance.onMissedCallFromRelay = _onMissedCallFromRelay;
 
       // Initialize VoIP push service (iOS only)
       if (Platform.isIOS) {
@@ -368,6 +374,33 @@ class CallKitManager with WidgetsBindingObserver {
   void callControllerDisposeHandler(String offerId) {
     disconnectOfferId.add(offerId);
     clean();
+  }
+
+  static void _onMissedCallFromRelay(
+    String callId,
+    String callerPubkey,
+    String media,
+    int startTimeMs,
+  ) {
+    final manager = CallKitManager.instance.callHistoryManager;
+    final callType = CallTypeEx.fromValue(media) ?? CallType.audio;
+    final startTime = DateTime.fromMillisecondsSinceEpoch(startTimeMs);
+
+    manager.addCallRecord(
+      callId: callId,
+      peerPubkey: callerPubkey,
+      direction: CallDirection.incoming,
+      type: callType,
+      status: CallStatus.cancelled,
+      startTime: startTime,
+      duration: null,
+    ).then((added) {
+      if (added) {
+        manager.incrementUnreadMissed();
+        LogUtils.i(() =>
+            'Missed call from relay recorded: $callId from $callerPubkey, unread count: ${manager.unreadMissedCountNotifier.value}');
+      }
+    });
   }
 
   void clean() {

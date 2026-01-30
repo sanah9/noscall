@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/flutter_utils/datatime_extension.dart';
 import 'package:uuid/uuid.dart';
@@ -7,6 +9,8 @@ import '../constants/call_enums.dart';
 import '../models/call_entry.dart';
 import '../models/call_log_group.dart';
 import '../../core/common/database/db_isar.dart';
+
+const String _kUnreadMissedCallCountKey = 'unread_missed_call_count';
 
 class CallHistoryManager {
   Isar get _isar => DBISAR.sharedInstance.isar;
@@ -21,6 +25,38 @@ class CallHistoryManager {
   get dataChangeController => _dataChangeController;
 
   Stream<List<CallLogGroup>> get dataChangeStream => _dataChangeController.stream;
+
+  /// Unread missed call count for tab badge. Persisted; cleared when user opens Recent tab.
+  final ValueNotifier<int> unreadMissedCountNotifier = ValueNotifier(0);
+  SharedPreferences? _prefs;
+  bool _unreadLoaded = false;
+
+  Future<void> loadUnreadMissedCount() async {
+    if (_unreadLoaded) return;
+    _prefs ??= await SharedPreferences.getInstance();
+    unreadMissedCountNotifier.value = _prefs!.getInt(_kUnreadMissedCallCountKey) ?? 0;
+    _unreadLoaded = true;
+  }
+
+  Future<void> incrementUnreadMissed() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    final n = unreadMissedCountNotifier.value + 1;
+    unreadMissedCountNotifier.value = n;
+    await _prefs!.setInt(_kUnreadMissedCallCountKey, n);
+  }
+
+  /// Clears the red dot in UI and persists 0. Call when user *leaves* Recent tab (switches to another tab).
+  Future<void> clearUnreadMissed() async {
+    unreadMissedCountNotifier.value = 0;
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setInt(_kUnreadMissedCallCountKey, 0);
+  }
+
+  /// Only persists 0 so next app launch has no red dot. Does NOT change UI. Call when user *enters* Recent page.
+  Future<void> persistUnreadCleared() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setInt(_kUnreadMissedCallCountKey, 0);
+  }
 
   void _notifyDataChanged() {
     _dataChangeController.add(List.unmodifiable(_callLogGroups));
@@ -43,7 +79,8 @@ class CallHistoryManager {
     }
   }
 
-  Future<void> addCallRecord({
+  /// Returns true if a new record was added, false if callId already existed (e.g. duplicate from another relay).
+  Future<bool> addCallRecord({
     required String callId,
     required String peerPubkey,
     required CallDirection direction,
@@ -52,6 +89,9 @@ class CallHistoryManager {
     required DateTime startTime,
     Duration? duration,
   }) async {
+    final existing = await _isar.callEntrys.where().callIdEqualTo(callId).findFirst();
+    if (existing != null) return false;
+
     final callEntry = CallEntry(
       callId: callId,
       peerPubkey: peerPubkey,
@@ -63,6 +103,7 @@ class CallHistoryManager {
     );
 
     await _addCallEntry(callEntry);
+    return true;
   }
 
   Future<void> deleteCallLogGroup(String groupId) async {

@@ -62,6 +62,11 @@ class Contacts {
   void Function(String friend, SignalingState state, String data, String? offerId)?
       onCallStateChange;
 
+  /// Called when an incoming call was missed (disconnect before answer, e.g. timeout/cancel).
+  /// Parameters: callId, callerPubkey, media ('audio'|'video'), startTimeMs.
+  void Function(String callId, String callerPubkey, String media, int startTimeMs)?
+      onMissedCallFromRelay;
+
   Future<void> init({ContactUpdatedCallBack? callBack}) async {
     privkey = Account.sharedInstance.currentPrivkey;
     pubkey = Account.sharedInstance.currentPubkey;

@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../contacts/contact_navigator.dart';
+import '../call/call_manager.dart';
 import '../call_history/widget/recent_calls_page.dart';
+import '../contacts/contact_navigator.dart';
 import '../setting/setting_page.dart';
 import '../core/account/account.dart';
 import '../core/account/account+profile.dart';
@@ -29,10 +30,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Listen for relay connection changes so we can sync profile once connected
     Connect.sharedInstance.addConnectStatusListener(_onConnectStatusChanged);
-    // If already connected when entering home, attempt sync immediately
     _syncProfileIfNeeded();
+    CallKitManager.instance.callHistoryManager.loadUnreadMissedCount();
   }
 
   @override
@@ -65,6 +65,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == 0 && index != 0) {
+      CallKitManager.instance.callHistoryManager.clearUnreadMissed();
+    }
     setState(() {
       _selectedIndex = index;
     });
@@ -101,9 +104,20 @@ class _HomePageState extends State<HomePage> {
         unselectedLabelStyle: theme.textTheme.labelSmall,
         items: [
           BottomNavigationBarItem(
-            icon: _selectedIndex == 0
-                ? const Icon(CupertinoIcons.clock_fill)
-                : const Icon(CupertinoIcons.clock),
+            icon: ValueListenableBuilder<int>(
+              valueListenable: CallKitManager.instance.callHistoryManager.unreadMissedCountNotifier,
+              builder: (context, unreadCount, child) {
+                final icon = _selectedIndex == 0
+                    ? const Icon(CupertinoIcons.clock_fill)
+                    : const Icon(CupertinoIcons.clock);
+                if (unreadCount <= 0) return icon;
+                return Badge(
+                  isLabelVisible: true,
+                  smallSize: 8,
+                  child: icon,
+                );
+              },
+            ),
             label: 'Recent',
           ),
           BottomNavigationBarItem(
