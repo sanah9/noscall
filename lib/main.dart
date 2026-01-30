@@ -22,6 +22,7 @@ Future<void> main() async {
   try {
     await ThreadPoolManager.sharedInstance.initialize();
     await AuthService().initialize();
+    await ThemeService().initialize();
   } catch (e) {
     debugPrint('Failed to initialize services: $e');
   }
