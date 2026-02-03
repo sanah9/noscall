@@ -142,6 +142,60 @@ class CallHistoryManager {
     _notifyDataChanged();
   }
 
+  /// Deletes call history entries (and updates or removes groups) whose [startTime] is before [before].
+  /// Returns the number of call entries deleted.
+  Future<int> deleteCallHistoryOlderThan(DateTime before) async {
+    final oldEntries = await _isar.callEntrys
+        .where()
+        .filter()
+        .startTimeLessThan(before)
+        .findAll();
+    if (oldEntries.isEmpty) return 0;
+
+    final oldCallIds = oldEntries.map((e) => e.callId).toList();
+
+    await _isar.writeTxn(() async {
+      await _isar.callEntrys.deleteAllByCallId(oldCallIds);
+    });
+
+    final groupsToUpdate = <CallLogGroup>[];
+    final groupsToRemove = <String>[];
+
+    for (final group in _callLogGroups) {
+      final remainingIds = group.callEntryIds.where((id) => !oldCallIds.contains(id)).toList();
+      if (remainingIds.isEmpty) {
+        groupsToRemove.add(group.groupId);
+      } else {
+        group.callEntryIds = remainingIds;
+        group.callEntries.removeWhere((e) => oldCallIds.contains(e.callId));
+        if (group.callEntries.isEmpty) {
+          await _loadCallEntriesForGroup(group);
+        }
+        if (group.callEntries.isNotEmpty) {
+          group.lastCallTime = group.callEntries.map((e) => e.startTime).reduce((a, b) => a.isAfter(b) ? a : b);
+          group.isConnected = group.callEntries.any((e) => e.status == CallStatus.completed);
+        }
+        groupsToUpdate.add(group);
+      }
+    }
+
+    for (final gid in groupsToRemove) {
+      _callLogGroups.removeWhere((g) => g.groupId == gid);
+    }
+
+    await _isar.writeTxn(() async {
+      for (final gid in groupsToRemove) {
+        await _isar.callLogGroups.where().groupIdEqualTo(gid).deleteAll();
+      }
+      for (final group in groupsToUpdate) {
+        await _isar.callLogGroups.put(group);
+      }
+    });
+
+    _notifyDataChanged();
+    return oldEntries.length;
+  }
+
   Future<void> _addCallEntry(CallEntry callEntry) async {
     await _isar.writeTxn(() async {
       await _isar.callEntrys.put(callEntry);

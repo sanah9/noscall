@@ -348,6 +348,11 @@ class _SettingPageState extends State<SettingPage> {
         onTap: () => ThemeDialog.show(context),
       ),
       _MenuItem(
+        icon: Icons.cleaning_services,
+        title: 'Data cleanup',
+        onTap: () => context.push('/data-cleanup'),
+      ),
+      _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
         onTap: () => _showAboutDialog(context),
