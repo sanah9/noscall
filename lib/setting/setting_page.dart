@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart' hide AboutDialog;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +39,8 @@ class _SettingPageState extends State<SettingPage> {
   final AuthService _authService = AuthService();
   ValueNotifier<UserDBISAR>? userNotifier;
   bool _isLoading = true;
+  List<ConnectivityResult> _connectivity = [];
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
@@ -49,6 +53,19 @@ class _SettingPageState extends State<SettingPage> {
   void initState() {
     super.initState();
     _loadUserData();
+    Connectivity().checkConnectivity().then((r) {
+      if (mounted) setState(() => _connectivity = r);
+    });
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen((r) {
+      if (mounted) setState(() => _connectivity = r);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -325,6 +342,53 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
+  String _networkStatusLabel() {
+    if (_connectivity.isEmpty) return 'Unknown';
+    final r = _connectivity.first;
+    switch (r) {
+      case ConnectivityResult.wifi:
+        return 'WiFi';
+      case ConnectivityResult.mobile:
+        return 'Mobile';
+      case ConnectivityResult.ethernet:
+        return 'Ethernet';
+      case ConnectivityResult.vpn:
+        return 'VPN';
+      case ConnectivityResult.none:
+        return 'No connection';
+      case ConnectivityResult.other:
+        return 'Other';
+      case ConnectivityResult.bluetooth:
+        return 'Bluetooth';
+    }
+  }
+
+  Widget _buildNetworkStatusTile(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isConnected = _connectivity.isNotEmpty &&
+        _connectivity.first != ConnectivityResult.none;
+    return ListTile(
+      leading: Icon(
+        isConnected ? Icons.wifi : Icons.wifi_off,
+        color: isConnected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+      ),
+      title: Text(
+        'Network',
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: Text(
+        _networkStatusLabel(),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMenuSection(BuildContext context) {
     final menuItems = [
       _MenuItem(
@@ -369,9 +433,12 @@ class _SettingPageState extends State<SettingPage> {
       shrinkWrap: true,
       padding: EdgeInsets.zero,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: menuItems.length,
+      itemCount: menuItems.length + 1,
       itemBuilder: (context, index) {
-        final item = menuItems[index];
+        if (index == 0) {
+          return _buildNetworkStatusTile(context);
+        }
+        final item = menuItems[index - 1];
         return _buildMenuTile(
           context: context,
           icon: item.icon,
