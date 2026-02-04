@@ -9,6 +9,7 @@ import '../utils/router.dart';
 import 'user_avatar.dart';
 import 'contact_navigation_extension.dart';
 import 'services/contact_navigation_service.dart';
+import 'services/favorite_contacts_service.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -137,6 +138,20 @@ class _ContactsPageState extends State<ContactsPage> {
     }).toList();
   }
 
+  /// Sort contacts: favorites first, then by display name.
+  List<UserDBISAR> _sortContactsWithFavoritesFirst(List<UserDBISAR> contacts) {
+    final fav = FavoriteContactsService();
+    return List<UserDBISAR>.from(contacts)
+      ..sort((a, b) {
+        final aFav = fav.isFavorite(a.pubKey);
+        final bFav = fav.isFavorite(b.pubKey);
+        if (aFav != bFav) return aFav ? -1 : 1;
+        return _getDisplayNameWithRemark(a)
+            .toLowerCase()
+            .compareTo(_getDisplayNameWithRemark(b).toLowerCase());
+      });
+  }
+
   bool _isNameMatched(UserDBISAR user) {
     if (_searchQuery.isEmpty) return false;
     final query = _searchQuery.toLowerCase();
@@ -216,7 +231,8 @@ class _ContactsPageState extends State<ContactsPage> {
   Widget build(BuildContext context) {
     theme = Theme.of(context);
     final allContacts = Contacts.sharedInstance.allContacts.values.toList();
-    final filteredContacts = _filterContacts(allContacts);
+    final filteredContacts =
+        _sortContactsWithFavoritesFirst(_filterContacts(allContacts));
     final hasContacts = Contacts.sharedInstance.allContacts.isNotEmpty;
     final hasSearchResults = filteredContacts.isNotEmpty;
     
@@ -573,10 +589,37 @@ class _ContactsPageState extends State<ContactsPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _buildFavoriteStar(context, user),
+        const SizedBox(width: 4),
         _buildVoiceCallButton(context, user),
         const SizedBox(width: 8),
         _buildVideoCallButton(context, user),
       ],
+    );
+  }
+
+  Widget _buildFavoriteStar(BuildContext context, UserDBISAR user) {
+    final fav = FavoriteContactsService();
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: fav.favoritePubkeysNotifier,
+      builder: (context, set, _) {
+        final isFav = set.contains(user.pubKey);
+        return GestureDetector(
+          onTap: () async {
+            await fav.toggleFavorite(user.pubKey);
+            if (mounted) setState(() {});
+          },
+          behavior: HitTestBehavior.translucent,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Icon(
+              isFav ? Icons.star : Icons.star_border,
+              size: 24,
+              color: isFav ? primary : onSurfaceVariant,
+            ),
+          ),
+        );
+      },
     );
   }
 

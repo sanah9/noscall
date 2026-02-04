@@ -13,6 +13,7 @@ import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import '../utils/toast.dart';
 import '../utils/navigation_helper.dart';
+import 'services/favorite_contacts_service.dart';
 
 class UserDetailPage extends StatefulWidget {
   final String pubkey;
@@ -343,10 +344,39 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     isLoading: isLoadingValue,
                     textColor: isContactValue ? theme.colorScheme.error : null,
                   ),
+                  if (isContactValue) _buildFavoriteTile(),
                 ],
               );
             },
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFavoriteTile() {
+    final fav = FavoriteContactsService();
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: fav.favoritePubkeysNotifier,
+      builder: (context, set, _) {
+        final isFav = set.contains(widget.pubkey);
+        return ListTile(
+          title: Text(
+            isFav ? 'Remove from Favorites' : 'Add to Favorites',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: primary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          leading: Icon(
+            isFav ? Icons.star : Icons.star_border,
+            color: primary,
+            size: 24,
+          ),
+          onTap: () async {
+            await fav.toggleFavorite(widget.pubkey);
+            if (mounted) setState(() {});
+          },
         );
       },
     );

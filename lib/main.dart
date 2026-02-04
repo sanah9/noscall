@@ -11,6 +11,7 @@ import 'utils/loading.dart';
 
 import 'auth/auth_service.dart';
 import 'call/call_manager.dart';
+import 'contacts/services/favorite_contacts_service.dart';
 import 'setting/services/theme_service.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
@@ -23,6 +24,7 @@ Future<void> main() async {
     await ThreadPoolManager.sharedInstance.initialize();
     await AuthService().initialize();
     await ThemeService().initialize();
+    await FavoriteContactsService().initialize();
   } catch (e) {
     debugPrint('Failed to initialize services: $e');
   }
@@ -52,6 +54,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     AuthService().dispose();
     CallKitManager().dispose();
     ThemeService().dispose();
+    FavoriteContactsService().dispose();
     super.dispose();
   }
 
