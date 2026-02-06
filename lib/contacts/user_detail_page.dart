@@ -14,6 +14,7 @@ import 'package:noscall/call_history/models/call_entry.dart';
 import '../utils/toast.dart';
 import '../utils/navigation_helper.dart';
 import 'services/favorite_contacts_service.dart';
+import 'services/contact_remark_service.dart';
 
 class UserDetailPage extends StatefulWidget {
   final String pubkey;
@@ -275,6 +276,19 @@ class _UserDetailPageState extends State<UserDetailPage> {
             onTap: () => _editNickname(userData),
             trailingIcon: Icons.edit,
           ),
+          ValueListenableBuilder<Map<String, String>>(
+            valueListenable: ContactRemarkService().remarksNotifier,
+            builder: (context, remarks, _) {
+              final remark = remarks[userData.pubKey] ?? '';
+              return _buildUserInfoItem(
+                icon: Icons.note,
+                title: 'Remark',
+                value: remark.isEmpty ? 'Not set' : remark,
+                onTap: () => _editRemark(userData),
+                trailingIcon: Icons.edit,
+              );
+            },
+          ),
         ],
       ),
     );
@@ -534,6 +548,13 @@ class _UserDetailPageState extends State<UserDetailPage> {
     context.push('/edit-nickname', extra: {
       'pubkey': widget.pubkey,
       'currentNickname': userData.nickName ?? '',
+    });
+  }
+
+  void _editRemark(UserDBISAR userData) {
+    context.push('/edit-remark', extra: {
+      'pubkey': widget.pubkey,
+      'currentRemark': ContactRemarkService().getRemark(widget.pubkey) ?? '',
     });
   }
 

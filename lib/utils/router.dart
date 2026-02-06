@@ -13,6 +13,7 @@ import '../contacts/add_contact_page.dart';
 import '../contacts/qr_scan_page.dart';
 import '../contacts/user_detail_page.dart';
 import '../contacts/edit_nickname_page.dart';
+import '../contacts/edit_remark_page.dart';
 import '../setting/pages/notification_settings_page.dart';
 import '../contacts/pages/group_contacts_page.dart';
 import '../contacts/pages/contact_select_page.dart';
@@ -105,6 +106,26 @@ class AppRouter {
           return EditNicknamePage(
             pubkey: pubkey,
             currentNickname: currentNickname ?? '',
+          );
+        },
+      ),
+      GoRoute(
+        path: '/edit-remark',
+        name: 'edit-remark',
+        builder: (context, state) {
+          final params = state.extra as Map? ?? {};
+          final pubkey = params['pubkey'] as String?;
+          final currentRemark = params['currentRemark'] as String?;
+          if (pubkey == null || pubkey.isEmpty) {
+            return const Scaffold(
+              body: Center(
+                child: Text('User pubkey not found'),
+              ),
+            );
+          }
+          return EditRemarkPage(
+            pubkey: pubkey,
+            currentRemark: currentRemark ?? '',
           );
         },
       ),

@@ -10,6 +10,7 @@ import 'user_avatar.dart';
 import 'contact_navigation_extension.dart';
 import 'services/contact_navigation_service.dart';
 import 'services/favorite_contacts_service.dart';
+import 'services/contact_remark_service.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -22,6 +23,7 @@ class _ContactsPageState extends State<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _showFavoritesOnly = false;
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
@@ -127,10 +129,15 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
-    if (_searchQuery.isEmpty) return contacts;
+    var list = contacts;
+    if (_showFavoritesOnly) {
+      final fav = FavoriteContactsService();
+      list = list.where((c) => fav.isFavorite(c.pubKey)).toList();
+    }
+    if (_searchQuery.isEmpty) return list;
 
     final query = _searchQuery.toLowerCase();
-    return contacts.where((contact) {
+    return list.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final nickName = (contact.nickName ?? '').toLowerCase();
       
@@ -245,11 +252,14 @@ class _ContactsPageState extends State<ContactsPage> {
         child: Column(
           children: [
             _buildSearchBar(),
+            if (hasContacts) _buildFavoriteFilterChips(),
             Expanded(
               child: !hasContacts
                   ? _buildEmptyContactsState(context)
-                  : !hasSearchResults && _searchQuery.isNotEmpty
-                      ? _buildNoSearchResultsState(context)
+                  : !hasSearchResults
+                      ? (_searchQuery.isNotEmpty
+                          ? _buildNoSearchResultsState(context)
+                          : _buildNoFavoritesState(context))
                       : _buildContactsList(context, filteredContacts),
             ),
           ],
@@ -306,6 +316,69 @@ class _ContactsPageState extends State<ContactsPage> {
           const SizedBox(height: 8),
           Text(
             'Add contacts to start calling',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFavoriteFilterChips() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          FilterChip(
+            label: const Text('All'),
+            selected: !_showFavoritesOnly,
+            onSelected: (v) {
+              setState(() {
+                _showFavoritesOnly = false;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            avatar: Icon(
+              Icons.star,
+              size: 18,
+              color: _showFavoritesOnly ? theme.colorScheme.onPrimary : primary,
+            ),
+            label: const Text('Favorites'),
+            selected: _showFavoritesOnly,
+            onSelected: (v) {
+              setState(() {
+                _showFavoritesOnly = true;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoFavoritesState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.star_border,
+            size: 64,
+            color: onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No favorite contacts',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add contacts to favorites from their profile',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: onSurfaceVariant,
             ),
@@ -576,12 +649,21 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildContactSubtitle(UserDBISAR user) {
-    return Text(
-      user.shortEncodedPubkey,
-      style: theme.textTheme.bodyMedium?.copyWith(
-        color: onSurfaceVariant,
-        fontSize: 14,
-      ),
+    return ValueListenableBuilder<Map<String, String>>(
+      valueListenable: ContactRemarkService().remarksNotifier,
+      builder: (context, remarks, _) {
+        final remark = remarks[user.pubKey] ?? '';
+        final subtitle = remark.isNotEmpty ? remark : user.shortEncodedPubkey;
+        return Text(
+          subtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: onSurfaceVariant,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+      },
     );
   }
 
