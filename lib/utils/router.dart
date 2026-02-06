@@ -13,6 +13,7 @@ import '../contacts/add_contact_page.dart';
 import '../contacts/qr_scan_page.dart';
 import '../contacts/user_detail_page.dart';
 import '../contacts/edit_nickname_page.dart';
+import '../setting/pages/notification_settings_page.dart';
 import '../contacts/pages/group_contacts_page.dart';
 import '../contacts/pages/contact_select_page.dart';
 import '../profile/profile_settings_page.dart';
@@ -106,6 +107,11 @@ class AppRouter {
             currentNickname: currentNickname ?? '',
           );
         },
+      ),
+      GoRoute(
+        path: '/notification-settings',
+        name: 'notification-settings',
+        builder: (context, state) => const NotificationSettingsPage(),
       ),
       GoRoute(
         path: '/profile-settings',

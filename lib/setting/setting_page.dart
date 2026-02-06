@@ -407,6 +407,11 @@ class _SettingPageState extends State<SettingPage> {
         onTap: () => context.push('/ice-server-management'),
       ),
       _MenuItem(
+        icon: Icons.notifications,
+        title: 'Notification',
+        onTap: () => context.push('/notification-settings'),
+      ),
+      _MenuItem(
         icon: Icons.palette,
         title: 'Theme',
         onTap: () => ThemeDialog.show(context),

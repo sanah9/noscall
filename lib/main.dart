@@ -13,6 +13,7 @@ import 'auth/auth_service.dart';
 import 'call/call_manager.dart';
 import 'contacts/services/favorite_contacts_service.dart';
 import 'setting/services/theme_service.dart';
+import 'setting/services/notification_settings_service.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
@@ -25,6 +26,7 @@ Future<void> main() async {
     await AuthService().initialize();
     await ThemeService().initialize();
     await FavoriteContactsService().initialize();
+    await NotificationSettingsService().initialize();
   } catch (e) {
     debugPrint('Failed to initialize services: $e');
   }
@@ -55,6 +57,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     CallKitManager().dispose();
     ThemeService().dispose();
     FavoriteContactsService().dispose();
+    NotificationSettingsService().dispose();
     super.dispose();
   }
 
