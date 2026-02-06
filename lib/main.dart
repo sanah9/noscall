@@ -77,33 +77,39 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final themeService = ThemeService();
-    const seedColor = Color(0xFF3937A3);
 
     return ValueListenableBuilder<ThemeModeOption>(
       valueListenable: themeService.themeModeNotifier,
       builder: (context, themeModeOption, _) {
-        final themeMode = themeService.toFlutterThemeMode(themeModeOption);
+        return ValueListenableBuilder<int>(
+          valueListenable: themeService.seedColorValueNotifier,
+          builder: (context, seedColorValue, __) {
+            final themeMode =
+                themeService.toFlutterThemeMode(themeModeOption);
+            final seedColor = Color(seedColorValue);
 
-        return MaterialApp.router(
-          title: 'NosCall',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: seedColor,
-              brightness: Brightness.light,
-            ),
-            useMaterial3: true,
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: seedColor,
-              brightness: Brightness.dark,
-            ),
-            useMaterial3: true,
-          ),
-          themeMode: themeMode,
-          routerConfig: AppRouter.router,
-          debugShowCheckedModeBanner: false,
-          builder: EasyLoading.init(),
+            return MaterialApp.router(
+              title: 'NosCall',
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: seedColor,
+                  brightness: Brightness.light,
+                ),
+                useMaterial3: true,
+              ),
+              darkTheme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: seedColor,
+                  brightness: Brightness.dark,
+                ),
+                useMaterial3: true,
+              ),
+              themeMode: themeMode,
+              routerConfig: AppRouter.router,
+              debugShowCheckedModeBanner: false,
+              builder: EasyLoading.init(),
+            );
+          },
         );
       },
     );

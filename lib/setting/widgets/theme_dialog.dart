@@ -19,17 +19,29 @@ class ThemeDialog extends StatelessWidget {
     return ValueListenableBuilder<ThemeModeOption>(
       valueListenable: themeService.themeModeNotifier,
       builder: (context, currentMode, _) {
-        return AlertDialog(
-          title: Text(
-            'Theme',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildThemeOption(
+        return ValueListenableBuilder<int>(
+          valueListenable: themeService.seedColorValueNotifier,
+          builder: (context, seedColorValue, __) {
+            return AlertDialog(
+              title: Text(
+                'Theme',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Appearance',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildThemeOption(
                 context: context,
                 option: ThemeModeOption.light,
                 title: 'Light',
@@ -64,8 +76,45 @@ class ThemeDialog extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
               ),
-            ],
-          ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Accent color',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: kPresetSeedColors.map((colorValue) {
+                        final isSelected = seedColorValue == colorValue;
+                        return GestureDetector(
+                          onTap: () {
+                            themeService.setSeedColorValue(colorValue);
+                          },
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: Color(colorValue),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.outline.withValues(alpha: 0.3),
+                                width: isSelected ? 3 : 1,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
