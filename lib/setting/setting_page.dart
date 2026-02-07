@@ -422,6 +422,11 @@ class _SettingPageState extends State<SettingPage> {
         onTap: () => context.push('/data-cleanup'),
       ),
       _MenuItem(
+        icon: Icons.upload_file,
+        title: 'Data export',
+        onTap: () => context.push('/data-export'),
+      ),
+      _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
         onTap: () => _showAboutDialog(context),

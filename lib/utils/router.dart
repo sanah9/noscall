@@ -21,6 +21,7 @@ import '../profile/profile_settings_page.dart';
 import '../setting/pages/relay_management_page.dart';
 import '../setting/pages/ice_server_management_page.dart';
 import '../setting/pages/data_cleanup_page.dart';
+import '../setting/pages/data_export_page.dart';
 
 class AppRouter {
   static final GoRouter _router = GoRouter(
@@ -184,6 +185,11 @@ class AppRouter {
         path: '/data-cleanup',
         name: 'data-cleanup',
         builder: (context, state) => const DataCleanupPage(),
+      ),
+      GoRoute(
+        path: '/data-export',
+        name: 'data-export',
+        builder: (context, state) => const DataExportPage(),
       ),
     ],
   );
