@@ -427,6 +427,11 @@ class _SettingPageState extends State<SettingPage> {
         onTap: () => context.push('/data-export'),
       ),
       _MenuItem(
+        icon: Icons.bug_report,
+        title: 'Logs',
+        onTap: () => context.push('/log-viewer'),
+      ),
+      _MenuItem(
         icon: Icons.info_outline,
         title: 'About',
         onTap: () => _showAboutDialog(context),

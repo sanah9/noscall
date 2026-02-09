@@ -3,6 +3,13 @@ import 'package:flutter/foundation.dart';
 class LogUtils {
   static get showInfoLog => kDebugMode;
 
+  static const int _maxLogLines = 500;
+  static final List<String> _logBuffer = [];
+  static final ValueNotifier<List<String>> logLinesNotifier =
+      ValueNotifier<List<String>>([]);
+
+  static List<String> get logLines => List.unmodifiable(_logBuffer);
+
   static void v(VoidCallback callback) {
     _print('VERBOSE', callback);
   }
@@ -32,11 +39,19 @@ class LogUtils {
   }
 
   static void _print(String level, VoidCallback fn) {
-    if (kDebugMode) {
-      try {
-        final message = fn.call();
-        print('[$level] $message');
-      } catch (e) {
+    try {
+      final message = fn.call();
+      final line = '[${DateTime.now()}] [$level] $message';
+      if (kDebugMode) {
+        print(line);
+      }
+      _logBuffer.add(line);
+      if (_logBuffer.length > _maxLogLines) {
+        _logBuffer.removeAt(0);
+      }
+      logLinesNotifier.value = List.from(_logBuffer);
+    } catch (e) {
+      if (kDebugMode) {
         print('$e');
       }
     }
