@@ -15,6 +15,7 @@ import 'contacts/services/favorite_contacts_service.dart';
 import 'contacts/services/contact_remark_service.dart';
 import 'setting/services/theme_service.dart';
 import 'setting/services/notification_settings_service.dart';
+import 'setting/services/accessibility_service.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
@@ -29,6 +30,7 @@ Future<void> main() async {
     await FavoriteContactsService().initialize();
     await NotificationSettingsService().initialize();
     await ContactRemarkService().initialize();
+    await AccessibilityService().initialize();
   } catch (e) {
     debugPrint('Failed to initialize services: $e');
   }
@@ -61,6 +63,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     FavoriteContactsService().dispose();
     NotificationSettingsService().dispose();
     ContactRemarkService().dispose();
+    AccessibilityService().dispose();
     super.dispose();
   }
 
@@ -84,30 +87,46 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
         return ValueListenableBuilder<int>(
           valueListenable: themeService.seedColorValueNotifier,
           builder: (context, seedColorValue, __) {
-            final themeMode =
-                themeService.toFlutterThemeMode(themeModeOption);
-            final seedColor = Color(seedColorValue);
+            return ValueListenableBuilder<double?>(
+              valueListenable: AccessibilityService().textScaleFactorNotifier,
+              builder: (context, textScale, ___) {
+                final themeMode =
+                    themeService.toFlutterThemeMode(themeModeOption);
+                final seedColor = Color(seedColorValue);
 
-            return MaterialApp.router(
-              title: 'NosCall',
-              theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: seedColor,
-                  brightness: Brightness.light,
-                ),
-                useMaterial3: true,
-              ),
-              darkTheme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: seedColor,
-                  brightness: Brightness.dark,
-                ),
-                useMaterial3: true,
-              ),
-              themeMode: themeMode,
-              routerConfig: AppRouter.router,
-              debugShowCheckedModeBanner: false,
-              builder: EasyLoading.init(),
+                return MaterialApp.router(
+                  title: 'NosCall',
+                  theme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: seedColor,
+                      brightness: Brightness.light,
+                    ),
+                    useMaterial3: true,
+                  ),
+                  darkTheme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: seedColor,
+                      brightness: Brightness.dark,
+                    ),
+                    useMaterial3: true,
+                  ),
+                  themeMode: themeMode,
+                  routerConfig: AppRouter.router,
+                  debugShowCheckedModeBanner: false,
+                  builder: (context, child) {
+                    Widget w = EasyLoading.init()(context, child);
+                    if (textScale != null) {
+                      w = MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          textScaler: TextScaler.linear(textScale),
+                        ),
+                        child: w,
+                      );
+                    }
+                    return w;
+                  },
+                );
+              },
             );
           },
         );

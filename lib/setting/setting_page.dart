@@ -417,6 +417,11 @@ class _SettingPageState extends State<SettingPage> {
         onTap: () => ThemeDialog.show(context),
       ),
       _MenuItem(
+        icon: Icons.accessibility_new,
+        title: 'Accessibility',
+        onTap: () => context.push('/accessibility-settings'),
+      ),
+      _MenuItem(
         icon: Icons.cleaning_services,
         title: 'Data cleanup',
         onTap: () => context.push('/data-cleanup'),

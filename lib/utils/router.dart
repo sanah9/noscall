@@ -15,6 +15,7 @@ import '../contacts/user_detail_page.dart';
 import '../contacts/edit_nickname_page.dart';
 import '../contacts/edit_remark_page.dart';
 import '../setting/pages/notification_settings_page.dart';
+import '../setting/pages/accessibility_settings_page.dart';
 import '../contacts/pages/group_contacts_page.dart';
 import '../contacts/pages/contact_select_page.dart';
 import '../profile/profile_settings_page.dart';
@@ -135,6 +136,11 @@ class AppRouter {
         path: '/notification-settings',
         name: 'notification-settings',
         builder: (context, state) => const NotificationSettingsPage(),
+      ),
+      GoRoute(
+        path: '/accessibility-settings',
+        name: 'accessibility-settings',
+        builder: (context, state) => const AccessibilitySettingsPage(),
       ),
       GoRoute(
         path: '/profile-settings',
