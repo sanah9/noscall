@@ -3,6 +3,7 @@ import '../contacts/user_detail_page.dart';
 import '../profile/profile_settings_page.dart';
 import 'desktop_recent_calls_page.dart';
 import 'desktop_contacts_page.dart';
+import 'desktop_group_list_page.dart';
 import 'desktop_settings_page.dart';
 
 class DesktopNavigatorProvider extends InheritedWidget {
@@ -43,6 +44,7 @@ class DesktopNavigatorState extends State<DesktopNavigator> {
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
   ];
 
   void navigateToContactDetail(String pubkey) {
@@ -58,7 +60,7 @@ class DesktopNavigatorState extends State<DesktopNavigator> {
   }
 
   void navigateToProfileSettings() {
-    final currentNavigator = _navigatorKeyObjects[2].currentState;
+    final currentNavigator = _navigatorKeyObjects[3].currentState;
     currentNavigator?.push(
       MaterialPageRoute(
         builder: (context) => const ProfileSettingsPage(),
@@ -103,6 +105,14 @@ class DesktopNavigatorState extends State<DesktopNavigator> {
           ),
           Navigator(
             key: _navigatorKeyObjects[2],
+            onGenerateRoute: (settings) {
+              return MaterialPageRoute(
+                builder: (context) => const DesktopGroupListPage(),
+              );
+            },
+          ),
+          Navigator(
+            key: _navigatorKeyObjects[3],
             onGenerateRoute: (settings) {
               return MaterialPageRoute(
                 builder: (context) => const DesktopSettingsPage(),
