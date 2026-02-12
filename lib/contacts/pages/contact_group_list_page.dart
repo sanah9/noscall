@@ -99,7 +99,19 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
         });
       } else {
         try {
-          await _groupService.createGroup(name: name);
+          final saved = await _groupService.createGroup(name: name);
+          if (!mounted) return;
+          final idx = _groups.indexWhere((g) => g.id == groupId);
+          if (idx >= 0) {
+            final oldId = groupId;
+            final newId = saved.id;
+            _groups = [..._groups]..[idx] = saved;
+            _editingControllers[newId] = _editingControllers.remove(oldId)!;
+            final fn = _focusNodes.remove(oldId);
+            if (fn != null) _focusNodes[newId] = fn;
+            _groupCountCache[newId] = 0;
+          }
+          setState(() {});
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -112,6 +124,23 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
             });
           }
         }
+      }
+      return;
+    }
+
+    // Existing group (id > 0): persist rename
+    final idx = _groups.indexWhere((g) => g.id == groupId);
+    if (idx < 0 || name.isEmpty || name == _groups[idx].name) return;
+    try {
+      await _groupService.updateGroupName(groupId, name);
+      if (!mounted) return;
+      _groups[idx].name = name;
+      setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to rename group: $e')),
+        );
       }
     }
   }
@@ -172,6 +201,11 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
                 icon: const Text('Done', style: TextStyle(fontSize: 16)),
                 onPressed: () async {
                   try {
+                    // Sync editing controller text back to group.name before save
+                    for (final g in _groups) {
+                      final c = _editingControllers[g.id];
+                      if (c != null) g.name = c.text.trim();
+                    }
                     preCheckGroupsData();
                     await _syncToDatabase();
                     if (mounted) {
