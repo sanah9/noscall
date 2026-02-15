@@ -5,6 +5,7 @@ import '../call/call_manager.dart';
 import '../call/constant/call_type.dart';
 import '../utils/toast.dart';
 import '../contacts/user_avatar.dart';
+import '../contacts/services/favorite_contacts_service.dart';
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
 
@@ -18,28 +19,32 @@ class DesktopContactsPage extends StatefulWidget {
 class _DesktopContactsPageState extends State<DesktopContactsPage> {
   final CallKitManager _callKitManager = CallKitManager();
   final TextEditingController _searchController = TextEditingController();
+  final FavoriteContactsService _favService = FavoriteContactsService();
   String _searchQuery = '';
+  bool _showFavoritesOnly = false;
 
   @override
   void initState() {
     super.initState();
     Contacts.sharedInstance.contactUpdatedCallBack = () {
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     };
+    _favService.favoritePubkeysNotifier.addListener(_onFavoritesChanged);
 
     _callKitManager.activeController?.then((_) {
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     });
   }
 
   @override
   void dispose() {
+    _favService.favoritePubkeysNotifier.removeListener(_onFavoritesChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onFavoritesChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onSearchChanged(String query) {
@@ -49,13 +54,26 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
   }
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
-    if (_searchQuery.isEmpty) return contacts;
-
-    return contacts.where((contact) {
+    var list = contacts;
+    if (_showFavoritesOnly) {
+      list = list.where((c) => _favService.isFavorite(c.pubKey)).toList();
+    }
+    if (_searchQuery.isEmpty) return list;
+    return list.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final displayName = contact.displayName().toLowerCase();
       return name.contains(_searchQuery) || displayName.contains(_searchQuery);
     }).toList();
+  }
+
+  List<UserDBISAR> _sortContactsWithFavoritesFirst(List<UserDBISAR> contacts) {
+    return List<UserDBISAR>.from(contacts)
+      ..sort((a, b) {
+        final aFav = _favService.isFavorite(a.pubKey);
+        final bFav = _favService.isFavorite(b.pubKey);
+        if (aFav != bFav) return aFav ? -1 : 1;
+        return a.displayName().toLowerCase().compareTo(b.displayName().toLowerCase());
+      });
   }
 
   Future<void> _startVoiceCall(String peerId) async {
@@ -127,7 +145,9 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final allContacts = Contacts.sharedInstance.allContacts.values.toList();
-    final filteredContacts = _filterContacts(allContacts);
+    final filteredContacts = _sortContactsWithFavoritesFirst(_filterContacts(allContacts));
+    final hasContacts = allContacts.isNotEmpty;
+    final hasResults = filteredContacts.isNotEmpty;
 
     return DesktopPageWrapper(
       title: 'Contacts',
@@ -136,42 +156,111 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
         hintText: 'Search...',
         onChanged: _onSearchChanged,
       ),
-      child: filteredContacts.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.contacts_outlined,
-                    size: 64,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _searchQuery.isEmpty ? 'No contacts yet' : 'No results found',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: filteredContacts.length,
-              itemBuilder: (context, index) {
-                final contact = filteredContacts[index];
-                return _ContactItem(
-                  contact: contact,
-                  onTap: () {
-                    final navigatorState = DesktopNavigatorProvider.of(context);
-                    navigatorState?.navigateToContactDetail(contact.pubKey);
-                  },
-                  onVoiceCall: () => _startVoiceCall(contact.pubKey),
-                  onVideoCall: () => _startVideoCall(contact.pubKey),
-                );
-              },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hasContacts) _buildFavoriteFilterChips(theme, colorScheme),
+          Expanded(
+            child: !hasContacts
+                ? _buildEmptyState(theme, colorScheme, 'No contacts yet')
+                : !hasResults
+                    ? Center(
+                        child: _buildEmptyState(
+                          theme,
+                          colorScheme,
+                          _searchQuery.isNotEmpty
+                              ? 'No results found'
+                              : 'No favorite contacts',
+                          subtitle: _showFavoritesOnly && _searchQuery.isEmpty
+                              ? 'Add contacts to favorites from their profile'
+                              : null,
+                          icon: _showFavoritesOnly && _searchQuery.isEmpty
+                              ? Icons.star_border
+                              : Icons.contacts_outlined,
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: filteredContacts.length,
+                        itemBuilder: (context, index) {
+                          final contact = filteredContacts[index];
+                          return _ContactItem(
+                            contact: contact,
+                            onTap: () {
+                              final navigatorState = DesktopNavigatorProvider.of(context);
+                              navigatorState?.navigateToContactDetail(contact.pubKey);
+                            },
+                            onVoiceCall: () => _startVoiceCall(contact.pubKey),
+                            onVideoCall: () => _startVideoCall(contact.pubKey),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFavoriteFilterChips(ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        children: [
+          FilterChip(
+            label: const Text('All'),
+            selected: !_showFavoritesOnly,
+            onSelected: (_) => setState(() => _showFavoritesOnly = false),
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            avatar: Icon(
+              Icons.star,
+              size: 18,
+              color: _showFavoritesOnly ? colorScheme.onPrimary : colorScheme.primary,
             ),
+            label: const Text('Favorites'),
+            selected: _showFavoritesOnly,
+            onSelected: (_) => setState(() => _showFavoritesOnly = true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    String message, {
+    String? subtitle,
+    IconData icon = Icons.contacts_outlined,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 64,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -193,6 +282,7 @@ class _ContactItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final fav = FavoriteContactsService();
 
     return Material(
       color: Colors.transparent,
@@ -231,7 +321,19 @@ class _ContactItem extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
+              ValueListenableBuilder<Set<String>>(
+                valueListenable: fav.favoritePubkeysNotifier,
+                builder: (context, favoritePubkeys, _) {
+                  final isFav = favoritePubkeys.contains(contact.pubKey);
+                  return IconButton(
+                    icon: Icon(isFav ? Icons.star : Icons.star_border),
+                    onPressed: () => fav.toggleFavorite(contact.pubKey),
+                    color: isFav ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                    tooltip: isFav ? 'Remove from Favorites' : 'Add to Favorites',
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.phone),
                 onPressed: onVoiceCall,
