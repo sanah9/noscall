@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import '../models/contact_group_isar.dart';
 import '../../core/common/database/db_isar.dart';
@@ -60,8 +61,8 @@ class ContactGroupService {
         .findAll();
     final existingPubKeys = existingMembers.map((m) => m.contactPubKey).toSet();
 
-    final newMembers = contactPubKeys
-        .where((pubKey) => !existingPubKeys.contains(pubKey))
+    final newPubKeys = newMemberPubKeysToAdd(contactPubKeys, existingPubKeys);
+    final newMembers = newPubKeys
         .map((pubKey) => ContactGroupMember(
               groupId: groupId,
               contactPubKey: pubKey,
@@ -73,6 +74,19 @@ class ContactGroupService {
         _isar.contactGroupMembers.putAll(newMembers);
       });
     }
+  }
+
+  /// Given [contactPubKeys] to add and [existingPubKeys] already in the group,
+  /// returns the list of pubkeys that are new (not already in the group).
+  /// For unit testing only; used by [addContactsToGroup].
+  @visibleForTesting
+  static List<String> newMemberPubKeysToAdd(
+    List<String> contactPubKeys,
+    Set<String> existingPubKeys,
+  ) {
+    return contactPubKeys
+        .where((pubKey) => !existingPubKeys.contains(pubKey))
+        .toList();
   }
 
   /// Remove contacts from a group
