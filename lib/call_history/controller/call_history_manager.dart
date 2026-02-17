@@ -271,6 +271,12 @@ class CallHistoryManager {
     return true;
   }
 
+  /// Delegates to [_canMergeToGroup]. For unit testing only (no Isar required).
+  @visibleForTesting
+  bool canMergeToGroup(CallEntry callEntry, CallLogGroup group) {
+    return _canMergeToGroup(callEntry, group);
+  }
+
   Future<void> _loadCallEntriesForGroup(CallLogGroup group) async {
     final callEntries = <CallEntry>[];
 
