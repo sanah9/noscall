@@ -203,36 +203,23 @@ void main() {
         expect(server.credential, isEmpty);
       });
 
-      test('should handle TURN URL without credentials', () {
-        // This is an invalid format, may throw RangeError
+      test('should handle TURN URL with empty credentials part (turn:@host)', () {
+        // url 'turn:@turn.example.com:3478' -> credentialsPart = 'turn:',
+        // split(':') = ['turn',''], so username = [1] = ''; credential = [2] throws RangeError.
         final server = ICEServerModel(url: 'turn:@turn.example.com:3478');
-        
+
         expect(server.isTurnAddress, isTrue);
-        // username and credential extraction may throw for invalid format
-        // This is expected behavior - invalid URLs should be caught by validation
-        // The actual behavior depends on the split result
-        try {
-          final username = server.username;
-          // If it doesn't throw, username might be empty or have unexpected value
-          expect(username, anyOf(isEmpty, isA<String>()));
-        } catch (e) {
-          expect(e, isA<RangeError>());
-        }
-        
-        try {
-          final credential = server.credential;
-          expect(credential, anyOf(isEmpty, isA<String>()));
-        } catch (e) {
-          expect(e, isA<RangeError>());
-        }
+        expect(server.username, '');
+        expect(() => server.credential, throwsA(isA<RangeError>()));
       });
 
-      test('should handle malformed TURN URL', () {
+      test('should not throw when reading domain/host for TURN URL without @', () {
+        // url 'turn:invalid' has no '@', so domain returns url; host = domain.split(':')[0] = 'turn'.
         final server = ICEServerModel(url: 'turn:invalid');
-        
+
         expect(server.isTurnAddress, isTrue);
-        expect(() => server.domain, returnsNormally);
-        expect(() => server.host, returnsNormally);
+        expect(server.domain, 'turn:invalid');
+        expect(server.host, 'turn');
       });
     });
   });

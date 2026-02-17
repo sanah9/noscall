@@ -32,9 +32,8 @@ void main() {
     group('defaultICEServers', () {
       test('should return list of default ICE servers', () {
         final servers = manager.defaultICEServers;
-        
+
         expect(servers, isNotEmpty);
-        expect(servers.length, greaterThan(0));
         expect(servers.first, isA<ICEServerModel>());
       });
 

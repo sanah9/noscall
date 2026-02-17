@@ -97,10 +97,6 @@ void main() {
         final key2 = authService.generatePrivateKey();
         expect(key1, isNot(equals(key2)));
       });
-
-      test('does not throw', () {
-        expect(() => authService.generatePrivateKey(), returnsNormally);
-      });
     });
 
     group('getUserInfo', () {
@@ -177,7 +173,7 @@ void main() {
     });
 
     group('authStateStream', () {
-      test('exposes a broadcast stream', () {
+      test('exposes a Stream<bool>', () {
         expect(authService.authStateStream, isNotNull);
         expect(authService.authStateStream, isA<Stream<bool>>());
       });

@@ -34,7 +34,7 @@ void main() {
     });
 
     group('syncMe', () {
-      test('should save user to database when me is set', () async {
+      test('should not throw when me is set (persists to DB; DB not mocked)', () async {
         // Arrange
         final testUser = TestHelpers.createTestUser(
           pubKey: TestData.validPubkey,
@@ -42,20 +42,14 @@ void main() {
         );
         account.me = testUser;
 
-        // Act
+        // Act & Assert: syncMe() calls saveUserToDB(me!). We only verify no throw
+        // and me still set; actual DB write is not asserted without mocking DB.
         await account.syncMe();
-
-        // Assert - If no exception is thrown, consider it successful
-        // In actual tests, database mocking may be needed
         expect(account.me, isNotNull);
       });
 
-      test('should throw error when me is null', () async {
-        // Arrange
+      test('throws when me is null', () async {
         account.me = null;
-
-        // Act & Assert
-        // Actually throws TypeError (null check operator), not Exception
         expect(() => account.syncMe(), throwsA(anything));
       });
     });
