@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../utils/toast.dart';
-import '../utils/loading.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/utils/loading.dart';
 import 'auth_service.dart';
 import 'widgets/gradient_background.dart';
 

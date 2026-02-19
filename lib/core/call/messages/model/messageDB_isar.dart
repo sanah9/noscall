@@ -4,9 +4,9 @@ import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:isar/isar.dart';
 
-import '../../../account/model/userDB_isar.dart';
-import '../../../common/thread/threadPoolManager.dart';
-import '../../contacts/contacts.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/common/thread/thread_pool_manager.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
 
 part 'messageDB_isar.g.dart';
 

@@ -4,7 +4,7 @@ import 'package:callkeep/callkeep.dart';
 import 'package:flutter/services.dart';
 import 'package:noscall/core/native_method_channel.dart';
 
-import '../core/common/utils/log_utils.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 class CallKeepManager {
   static final CallKeepManager _instance = CallKeepManager._internal();

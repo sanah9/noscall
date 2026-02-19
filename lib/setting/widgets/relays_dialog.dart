@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:noscall/component/icon.dart';
-import '../../core/account/relays.dart';
-import '../../core/common/network/connect.dart';
-import '../../utils/modal_dialog.dart';
+import 'package:noscall/core/account/relays.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/utils/modal_dialog.dart';
 
 class RelaysDialog extends StatefulWidget {
   const RelaysDialog({super.key});

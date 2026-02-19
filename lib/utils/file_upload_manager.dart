@@ -7,7 +7,7 @@ import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:mime/mime.dart';
 import 'package:uuid/uuid.dart';
-import '../core/account/account.dart';
+import 'package:noscall/core/account/account.dart';
 import 'hash_util.dart';
 
 class FileUploadManager {

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import '../models/contact_group_isar.dart';
-import '../../core/common/database/db_isar.dart';
+import 'package:noscall/contacts/models/contact_group_isar.dart';
+import 'package:noscall/core/common/database/db_isar.dart';
 
 class ContactGroupService {
   static final ContactGroupService sharedInstance = ContactGroupService._internal();

@@ -4,8 +4,8 @@ import 'dart:math';
 import 'package:noscall/core/core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
-import '../call/call_manager.dart';
-import '../call/push_token_service.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/push_token_service.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 enum LoginMethod {

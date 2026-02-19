@@ -1,8 +1,8 @@
 import 'package:isar/isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../database/db_isar.dart';
-import '../utils/log_utils.dart';
+import 'package:noscall/core/common/database/db_isar.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 import 'eventDB_isar.dart';
 
 class EventCache {

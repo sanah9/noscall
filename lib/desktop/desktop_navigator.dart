@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../contacts/user_detail_page.dart';
-import '../profile/profile_settings_page.dart';
+import 'package:noscall/contacts/user_detail_page.dart';
+import 'package:noscall/profile/profile_settings_page.dart';
 import 'desktop_recent_calls_page.dart';
 import 'desktop_contacts_page.dart';
 import 'desktop_group_list_page.dart';

@@ -11,7 +11,7 @@ import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart' as ChatCore;
 import 'package:noscall/core/account/model/userDB_isar.dart';
 
-import '../models/call_log_group.dart';
+import 'package:noscall/call_history/models/call_log_group.dart';
 
 class RecentCallsPage extends StatefulWidget {
   const RecentCallsPage({super.key});

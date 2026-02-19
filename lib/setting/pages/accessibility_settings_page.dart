@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../services/accessibility_service.dart';
+import 'package:noscall/setting/services/accessibility_service.dart';
 
 class AccessibilitySettingsPage extends StatelessWidget {
   const AccessibilitySettingsPage({super.key});

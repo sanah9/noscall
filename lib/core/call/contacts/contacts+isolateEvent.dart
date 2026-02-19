@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../../account/account.dart';
-import '../../common/thread/threadPoolManager.dart';
-import 'contacts.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/common/thread/thread_pool_manager.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
 
 extension IsolateEvent on Contacts {
   static Future<Map<String, dynamic>?> _decodeNip17InIsolate(Map<String, dynamic> params) async {

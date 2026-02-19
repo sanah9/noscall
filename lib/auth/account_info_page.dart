@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import '../utils/toast.dart';
+import 'package:noscall/utils/toast.dart';
 import 'auth_service.dart';
 
 class AccountInfoPage extends StatefulWidget {

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:isar/isar.dart';
 
-import '../../common/network/connect.dart';
+import 'package:noscall/core/common/network/connect.dart';
 
 part 'relayDB_isar.g.dart';
 

@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../../common/network/connect.dart';
-import '../messages/messages.dart';
-import '../messages/model/messageDB_isar.dart';
-import 'contacts.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/call/messages/messages.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
 
 extension Calling on Contacts {
   Future<OKEvent> sendDisconnect(String offerId, String friendPubkey, String content) async {

@@ -5,10 +5,10 @@ import 'dart:io';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-import '../../account/account.dart';
-import '../thread/threadPoolManager.dart';
-import '../utils/log_utils.dart';
-import 'eventCache.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/common/thread/thread_pool_manager.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
+import 'event_cache.dart';
 import 'reconnection_state.dart';
 
 /// notice callback

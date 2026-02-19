@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/account/account.dart' as ChatCore;
-import '../core/call/contacts/contacts.dart';
-import '../call/call_manager.dart';
-import '../call/constant/call_type.dart';
-import '../utils/toast.dart';
-import '../utils/router.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/utils/router.dart';
 import 'user_avatar.dart';
 import 'contact_navigation_extension.dart';
 import 'services/contact_navigation_service.dart';

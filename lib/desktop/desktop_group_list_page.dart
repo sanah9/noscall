@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../contacts/models/contact_group_isar.dart';
-import '../contacts/services/contact_group_service.dart';
-import '../core/call/contacts/contacts.dart';
+import 'package:noscall/contacts/models/contact_group_isar.dart';
+import 'package:noscall/contacts/services/contact_group_service.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
 import 'desktop_contacts_page.dart';
 import 'desktop_page_wrapper.dart';
-import '../contacts/pages/group_contacts_page.dart';
+import 'package:noscall/contacts/pages/group_contacts_page.dart';
 
 class DesktopGroupListPage extends StatefulWidget {
   const DesktopGroupListPage({super.key});

@@ -7,10 +7,10 @@ import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/contacts/models/contact_group_isar.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../account/model/relayDB_isar.dart';
-import '../../account/model/userDB_isar.dart';
-import '../network/eventDB_isar.dart';
-import '../utils/log_utils.dart';
+import 'package:noscall/core/account/model/relayDB_isar.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/common/network/eventDB_isar.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 class DBISAR {
   static final DBISAR sharedInstance = DBISAR._internal();

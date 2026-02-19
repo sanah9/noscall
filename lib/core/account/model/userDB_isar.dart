@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:isar/isar.dart';
 
-import '../account.dart';
+import 'package:noscall/core/account/account.dart';
 
 part 'userDB_isar.g.dart';
 

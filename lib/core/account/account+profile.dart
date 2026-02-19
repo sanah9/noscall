@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../call/contacts/contacts.dart';
-import '../common/network/connect.dart';
-import '../core-manager.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/core_manager.dart';
 import 'account.dart';
 import 'model/userDB_isar.dart';
 import 'relays.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/theme_service.dart';
+import 'package:noscall/setting/services/theme_service.dart';
 
 class ThemeDialog extends StatelessWidget {
   const ThemeDialog({super.key});

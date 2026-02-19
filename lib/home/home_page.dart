@@ -2,14 +2,12 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../call/call_manager.dart';
-import '../call_history/widget/recent_calls_page.dart';
-import '../contacts/contact_navigator.dart';
-import '../setting/setting_page.dart';
-import '../core/account/account.dart';
-import '../core/account/account+profile.dart';
-import '../core/common/network/connect.dart';
-import '../desktop/desktop_home_page.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call_history/widget/recent_calls_page.dart';
+import 'package:noscall/contacts/contact_navigator.dart';
+import 'package:noscall/setting/setting_page.dart';
+import 'package:noscall/desktop/desktop_home_page.dart';
+import 'package:noscall/utils/profile_sync_mixin.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,45 +21,20 @@ bool get isDesktop {
   return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with ProfileSyncOnConnectMixin<HomePage> {
   int _selectedIndex = 1;
-  bool _profileSynced = false;
 
   @override
   void initState() {
     super.initState();
-    Connect.sharedInstance.addConnectStatusListener(_onConnectStatusChanged);
-    _syncProfileIfNeeded();
+    initProfileSync();
     CallKitManager.instance.callHistoryManager.loadUnreadMissedCount();
   }
 
   @override
   void dispose() {
-    Connect.sharedInstance.removeConnectStatusListener(_onConnectStatusChanged);
+    disposeProfileSync();
     super.dispose();
-  }
-
-  void _onConnectStatusChanged(String relay, int status, List<RelayKind> relayKinds) {
-    if (status == 1 && relayKinds.contains(RelayKind.general)) {
-      _syncProfileIfNeeded();
-    }
-  }
-
-  Future<void> _syncProfileIfNeeded() async {
-    if (_profileSynced) return;
-
-    final connectedRelays = Connect.sharedInstance.relays(relayKinds: [RelayKind.general]);
-    if (connectedRelays.isEmpty) return;
-
-    final me = Account.sharedInstance.me;
-    if (me == null || (me.name ?? '').isEmpty) return;
-
-    final result = await Account.sharedInstance.updateProfile(me);
-    if (result != null) {
-      setState(() {
-        _profileSynced = true;
-      });
-    }
   }
 
   void _onItemTapped(int index) {

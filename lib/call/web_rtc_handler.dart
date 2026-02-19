@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:noscall/core/native_method_channel.dart';
 
-import '../core/common/utils/log_utils.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 import 'ice_server_manager.dart';
 import 'constant/call_type.dart';
 import 'pip_manager.dart';

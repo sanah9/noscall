@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
-import '../../utils/toast.dart';
+import 'package:noscall/utils/toast.dart';
 
 class LogViewerPage extends StatelessWidget {
   const LogViewerPage({super.key});

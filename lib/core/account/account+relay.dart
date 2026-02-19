@@ -2,72 +2,32 @@ import 'dart:async';
 
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../common/network/connect.dart';
-import 'account.dart';
-import 'model/relayDB_isar.dart';
-import 'model/userDB_isar.dart';
-import 'relays.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/model/relayDB_isar.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/relays.dart';
+
+List<RelayDBISAR> _toRelayDBISARList(List<String> urls) {
+  final result = <RelayDBISAR>[];
+  for (var url in urls) {
+    final normalized = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+    result.add(Relays.sharedInstance.relays[normalized] ?? RelayDBISAR(url: normalized));
+  }
+  return result;
+}
+
+enum _RelayListType { general, inbox, outbox, dm }
 
 extension AccountRelay on Account {
-  List<RelayDBISAR> getMyDMRelayList() {
-    List<String> dmRelays = me?.dmRelayList ?? [];
-    List<RelayDBISAR> result = [];
-    for (var relay in dmRelays) {
-      relay = relay.endsWith('/') ? relay.substring(0, relay.length - 1) : relay;
-      result.add(Relays.sharedInstance.relays[relay] ?? RelayDBISAR(url: relay));
-    }
-    return result;
-  }
-
-  List<RelayDBISAR> getMyInboxRelayList() {
-    List<String> inboxRelays = me?.inboxRelayList ?? [];
-    List<RelayDBISAR> result = [];
-    for (var relay in inboxRelays) {
-      relay = relay.endsWith('/') ? relay.substring(0, relay.length - 1) : relay;
-      result.add(Relays.sharedInstance.relays[relay] ?? RelayDBISAR(url: relay));
-    }
-    return result;
-  }
-
-  List<RelayDBISAR> getMyOutboxRelayList() {
-    List<String> outboxRelays = me?.outboxRelayList ?? [];
-    List<RelayDBISAR> result = [];
-    for (var relay in outboxRelays) {
-      relay = relay.endsWith('/') ? relay.substring(0, relay.length - 1) : relay;
-      result.add(Relays.sharedInstance.relays[relay] ?? RelayDBISAR(url: relay));
-    }
-    return result;
-  }
-
-  List<RelayDBISAR> getMyGeneralRelayList() {
-    List<String> generalRelays = me?.relayList ?? [];
-    List<RelayDBISAR> result = [];
-    for (var relay in generalRelays) {
-      relay = relay.endsWith('/') ? relay.substring(0, relay.length - 1) : relay;
-      result.add(Relays.sharedInstance.relays[relay] ?? RelayDBISAR(url: relay));
-    }
-    return result;
-  }
-
-  List<RelayDBISAR> getMyRecommendGeneralRelaysList() {
-    List<String> dmRelays = Relays.sharedInstance.recommendGeneralRelays;
-    List<RelayDBISAR> result = [];
-    for (var relay in dmRelays) {
-      relay = relay.endsWith('/') ? relay.substring(0, relay.length - 1) : relay;
-      result.add(Relays.sharedInstance.relays[relay] ?? RelayDBISAR(url: relay));
-    }
-    return result;
-  }
-
-  List<RelayDBISAR> getMyRecommendDMRelaysList() {
-    List<String> dmRelays = Relays.sharedInstance.recommendDMRelays;
-    List<RelayDBISAR> result = [];
-    for (var relay in dmRelays) {
-      relay = relay.endsWith('/') ? relay.substring(0, relay.length - 1) : relay;
-      result.add(Relays.sharedInstance.relays[relay] ?? RelayDBISAR(url: relay));
-    }
-    return result;
-  }
+  List<RelayDBISAR> getMyDMRelayList() => _toRelayDBISARList(me?.dmRelayList ?? []);
+  List<RelayDBISAR> getMyInboxRelayList() => _toRelayDBISARList(me?.inboxRelayList ?? []);
+  List<RelayDBISAR> getMyOutboxRelayList() => _toRelayDBISARList(me?.outboxRelayList ?? []);
+  List<RelayDBISAR> getMyGeneralRelayList() => _toRelayDBISARList(me?.relayList ?? []);
+  List<RelayDBISAR> getMyRecommendGeneralRelaysList() =>
+      _toRelayDBISARList(Relays.sharedInstance.recommendGeneralRelays);
+  List<RelayDBISAR> getMyRecommendDMRelaysList() =>
+      _toRelayDBISARList(Relays.sharedInstance.recommendDMRelays);
 
   Future<List<String>> getUserDMRelayList(String pubkey) async {
     UserDBISAR? userDB = await getUserInfo(pubkey);
@@ -100,77 +60,71 @@ extension AccountRelay on Account {
     return completer.future;
   }
 
-  Future<OKEvent> addGeneralRelay(String relay) async {
-    if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = me?.relayList ?? [];
-    if (relays.contains(relay)) return OKEvent(relay, false, 'already exit');
-    relays.add(relay);
-    Connect.sharedInstance.connectRelays([relay], relayKind: RelayKind.general);
-    return await setGeneralRelayListToLocal(relays);
+  List<String> _getRelayListCopy(_RelayListType type) {
+    switch (type) {
+      case _RelayListType.general:
+        return List.from(me?.relayList ?? []);
+      case _RelayListType.inbox:
+        return List.from(me?.inboxRelayList ?? []);
+      case _RelayListType.outbox:
+        return List.from(me?.outboxRelayList ?? []);
+      case _RelayListType.dm:
+        return List.from(me?.dmRelayList ?? []);
+    }
   }
 
-  Future<OKEvent> removeGeneralRelay(String relay) async {
-    if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = List.from(me!.relayList ?? []);
-    if (!relays.contains(relay)) return OKEvent(relay, false, 'not exit');
-    relays.remove(relay);
-    Connect.sharedInstance.closeConnects([relay], RelayKind.general);
-    return await setGeneralRelayListToLocal(relays);
+  Future<OKEvent> _setRelayList(List<String> relays, _RelayListType type) async {
+    switch (type) {
+      case _RelayListType.general:
+        return setGeneralRelayListToLocal(relays);
+      case _RelayListType.inbox:
+        return setInboxRelayListToRelay(relays);
+      case _RelayListType.outbox:
+        return setOutboxRelayListToRelay(relays);
+      case _RelayListType.dm:
+        return setDMRelayListToRelay(relays);
+    }
   }
 
-  Future<OKEvent> addInboxRelay(String relay) async {
-    if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = me?.inboxRelayList ?? [];
-    if (relays.contains(relay)) return OKEvent(relay, false, 'already exit');
-    relays.add(relay);
-    Connect.sharedInstance.connectRelays([relay], relayKind: RelayKind.inbox);
-    return await setInboxRelayListToRelay(relays);
+  static RelayKind _relayKind(_RelayListType type) {
+    switch (type) {
+      case _RelayListType.general:
+        return RelayKind.general;
+      case _RelayListType.inbox:
+        return RelayKind.inbox;
+      case _RelayListType.outbox:
+        return RelayKind.outbox;
+      case _RelayListType.dm:
+        return RelayKind.dm;
+    }
   }
 
-  Future<OKEvent> removeInboxRelay(String relay) async {
+  Future<OKEvent> _addRelay(String relay, _RelayListType type) async {
     if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = List.from(me!.inboxRelayList ?? []);
-    if (!relays.contains(relay)) return OKEvent(relay, false, 'not exit');
-    relays.remove(relay);
-    Connect.sharedInstance.closeConnects([relay], RelayKind.inbox);
-    return await setInboxRelayListToRelay(relays);
+    final list = _getRelayListCopy(type);
+    if (list.contains(relay)) return OKEvent(relay, false, 'already exit');
+    list.add(relay);
+    Connect.sharedInstance.connectRelays([relay], relayKind: _relayKind(type));
+    return _setRelayList(list, type);
   }
 
-  Future<OKEvent> addOutboxRelay(String relay) async {
+  Future<OKEvent> _removeRelay(String relay, _RelayListType type) async {
     if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = me?.outboxRelayList ?? [];
-    if (relays.contains(relay)) return OKEvent(relay, false, 'already exit');
-    relays.add(relay);
-    Connect.sharedInstance.connectRelays([relay], relayKind: RelayKind.outbox);
-    return await setOutboxRelayListToRelay(relays);
+    final list = _getRelayListCopy(type);
+    if (!list.contains(relay)) return OKEvent(relay, false, 'not exit');
+    list.remove(relay);
+    Connect.sharedInstance.closeConnects([relay], _relayKind(type));
+    return _setRelayList(list, type);
   }
 
-  Future<OKEvent> removeOutboxRelay(String relay) async {
-    if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = List.from(me!.outboxRelayList ?? []);
-    if (!relays.contains(relay)) return OKEvent(relay, false, 'not exit');
-    relays.remove(relay);
-    Connect.sharedInstance.closeConnects([relay], RelayKind.outbox);
-    return await setOutboxRelayListToRelay(relays);
-  }
-
-  Future<OKEvent> addDMRelay(String relay) async {
-    if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = List.from(me?.dmRelayList ?? []);
-    if (relays.contains(relay)) return OKEvent(relay, false, 'already exit');
-    relays.add(relay);
-    Connect.sharedInstance.connectRelays([relay], relayKind: RelayKind.dm);
-    return await setDMRelayListToRelay(relays);
-  }
-
-  Future<OKEvent> removeDMRelay(String relay) async {
-    if (relay.isEmpty) return OKEvent(relay, false, 'empty relay');
-    List<String> relays = me?.dmRelayList ?? [];
-    if (!relays.contains(relay)) return OKEvent(relay, false, 'not exit');
-    relays.remove(relay);
-    Connect.sharedInstance.closeConnects([relay], RelayKind.dm);
-    return await setDMRelayListToRelay(relays);
-  }
+  Future<OKEvent> addGeneralRelay(String relay) => _addRelay(relay, _RelayListType.general);
+  Future<OKEvent> removeGeneralRelay(String relay) => _removeRelay(relay, _RelayListType.general);
+  Future<OKEvent> addInboxRelay(String relay) => _addRelay(relay, _RelayListType.inbox);
+  Future<OKEvent> removeInboxRelay(String relay) => _removeRelay(relay, _RelayListType.inbox);
+  Future<OKEvent> addOutboxRelay(String relay) => _addRelay(relay, _RelayListType.outbox);
+  Future<OKEvent> removeOutboxRelay(String relay) => _removeRelay(relay, _RelayListType.outbox);
+  Future<OKEvent> addDMRelay(String relay) => _addRelay(relay, _RelayListType.dm);
+  Future<OKEvent> removeDMRelay(String relay) => _removeRelay(relay, _RelayListType.dm);
 
   Future<void> closeAllRelays() async {
     await Connect.sharedInstance.closeAllConnects();

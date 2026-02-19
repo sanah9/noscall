@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../models/contact_group_isar.dart';
-import '../services/contact_group_service.dart';
-import '../../core/call/contacts/contacts.dart';
-import '../../core/common/database/db_isar.dart';
-import '../contact_navigation_extension.dart';
+import 'package:noscall/contacts/models/contact_group_isar.dart';
+import 'package:noscall/contacts/services/contact_group_service.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/core/common/database/db_isar.dart';
+import 'package:noscall/contacts/contact_navigation_extension.dart';
 
 class ContactGroupListPage extends StatefulWidget {
   const ContactGroupListPage({super.key});

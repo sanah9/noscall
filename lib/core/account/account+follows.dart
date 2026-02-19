@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../common/network/connect.dart';
-import 'account.dart';
-import 'model/userDB_isar.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
 
 extension AccountFollows on Account {
   Future<bool> onFollowingList(String pubkey) async {

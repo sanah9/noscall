@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../common/network/connect.dart';
-import 'account.dart';
-import 'model/userDB_isar.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
 
 extension AccountNIP46 on Account {
   Future<bool> _checkNIP46Pubkey(String pubkey) async {

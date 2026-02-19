@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nostr_core_dart/nostr.dart';
-import '../../core/account/account.dart';
-import '../../utils/toast.dart';
-import '../../utils/modal_dialog.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/utils/modal_dialog.dart';
 
 class KeysDialog extends StatelessWidget {
   KeysDialog({super.key});

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
-import '../core/common/utils/log_utils.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 class PipManager {
   static const MethodChannel _channel = MethodChannel('sh.noscall.pip');

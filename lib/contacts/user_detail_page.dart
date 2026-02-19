@@ -11,8 +11,8 @@ import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
-import '../utils/toast.dart';
-import '../utils/navigation_helper.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/utils/navigation_helper.dart';
 import 'services/favorite_contacts_service.dart';
 import 'services/contact_remark_service.dart';
 

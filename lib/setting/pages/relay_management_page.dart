@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../core/account/account.dart';
-import '../../core/account/account+relay.dart';
-import '../../core/account/relays.dart';
-import '../../core/common/network/connect.dart';
-import '../../utils/toast.dart';
-import '../../component/icon.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/account+relay.dart';
+import 'package:noscall/core/account/relays.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/component/icon.dart';
 
 class RelayManagementPage extends StatefulWidget {
   const RelayManagementPage({super.key});

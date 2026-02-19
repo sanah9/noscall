@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../call/ice_server_manager.dart';
-import '../../utils/toast.dart';
-import '../../component/icon.dart';
+import 'package:noscall/call/ice_server_manager.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/component/icon.dart';
 
 class IceServerManagementPage extends StatefulWidget {
   const IceServerManagementPage({super.key});

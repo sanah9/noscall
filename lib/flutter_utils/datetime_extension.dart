@@ -1,5 +1,5 @@
 
-extension DatatimeExtension on DateTime {
+extension DateTimeExtension on DateTime {
   bool isSameDay(DateTime date) {
     return year == date.year &&
         month == date.month &&

@@ -7,12 +7,12 @@ import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCIceCandidate, RTCIce
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:uuid/uuid.dart';
 
-import '../core/core.dart';
+import 'package:noscall/core/core.dart';
 import 'callkeep_manager.dart';
 import 'constant/call_type.dart';
 import 'web_rtc_handler.dart';
-import '../call_history/controller/call_history_manager.dart';
-import '../call_history/constants/call_enums.dart';
+import 'package:noscall/call_history/controller/call_history_manager.dart';
+import 'package:noscall/call_history/constants/call_enums.dart';
 
 ///                                   Start
 /// ------------------------------------------------------------------------

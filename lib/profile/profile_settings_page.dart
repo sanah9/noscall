@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../core/account/account.dart';
-import '../core/account/account+profile.dart';
-import '../core/account/model/userDB_isar.dart';
-import '../contacts/user_avatar.dart';
-import '../utils/toast.dart';
-import '../utils/file_upload_manager.dart';
-import '../utils/macos_permissions.dart';
-import '../utils/navigation_helper.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/account+profile.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/contacts/user_avatar.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/utils/file_upload_manager.dart';
+import 'package:noscall/utils/macos_permissions.dart';
+import 'package:noscall/utils/navigation_helper.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:noscall/component/icon.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../utils/modal_dialog.dart';
-import '../../utils/toast.dart';
+import 'package:noscall/utils/modal_dialog.dart';
+import 'package:noscall/utils/toast.dart';
 
 class AboutDialog extends StatefulWidget {
   const AboutDialog({super.key});

@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
-import '../../utils/toast.dart';
+import 'package:noscall/utils/toast.dart';
 
 class DataExportPage extends StatefulWidget {
   const DataExportPage({super.key});

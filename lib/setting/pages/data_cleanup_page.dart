@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/setting/services/data_cleanup_service.dart';
-import '../../utils/toast.dart';
+import 'package:noscall/utils/toast.dart';
 
 class DataCleanupPage extends StatefulWidget {
   const DataCleanupPage({super.key});

@@ -16,8 +16,8 @@ import 'callkeep_manager.dart';
 import 'calling_controller.dart';
 import 'pip_manager.dart';
 import 'voip_push_service.dart';
-import '../core/common/utils/log_utils.dart';
-import '../utils/macos_permissions.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
+import 'package:noscall/utils/macos_permissions.dart';
 
 class CallKitManager with WidgetsBindingObserver {
   static final CallKitManager instance = CallKitManager._internal();

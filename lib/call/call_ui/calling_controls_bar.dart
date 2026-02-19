@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../call_manager.dart';
-import '../calling_controller.dart';
-import '../constant/call_type.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/calling_controller.dart';
+import 'package:noscall/call/constant/call_type.dart';
 
 class CallingControlsBar extends StatefulWidget {
   const CallingControlsBar({

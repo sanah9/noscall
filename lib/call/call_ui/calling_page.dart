@@ -6,9 +6,9 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 
-import '../constant/call_type.dart';
-import '../calling_controller.dart';
-import '../pip_manager.dart';
+import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/call/calling_controller.dart';
+import 'package:noscall/call/pip_manager.dart';
 import 'calling_controls_bar.dart';
 
 class CallingPage extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../core/core.dart';
-import '../utils/toast.dart';
+import 'package:noscall/core/core.dart';
+import 'package:noscall/utils/toast.dart';
 
 class EditNicknamePage extends StatefulWidget {
   final String pubkey;

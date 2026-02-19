@@ -3,19 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:noscall/core/common/utils/log_utils.dart';
-import 'core/common/thread/threadPoolManager.dart';
-import 'utils/http_client.dart';
-import 'utils/router.dart';
-import 'utils/loading.dart';
-
-import 'auth/auth_service.dart';
-import 'call/call_manager.dart';
-import 'contacts/services/favorite_contacts_service.dart';
-import 'contacts/services/contact_remark_service.dart';
-import 'setting/services/theme_service.dart';
-import 'setting/services/notification_settings_service.dart';
-import 'setting/services/accessibility_service.dart';
+import 'package:noscall/core/common/thread/thread_pool_manager.dart';
+import 'package:noscall/utils/http_client.dart';
+import 'package:noscall/utils/router.dart';
+import 'package:noscall/utils/loading.dart';
+import 'package:noscall/auth/auth_service.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/contacts/services/favorite_contacts_service.dart';
+import 'package:noscall/contacts/services/contact_remark_service.dart';
+import 'package:noscall/setting/services/theme_service.dart';
+import 'package:noscall/setting/services/notification_settings_service.dart';
+import 'package:noscall/setting/services/accessibility_service.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
@@ -52,13 +50,16 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    // Cleanup resources on app shutdown
+  void _disposeServices() {
     ThreadPoolManager.sharedInstance.dispose();
     AuthService().dispose();
     CallKitManager().dispose();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _disposeServices();
     ThemeService().dispose();
     FavoriteContactsService().dispose();
     NotificationSettingsService().dispose();
@@ -70,10 +71,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
-      // App is being terminated, cleanup resources
-      ThreadPoolManager.sharedInstance.dispose();
-      AuthService().dispose();
-      CallKitManager().dispose();
+      _disposeServices();
     }
   }
 

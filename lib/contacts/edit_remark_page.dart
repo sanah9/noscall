@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../utils/toast.dart';
+import 'package:noscall/utils/toast.dart';
 import 'services/contact_remark_service.dart';
 
 class EditRemarkPage extends StatefulWidget {

@@ -6,7 +6,7 @@ import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart';
-import '../call_history/models/call_log_group.dart';
+import 'package:noscall/call_history/models/call_log_group.dart';
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
 

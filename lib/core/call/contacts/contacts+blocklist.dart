@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../../account/account.dart';
-import '../../common/network/connect.dart';
-import 'contacts.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
 
 extension BlockList on Contacts {
   bool inBlockList(String pubkey) {

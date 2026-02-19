@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
-import '../utils/toast.dart';
-import '../core/account/account.dart';
-import '../core/account/account+profile.dart';
-import '../core/account/model/userDB_isar.dart';
-import '../core/call/contacts/contacts.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/account+profile.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
 
 class AddContactPage extends StatefulWidget {
   const AddContactPage({super.key});

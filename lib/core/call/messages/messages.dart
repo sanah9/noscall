@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:isar/isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../../account/account.dart';
-import '../../common/database/db_isar.dart';
-import '../../common/network/connect.dart';
-import 'model/messageDB_isar.dart';
+import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/common/database/db_isar.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 
 typedef MessageActionsCallBack = void Function(MessageDBISAR);
 typedef MessagesDeleteCallBack = void Function(List<MessageDBISAR>);

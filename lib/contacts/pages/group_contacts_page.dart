@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/account/account.dart' as ChatCore;
-import '../../core/call/contacts/contacts.dart';
-import '../services/contact_group_service.dart';
-import '../services/contact_navigation_service.dart';
-import '../contact_navigation_extension.dart';
-import '../user_avatar.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/contacts/services/contact_group_service.dart';
+import 'package:noscall/contacts/services/contact_navigation_service.dart';
+import 'package:noscall/contacts/contact_navigation_extension.dart';
+import 'package:noscall/contacts/user_avatar.dart';
 
 class GroupContactsPage extends StatefulWidget {
   final int groupId;

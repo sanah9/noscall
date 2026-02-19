@@ -26,10 +26,10 @@ export 'call/messages/model/messageDB_isar.dart';
 export 'common/config/call_core_init_config.dart';
 export 'common/database/db_isar.dart';
 export 'common/network/connect.dart';
-export 'common/network/eventCache.dart';
+export 'common/network/event_cache.dart';
 export 'common/network/eventDB_isar.dart';
-export 'common/thread/threadPoolManager.dart';
+export 'common/thread/thread_pool_manager.dart';
 export 'common/utils/log_utils.dart';
 
 // Core manager
-export 'core-manager.dart';
+export 'core_manager.dart';

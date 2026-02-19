@@ -8,11 +8,11 @@ import 'package:convert/convert.dart';
 
 import 'package:nostr_core_dart/nostr.dart';
 
-import '../call/contacts/contacts.dart';
-import '../common/database/db_isar.dart';
-import '../common/network/connect.dart';
-import '../common/network/eventCache.dart';
-import '../common/utils/log_utils.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/core/common/database/db_isar.dart';
+import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/common/network/event_cache.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 import 'account+nip46.dart';
 import 'account+profile.dart';
 import 'model/userDB_isar.dart';

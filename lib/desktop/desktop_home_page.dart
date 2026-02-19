@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/account/account.dart';
-import '../core/account/account+profile.dart';
-import '../core/common/network/connect.dart';
+import 'package:noscall/utils/profile_sync_mixin.dart';
 import 'desktop_scaffold.dart';
 import 'desktop_navigator.dart';
 
@@ -12,9 +10,8 @@ class DesktopHomePage extends StatefulWidget {
   State<DesktopHomePage> createState() => _DesktopHomePageState();
 }
 
-class _DesktopHomePageState extends State<DesktopHomePage> {
+class _DesktopHomePageState extends State<DesktopHomePage> with ProfileSyncOnConnectMixin<DesktopHomePage> {
   int _selectedIndex = 0;
-  bool _profileSynced = false;
   double _sidebarWidth = 280;
   bool _isResizing = false;
 
@@ -28,37 +25,13 @@ class _DesktopHomePageState extends State<DesktopHomePage> {
   @override
   void initState() {
     super.initState();
-    Connect.sharedInstance.addConnectStatusListener(_onConnectStatusChanged);
-    _syncProfileIfNeeded();
+    initProfileSync();
   }
 
   @override
   void dispose() {
-    Connect.sharedInstance.removeConnectStatusListener(_onConnectStatusChanged);
+    disposeProfileSync();
     super.dispose();
-  }
-
-  void _onConnectStatusChanged(String relay, int status, List<RelayKind> relayKinds) {
-    if (status == 1 && relayKinds.contains(RelayKind.general)) {
-      _syncProfileIfNeeded();
-    }
-  }
-
-  Future<void> _syncProfileIfNeeded() async {
-    if (_profileSynced) return;
-
-    final connectedRelays = Connect.sharedInstance.relays(relayKinds: [RelayKind.general]);
-    if (connectedRelays.isEmpty) return;
-
-    final me = Account.sharedInstance.me;
-    if (me == null || (me.name ?? '').isEmpty) return;
-
-    final result = await Account.sharedInstance.updateProfile(me);
-    if (result != null) {
-      setState(() {
-        _profileSynced = true;
-      });
-    }
   }
 
   @override

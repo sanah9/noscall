@@ -1,6 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:noscall/call/constant/call_type.dart';
-import '../constants/call_enums.dart';
+import 'package:noscall/call_history/constants/call_enums.dart';
 import 'call_entry.dart';
 
 part 'call_log_group.g.dart';

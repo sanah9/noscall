@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
-import '../core/call/contacts/contacts.dart';
-import '../call/call_manager.dart';
-import '../call/constant/call_type.dart';
-import '../utils/toast.dart';
-import '../contacts/user_avatar.dart';
-import '../contacts/services/favorite_contacts_service.dart';
+import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/utils/toast.dart';
+import 'package:noscall/contacts/user_avatar.dart';
+import 'package:noscall/contacts/services/favorite_contacts_service.dart';
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
 
