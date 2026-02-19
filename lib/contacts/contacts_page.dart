@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
-import 'package:noscall/core/account/account.dart' as ChatCore;
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
-import 'package:noscall/utils/toast.dart';
+import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/utils/router.dart';
-import 'user_avatar.dart';
+import 'package:noscall/component/contact_list_tile.dart';
+import 'package:noscall/component/empty_search_state.dart';
 import 'contact_navigation_extension.dart';
 import 'services/contact_navigation_service.dart';
 import 'services/favorite_contacts_service.dart';
-import 'services/contact_remark_service.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -20,7 +19,7 @@ class ContactsPage extends StatefulWidget {
 }
 
 class _ContactsPageState extends State<ContactsPage> {
-  final CallKitManager _callKitManager = CallKitManager();
+  final CallKitManager _callKitManager = CallKitManager.instance;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _showFavoritesOnly = false;
@@ -65,67 +64,11 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Future<void> _startVoiceCall(String peerId, String displayName) async {
-    if (_callKitManager.hasActiveCalling) {
-      AppToast.showInfo(context, 'Call already in progress');
-      return;
-    }
-
-    try {
-      AppToast.showInfo(context, 'Starting voice call...');
-
-      final controller = await _callKitManager.startCall(
-        peerId: peerId,
-        callType: CallType.audio,
-      );
-
-      if (controller == null) {
-        AppToast.showError(context, 'Failed to start voice call');
-      } else {
-        AppToast.showSuccess(context, 'Voice call started');
-      }
-    } catch (e) {
-      String errorMessage = 'Voice call failed';
-      if (e.toString().contains('Maximum concurrent calls reached')) {
-        errorMessage = 'Another call is already in progress';
-      } else if (e.toString().contains('Required permissions not granted')) {
-        errorMessage = 'Microphone permission required for voice calls';
-      } else if (e.toString().contains('permission')) {
-        errorMessage = 'Permission denied. Please check app settings';
-      }
-      AppToast.showError(context, errorMessage);
-    }
+    await StartCallHelper.startCall(context, peerId: peerId, callType: CallType.audio);
   }
 
   Future<void> _startVideoCall(String peerId, String displayName) async {
-    if (_callKitManager.hasActiveCalling) {
-      AppToast.showInfo(context, 'Call already in progress');
-      return;
-    }
-
-    try {
-      AppToast.showInfo(context, 'Starting video call...');
-
-      final controller = await _callKitManager.startCall(
-        peerId: peerId,
-        callType: CallType.video,
-      );
-
-      if (controller == null) {
-        AppToast.showError(context, 'Failed to start video call');
-      } else {
-        AppToast.showSuccess(context, 'Video call started');
-      }
-    } catch (e) {
-      String errorMessage = 'Video call failed';
-      if (e.toString().contains('Maximum concurrent calls reached')) {
-        errorMessage = 'Another call is already in progress';
-      } else if (e.toString().contains('Required permissions not granted')) {
-        errorMessage = 'Camera and microphone permissions required for video calls';
-      } else if (e.toString().contains('permission')) {
-        errorMessage = 'Permission denied. Please check app settings';
-      }
-      AppToast.showError(context, errorMessage);
-    }
+    await StartCallHelper.startCall(context, peerId: peerId, callType: CallType.video);
   }
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
@@ -180,58 +123,6 @@ class _ContactsPageState extends State<ContactsPage> {
     } else {
       return user.shortEncodedPubkey;
     }
-  }
-
-  Widget _buildHighlightedText(String text, String query) {
-    if (query.isEmpty) {
-      return Text(text);
-    }
-
-    final queryLower = query.toLowerCase();
-    final textLower = text.toLowerCase();
-    final spans = <TextSpan>[];
-    int start = 0;
-
-    while (start < text.length) {
-      final index = textLower.indexOf(queryLower, start);
-      if (index == -1) {
-        if (start < text.length) {
-          spans.add(TextSpan(
-            text: text.substring(start),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ));
-        }
-        break;
-      }
-
-      if (index > start) {
-        spans.add(TextSpan(
-          text: text.substring(start, index),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ));
-      }
-
-      spans.add(TextSpan(
-        text: text.substring(index, index + query.length),
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: primary,
-          fontWeight: FontWeight.w600,
-          backgroundColor: primary.withValues(alpha: 0.2),
-        ),
-      ));
-
-      start = index + query.length;
-    }
-
-    return RichText(
-      text: TextSpan(children: spans),
-    );
   }
 
   @override
@@ -326,36 +217,12 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildFavoriteFilterChips() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          FilterChip(
-            label: const Text('All'),
-            selected: !_showFavoritesOnly,
-            onSelected: (v) {
-              setState(() {
-                _showFavoritesOnly = false;
-              });
-            },
-          ),
-          const SizedBox(width: 8),
-          FilterChip(
-            avatar: Icon(
-              Icons.star,
-              size: 18,
-              color: _showFavoritesOnly ? theme.colorScheme.onPrimary : primary,
-            ),
-            label: const Text('Favorites'),
-            selected: _showFavoritesOnly,
-            onSelected: (v) {
-              setState(() {
-                _showFavoritesOnly = true;
-              });
-            },
-          ),
-        ],
-      ),
+    return _FavoriteFilterChips(
+      showFavoritesOnly: _showFavoritesOnly,
+      primary: primary,
+      onPrimary: theme.colorScheme.onPrimary,
+      onSelectAll: () => setState(() => _showFavoritesOnly = false),
+      onSelectFavorites: () => setState(() => _showFavoritesOnly = true),
     );
   }
 
@@ -389,84 +256,17 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: surface,
-        border: Border(
-          bottom: BorderSide(
-            color: onSurfaceVariant.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search contacts...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: onSurfaceVariant.withValues(alpha: 0.2),
-            ),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: onSurfaceVariant.withValues(alpha: 0.2),
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: primary,
-              width: 2,
-            ),
-          ),
-          filled: true,
-          fillColor: onSurfaceVariant.withValues(alpha: 0.05),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-      ),
+    return _ContactsSearchBar(
+      controller: _searchController,
+      hasQuery: _searchQuery.isNotEmpty,
+      surface: surface,
+      onSurfaceVariant: onSurfaceVariant,
+      primary: primary,
     );
   }
 
   Widget _buildNoSearchResultsState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: onSurfaceVariant,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No results found',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try a different search term',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const EmptySearchState();
   }
 
   Widget _buildContactsList(BuildContext context, List<UserDBISAR> contacts) {
@@ -480,257 +280,122 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildContactCard(BuildContext context, UserDBISAR contact) {
-    return ValueListenableBuilder<UserDBISAR>(
-      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(contact.pubKey),
-      builder: (context, updatedUser, child) {
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              // Use global router for user detail page
-              AppRouter.router.push(
-                '/user-detail',
-                extra: {'pubkey': contact.pubKey},
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _buildUserAvatar(updatedUser),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildContactName(updatedUser),
-                        const SizedBox(height: 4),
-                        _buildContactSubtitle(updatedUser),
-                      ],
-                    ),
-                  ),
-                  _buildRightSideContent(updatedUser),
-                ],
-              ),
-            ),
-          ),
+    return ContactListTile(
+      user: contact,
+      searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+      onTap: () {
+        AppRouter.router.push(
+          '/user-detail',
+          extra: {'pubkey': contact.pubKey},
         );
       },
+      onCallVoice: () => _startVoiceCall(contact.pubKey, contact.displayName()),
+      onCallVideo: () => _startVideoCall(contact.pubKey, contact.displayName()),
+      showFavoriteStar: true,
     );
   }
+}
 
-  Widget _buildUserAvatar(UserDBISAR user) {
-    return UserAvatar(
-      user: user,
-      size: 48,
-    );
-  }
+/// Reusable search bar for contacts list.
+class _ContactsSearchBar extends StatelessWidget {
+  const _ContactsSearchBar({
+    required this.controller,
+    required this.hasQuery,
+    required this.surface,
+    required this.onSurfaceVariant,
+    required this.primary,
+  });
 
-  Widget _buildContactName(UserDBISAR user) {
-    if (_searchQuery.isNotEmpty) {
-      final nickName = (user.nickName ?? '').trim();
-      final name = (user.name ?? '').trim();
-      final isNameMatched = _isNameMatched(user);
-      final query = _searchQuery.toLowerCase();
-      final nickNameLower = nickName.toLowerCase();
-      final isNickNameMatched = nickNameLower.contains(query);
-      
-      if (isNameMatched && nickName.isNotEmpty && name.isNotEmpty) {
-        return _buildHighlightedTextWithRemark(nickName, name);
-      } else if (isNickNameMatched && nickName.isNotEmpty) {
-        return _buildHighlightedText(nickName, _searchQuery);
-      } else if (name.isNotEmpty) {
-        return _buildHighlightedText(name, _searchQuery);
-      } else {
-        return Text(
-          user.shortEncodedPubkey,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: onSurface,
-            fontWeight: FontWeight.w500,
+  final TextEditingController controller;
+  final bool hasQuery;
+  final Color surface;
+  final Color onSurfaceVariant;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: surface,
+        border: Border(
+          bottom: BorderSide(
+            color: onSurfaceVariant.withValues(alpha: 0.1),
+            width: 0.5,
           ),
-        );
-      }
-    }
-    
-    final displayText = _getDisplayNameWithRemark(user);
-    return Text(
-      displayText,
-      style: theme.textTheme.titleMedium?.copyWith(
-        color: onSurface,
-        fontWeight: FontWeight.w500,
+        ),
       ),
-    );
-  }
-
-  Widget _buildHighlightedTextWithRemark(String nickName, String name) {
-    final query = _searchQuery.toLowerCase();
-    final nameLower = name.toLowerCase();
-    
-    if (nameLower.contains(query)) {
-      final spans = <TextSpan>[];
-      
-      spans.add(TextSpan(
-        text: '$nickName(',
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ));
-      
-      final nameSpans = _buildHighlightedSpans(name, query);
-      spans.addAll(nameSpans);
-      
-      spans.add(TextSpan(
-        text: ')',
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ));
-      
-      return RichText(
-        text: TextSpan(children: spans),
-      );
-    } else {
-      return Text(
-        nickName,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-    }
-  }
-
-  List<TextSpan> _buildHighlightedSpans(String text, String query) {
-    final queryLower = query.toLowerCase();
-    final textLower = text.toLowerCase();
-    final spans = <TextSpan>[];
-    int start = 0;
-
-    while (start < text.length) {
-      final index = textLower.indexOf(queryLower, start);
-      if (index == -1) {
-        if (start < text.length) {
-          spans.add(TextSpan(
-            text: text.substring(start),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ));
-        }
-        break;
-      }
-
-      if (index > start) {
-        spans.add(TextSpan(
-          text: text.substring(start, index),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: onSurface,
-            fontWeight: FontWeight.w500,
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          hintText: 'Search contacts...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: hasQuery
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () => controller.clear(),
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: onSurfaceVariant.withValues(alpha: 0.2)),
           ),
-        ));
-      }
-
-      spans.add(TextSpan(
-        text: text.substring(index, index + query.length),
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: primary,
-          fontWeight: FontWeight.w600,
-          backgroundColor: primary.withValues(alpha: 0.2),
-        ),
-      ));
-
-      start = index + query.length;
-    }
-
-    return spans;
-  }
-
-  Widget _buildContactSubtitle(UserDBISAR user) {
-    return ValueListenableBuilder<Map<String, String>>(
-      valueListenable: ContactRemarkService().remarksNotifier,
-      builder: (context, remarks, _) {
-        final remark = remarks[user.pubKey] ?? '';
-        final subtitle = remark.isNotEmpty ? remark : user.shortEncodedPubkey;
-        return Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: onSurfaceVariant,
-            fontSize: 14,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: onSurfaceVariant.withValues(alpha: 0.2)),
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        );
-      },
-    );
-  }
-
-  Widget _buildRightSideContent(UserDBISAR user) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildFavoriteStar(context, user),
-        const SizedBox(width: 4),
-        _buildVoiceCallButton(context, user),
-        const SizedBox(width: 8),
-        _buildVideoCallButton(context, user),
-      ],
-    );
-  }
-
-  Widget _buildFavoriteStar(BuildContext context, UserDBISAR user) {
-    final fav = FavoriteContactsService();
-    return ValueListenableBuilder<Set<String>>(
-      valueListenable: fav.favoritePubkeysNotifier,
-      builder: (context, set, _) {
-        final isFav = set.contains(user.pubKey);
-        return GestureDetector(
-          onTap: () async {
-            await fav.toggleFavorite(user.pubKey);
-            if (mounted) setState(() {});
-          },
-          behavior: HitTestBehavior.translucent,
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Icon(
-              isFav ? Icons.star : Icons.star_border,
-              size: 24,
-              color: isFav ? primary : onSurfaceVariant,
-            ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: primary, width: 2),
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildVoiceCallButton(BuildContext context, UserDBISAR user) {
-    return GestureDetector(
-      onTap: () => _startVoiceCall(user.pubKey, user.displayName()),
-      behavior: HitTestBehavior.translucent,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(
-          Icons.call,
-          size: 24,
-          color: primary,
+          filled: true,
+          fillColor: onSurfaceVariant.withValues(alpha: 0.05),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );
   }
+}
 
-  Widget _buildVideoCallButton(BuildContext context, UserDBISAR user) {
-    return GestureDetector(
-      onTap: () => _startVideoCall(user.pubKey, user.displayName()),
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Icon(
-          Icons.videocam,
-          size: 24,
-          color: primary,
-        ),
+/// All / Favorites filter chips for contacts list.
+class _FavoriteFilterChips extends StatelessWidget {
+  const _FavoriteFilterChips({
+    required this.showFavoritesOnly,
+    required this.primary,
+    required this.onPrimary,
+    required this.onSelectAll,
+    required this.onSelectFavorites,
+  });
+
+  final bool showFavoritesOnly;
+  final Color primary;
+  final Color onPrimary;
+  final VoidCallback onSelectAll;
+  final VoidCallback onSelectFavorites;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          FilterChip(
+            label: const Text('All'),
+            selected: !showFavoritesOnly,
+            onSelected: (_) => onSelectAll(),
+          ),
+          const SizedBox(width: 8),
+          FilterChip(
+            avatar: Icon(
+              Icons.star,
+              size: 18,
+              color: showFavoritesOnly ? onPrimary : primary,
+            ),
+            label: const Text('Favorites'),
+            selected: showFavoritesOnly,
+            onSelected: (_) => onSelectFavorites(),
+          ),
+        ],
       ),
     );
   }

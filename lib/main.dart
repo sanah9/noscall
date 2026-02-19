@@ -53,7 +53,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   void _disposeServices() {
     ThreadPoolManager.sharedInstance.dispose();
     AuthService().dispose();
-    CallKitManager().dispose();
+    CallKitManager.instance.dispose();
   }
 
   @override

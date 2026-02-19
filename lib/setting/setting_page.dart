@@ -459,8 +459,7 @@ class _SettingPageState extends State<SettingPage> {
           return _buildNetworkStatusTile(context);
         }
         final item = menuItems[index - 1];
-        return _buildMenuTile(
-          context: context,
+        return _SettingMenuTile(
           icon: item.icon,
           title: item.title,
           onTap: item.onTap,
@@ -639,13 +638,24 @@ class _SettingPageState extends State<SettingPage> {
     AboutDialog.show(context);
   }
 
-  Widget _buildMenuTile({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color? textColor,
-  }) {
+}
+
+/// One row in the settings menu list (icon, title, chevron).
+class _SettingMenuTile extends StatelessWidget {
+  const _SettingMenuTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.textColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final Color? textColor;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 

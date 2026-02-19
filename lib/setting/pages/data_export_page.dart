@@ -41,7 +41,7 @@ class _DataExportPageState extends State<DataExportPage> {
         AppToast.showError(context, 'Failed to get export directory');
         return;
       }
-      final manager = CallKitManager().callHistoryManager;
+      final manager = CallKitManager.instance.callHistoryManager;
       final groups = manager.callLogGroups;
       final rows = <Map<String, dynamic>>[];
       for (final group in groups) {

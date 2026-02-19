@@ -7,8 +7,8 @@ import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account+profile.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
-import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/utils/toast.dart';
@@ -689,15 +689,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
       AppToast.showError(context, 'Cannot call blocked user');
       return;
     }
-
-    try {
-      await CallKitManager().startCall(
-        peerId: widget.pubkey,
-        callType: CallType.audio,
-      );
-    } catch (e) {
-      AppToast.showError(context, 'Failed to start call: $e');
-    }
+    await StartCallHelper.startCall(
+      context,
+      peerId: widget.pubkey,
+      callType: CallType.audio,
+    );
   }
 
   void _startVideoCall() async {
@@ -705,15 +701,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
       AppToast.showError(context, 'Cannot call blocked user');
       return;
     }
-
-    try {
-      await CallKitManager().startCall(
-        peerId: widget.pubkey,
-        callType: CallType.video,
-      );
-    } catch (e) {
-      AppToast.showError(context, 'Failed to start video call: $e');
-    }
+    await StartCallHelper.startCall(
+      context,
+      peerId: widget.pubkey,
+      callType: CallType.video,
+    );
   }
 
   Future<void> _updateUserInfoFromRemote() async {

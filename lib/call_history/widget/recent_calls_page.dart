@@ -12,6 +12,7 @@ import 'package:noscall/core/account/account.dart' as ChatCore;
 import 'package:noscall/core/account/model/userDB_isar.dart';
 
 import 'package:noscall/call_history/models/call_log_group.dart';
+import 'package:noscall/component/empty_search_state.dart';
 
 class RecentCallsPage extends StatefulWidget {
   const RecentCallsPage({super.key});
@@ -655,29 +656,9 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   }
 
   Widget _buildNoSearchResultsState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: onSurfaceVariant,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No matching calls',
-            style: theme.textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try searching with a different name',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    return const EmptySearchState(
+      title: 'No matching calls',
+      subtitle: 'Try searching with a different name',
     );
   }
 }

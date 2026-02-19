@@ -7,6 +7,7 @@ import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/call_history/models/call_log_group.dart';
+import 'package:noscall/component/empty_search_state.dart';
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
 
@@ -99,13 +100,8 @@ class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage> {
               final filteredGroups = _filterCallGroups(snapshot.data!, searchQuery);
 
               if (filteredGroups.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No results found',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                return const Center(
+                  child: EmptySearchState(),
                 );
               }
 

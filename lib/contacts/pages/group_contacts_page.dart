@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
-import 'package:noscall/core/account/account.dart' as ChatCore;
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
 import 'package:noscall/contacts/services/contact_navigation_service.dart';
 import 'package:noscall/contacts/contact_navigation_extension.dart';
-import 'package:noscall/contacts/user_avatar.dart';
+import 'package:noscall/component/contact_list_tile.dart';
+import 'package:noscall/component/empty_search_state.dart';
 
 class GroupContactsPage extends StatefulWidget {
   final int groupId;
@@ -110,167 +110,6 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
       
       return name.contains(query) || nickName.contains(query);
     }).toList();
-  }
-
-  bool _isNameMatched(UserDBISAR user) {
-    if (_searchQuery.isEmpty) return false;
-    final query = _searchQuery.toLowerCase();
-    final name = (user.name ?? '').toLowerCase();
-    return name.contains(query);
-  }
-
-  String _getDisplayNameWithRemark(UserDBISAR user) {
-    final nickName = (user.nickName ?? '').trim();
-    final name = (user.name ?? '').trim();
-    final isNameMatched = _isNameMatched(user);
-    
-    if (isNameMatched && nickName.isNotEmpty && name.isNotEmpty) {
-      return '$nickName($name)';
-    } else if (nickName.isNotEmpty) {
-      return nickName;
-    } else if (name.isNotEmpty) {
-      return name;
-    } else {
-      return user.shortEncodedPubkey;
-    }
-  }
-
-  Widget _buildHighlightedText(String text, String query, ThemeData theme, ColorScheme colorScheme) {
-    if (query.isEmpty) {
-      return Text(text);
-    }
-
-    final queryLower = query.toLowerCase();
-    final textLower = text.toLowerCase();
-    final spans = <TextSpan>[];
-    int start = 0;
-
-    while (start < text.length) {
-      final index = textLower.indexOf(queryLower, start);
-      if (index == -1) {
-        if (start < text.length) {
-          spans.add(TextSpan(
-            text: text.substring(start),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ));
-        }
-        break;
-      }
-
-      if (index > start) {
-        spans.add(TextSpan(
-          text: text.substring(start, index),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ));
-      }
-
-      spans.add(TextSpan(
-        text: text.substring(index, index + query.length),
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.primary,
-          fontWeight: FontWeight.w600,
-          backgroundColor: colorScheme.primary.withValues(alpha: 0.2),
-        ),
-      ));
-
-      start = index + query.length;
-    }
-
-    return RichText(
-      text: TextSpan(children: spans),
-    );
-  }
-
-  List<TextSpan> _buildHighlightedSpans(String text, String query, ThemeData theme, ColorScheme colorScheme) {
-    final queryLower = query.toLowerCase();
-    final textLower = text.toLowerCase();
-    final spans = <TextSpan>[];
-    int start = 0;
-
-    while (start < text.length) {
-      final index = textLower.indexOf(queryLower, start);
-      if (index == -1) {
-        if (start < text.length) {
-          spans.add(TextSpan(
-            text: text.substring(start),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ));
-        }
-        break;
-      }
-
-      if (index > start) {
-        spans.add(TextSpan(
-          text: text.substring(start, index),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ));
-      }
-
-      spans.add(TextSpan(
-        text: text.substring(index, index + query.length),
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.primary,
-          fontWeight: FontWeight.w600,
-          backgroundColor: colorScheme.primary.withValues(alpha: 0.2),
-        ),
-      ));
-
-      start = index + query.length;
-    }
-
-    return spans;
-  }
-
-  Widget _buildHighlightedTextWithRemark(String nickName, String name, ThemeData theme, ColorScheme colorScheme) {
-    final query = _searchQuery.toLowerCase();
-    final nameLower = name.toLowerCase();
-    
-    if (nameLower.contains(query)) {
-      final spans = <TextSpan>[];
-      
-      spans.add(TextSpan(
-        text: '$nickName(',
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ));
-      
-      final nameSpans = _buildHighlightedSpans(name, query, theme, colorScheme);
-      spans.addAll(nameSpans);
-      
-      spans.add(TextSpan(
-        text: ')',
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ));
-      
-      return RichText(
-        text: TextSpan(children: spans),
-      );
-    } else {
-      return Text(
-        nickName,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      );
-    }
   }
 
   @override
@@ -422,34 +261,7 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
   }
 
   Widget _buildNoSearchResultsState(ColorScheme colorScheme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No results found',
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try a different search term',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const EmptySearchState();
   }
 
   Widget _buildContactsList(ColorScheme colorScheme, List<UserDBISAR> contacts) {
@@ -468,89 +280,17 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
 
   Widget _buildContactCard(
       BuildContext context, UserDBISAR contact, ColorScheme colorScheme) {
-    final theme = Theme.of(context);
-    return ValueListenableBuilder<UserDBISAR>(
-      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(contact.pubKey),
-      builder: (context, updatedUser, child) {
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () {
-              context.push(
-                '/user-detail',
-                extra: {'pubkey': contact.pubKey},
-              );
-            },
-            onLongPress: () {
-              _removeContact(contact.pubKey, updatedUser.displayName());
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  UserAvatar(
-                    user: updatedUser,
-                    size: 48,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildContactName(updatedUser, theme, colorScheme),
-                        const SizedBox(height: 4),
-                        Text(
-                          updatedUser.shortEncodedPubkey,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    return ContactListTile(
+      user: contact,
+      searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+      showFavoriteStar: false,
+      onTap: () {
+        context.push(
+          '/user-detail',
+          extra: {'pubkey': contact.pubKey},
         );
       },
-    );
-  }
-
-  Widget _buildContactName(UserDBISAR user, ThemeData theme, ColorScheme colorScheme) {
-    if (_searchQuery.isNotEmpty) {
-      final nickName = (user.nickName ?? '').trim();
-      final name = (user.name ?? '').trim();
-      final isNameMatched = _isNameMatched(user);
-      final query = _searchQuery.toLowerCase();
-      final nickNameLower = nickName.toLowerCase();
-      final isNickNameMatched = nickNameLower.contains(query);
-      
-      if (isNameMatched && nickName.isNotEmpty && name.isNotEmpty) {
-        return _buildHighlightedTextWithRemark(nickName, name, theme, colorScheme);
-      } else if (isNickNameMatched && nickName.isNotEmpty) {
-        return _buildHighlightedText(nickName, _searchQuery, theme, colorScheme);
-      } else if (name.isNotEmpty) {
-        return _buildHighlightedText(name, _searchQuery, theme, colorScheme);
-      } else {
-        return Text(
-          user.shortEncodedPubkey,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        );
-      }
-    }
-    
-    final displayText = _getDisplayNameWithRemark(user);
-    return Text(
-      displayText,
-      style: theme.textTheme.titleMedium?.copyWith(
-        color: colorScheme.onSurface,
-        fontWeight: FontWeight.w500,
-      ),
+      onLongPress: () => _removeContact(contact.pubKey, contact.displayName()),
     );
   }
 }

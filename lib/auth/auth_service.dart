@@ -274,7 +274,7 @@ class AuthService {
       );
       await ChatCoreManager().initChatCoreWithConfig(config);
 
-      await CallKitManager().initRTC();
+      await CallKitManager.instance.initRTC();
 
       isAuthenticated = true;
       LogUtils.i(() => 'Chat core initialized successfully for pubkey: ${pubkey.substring(0, 8)}...');
