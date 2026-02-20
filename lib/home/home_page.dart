@@ -8,6 +8,7 @@ import 'package:noscall/contacts/contact_navigator.dart';
 import 'package:noscall/setting/setting_page.dart';
 import 'package:noscall/desktop/desktop_home_page.dart';
 import 'package:noscall/utils/profile_sync_mixin.dart';
+import 'package:noscall/voice_messages/voice_messages_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -61,6 +62,7 @@ class _HomePageState extends State<HomePage> with ProfileSyncOnConnectMixin<Home
         children: const [
           RecentCallsPage(),
           ContactNavigator(),
+          VoiceMessagesPage(),
           SettingPage(),
         ],
       ),
@@ -101,6 +103,12 @@ class _HomePageState extends State<HomePage> with ProfileSyncOnConnectMixin<Home
           ),
           BottomNavigationBarItem(
             icon: _selectedIndex == 2
+                ? const Icon(Icons.mic)
+                : const Icon(Icons.mic_none),
+            label: 'Voice',
+          ),
+          BottomNavigationBarItem(
+            icon: _selectedIndex == 3
                 ? const Icon(Icons.person)
                 : const Icon(Icons.person_outline),
             label: 'Me',

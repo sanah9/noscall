@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:noscall/core/call/messages/messages.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/core/account/model/relayDB_isar.dart';
@@ -295,6 +296,18 @@ class Contacts {
     friendMessageSubscription = Connect.sharedInstance.addSubscriptions(subscriptions,
         closeSubscription: false, eventCallBack: (event, relay) async {
       if (!ChatCoreManager().isAcceptedEventKind(event.kind)) return;
+      if (event.kind == 4 || event.kind == 44) {
+        if (EventCache.sharedInstance.cacheIds.contains(event.id)) return;
+        if (inBlockList(event.pubkey)) return;
+        EventCache.sharedInstance.receiveEvent(event, relay);
+        final messageDB = await MessageDBISAR.fromPrivateMessage(event, pubkey, privkey);
+        if (messageDB != null) {
+          await Messages.saveMessageToDB(messageDB);
+          updateFriendMessageTime(event.createdAt, relay);
+          privateChatMessageCallBack?.call(messageDB);
+        }
+        return;
+      }
       if (event.kind == 1059) {
         Event? innerEvent = await decodeNip17Event(event);
         if (innerEvent == null || EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
@@ -307,6 +320,15 @@ class Contacts {
           switch (innerEvent.kind) {
             case 25050:
               handleCallEvent(innerEvent, relay);
+              break;
+            case 4:
+            case 44:
+              final messageDB = await MessageDBISAR.fromPrivateMessage(
+                  innerEvent, pubkey, privkey);
+              if (messageDB != null) {
+                await Messages.saveMessageToDB(messageDB);
+                privateChatMessageCallBack?.call(messageDB);
+              }
               break;
             default:
               LogUtils.v(() => 'contacts unhandled message ${innerEvent.toJson()}');

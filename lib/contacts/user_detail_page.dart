@@ -169,9 +169,17 @@ class _UserDetailPageState extends State<UserDetailPage> {
             icon: Icons.videocam,
             onPressed: _startVideoCall,
           ),
+          _buildActionButton(
+            icon: Icons.mic_none,
+            onPressed: _sendVoiceMessage,
+          ),
         ],
       ),
     );
+  }
+
+  void _sendVoiceMessage() {
+    context.push('/send-voice-message', extra: {'receiverPubkey': widget.pubkey});
   }
 
   Widget _buildCallHistorySection() {

@@ -39,7 +39,9 @@ dependencies:
   dio: ^5.4.0
   crypto: ^3.0.3
   mime: ^1.0.4
-  
+  record: ^5.1.0
+  just_audio: ^0.9.40
+
   # calling
   callkeep:
     git:

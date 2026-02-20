@@ -24,6 +24,8 @@ import 'package:noscall/setting/pages/ice_server_management_page.dart';
 import 'package:noscall/setting/pages/data_cleanup_page.dart';
 import 'package:noscall/setting/pages/data_export_page.dart';
 import 'package:noscall/setting/pages/log_viewer_page.dart';
+import 'package:noscall/voice_messages/send_voice_message_page.dart';
+import 'package:noscall/voice_messages/voice_message_detail_page.dart';
 
 /// Returns state.extra as Map, or null.
 Map<String, dynamic>? getRouteParams(GoRouterState state) {
@@ -200,6 +202,29 @@ class AppRouter {
         path: '/log-viewer',
         name: 'log-viewer',
         builder: (context, state) => const LogViewerPage(),
+      ),
+      GoRoute(
+        path: '/voice-message-detail',
+        name: 'voice-message-detail',
+        builder: (context, state) {
+          final params = state.extra as Map? ?? {};
+          final messageId = params['messageId'] as String?;
+          if (messageId == null || messageId.isEmpty) {
+            return const Scaffold(
+              body: Center(child: Text('Message not found')),
+            );
+          }
+          return VoiceMessageDetailPage(messageId: messageId);
+        },
+      ),
+      GoRoute(
+        path: '/send-voice-message',
+        name: 'send-voice-message',
+        builder: (context, state) {
+          final params = state.extra as Map? ?? {};
+          final receiverPubkey = params['receiverPubkey'] as String? ?? '';
+          return SendVoiceMessagePage(receiverPubkey: receiverPubkey);
+        },
       ),
     ],
   );

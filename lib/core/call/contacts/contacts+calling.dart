@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
-import 'package:noscall/core/common/network/connect.dart';
-import 'package:noscall/core/call/messages/messages.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
-import 'package:noscall/core/call/contacts/contacts.dart';
+import '../../account/account.dart';
+import '../../common/network/connect.dart';
+import '../messages/messages.dart';
+import '../messages/model/messageDB_isar.dart';
+import 'contacts.dart';
 
 extension Calling on Contacts {
   Future<OKEvent> sendDisconnect(String offerId, String friendPubkey, String content) async {
@@ -169,6 +170,45 @@ extension Calling on Contacts {
     }
 
     return true;
+  }
+
+  /// Sends an encrypted DM (kind 4, NIP4) wrapped in NIP17 (kind 1059).
+  /// Returns the inner event id on success, null on failure.
+  Future<String?> sendEncryptedDM(String toPubkey, String plainContent) async {
+    final encrypted =
+        await Account.sharedInstance.encryptNip04(plainContent, toPubkey);
+    final now = currentUnixTimestampSeconds();
+    final eventMap = <String, dynamic>{
+      'kind': 4,
+      'content': encrypted,
+      'tags': [
+        ['p', toPubkey]
+      ],
+      'created_at': now,
+      'pubkey': pubkey,
+    };
+    final signed = await Account.sharedInstance.signEvent(eventMap);
+    final event = await Event.fromJson(signed, verify: false);
+    final sealedFuture = encodeNip17Event(
+      event,
+      toPubkey,
+      kind: 4,
+      expiration: now + 86400,
+      createAt: now,
+    );
+    final sealed = await sealedFuture;
+    if (sealed == null) return null;
+    final completer = Completer<String?>();
+    Connect.sharedInstance.sendEvent(
+      sealed,
+      relayKinds: [RelayKind.general],
+      sendCallBack: (ok, relay) {
+        if (!completer.isCompleted) {
+          completer.complete(ok.status ? event.id : null);
+        }
+      },
+    );
+    return completer.future;
   }
 
   MessageDBISAR callMessageToDB(CallMessage callMessage) {

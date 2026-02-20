@@ -13,6 +13,7 @@ part 'messageDB_isar.g.dart';
 enum MessageType {
   unknown,
   call,
+  voice,
 }
 
 extension MessageDBISARExtensions on MessageDBISAR {
@@ -102,6 +103,8 @@ class MessageDBISAR {
     switch (type) {
       case MessageType.call:
         return 'call';
+      case MessageType.voice:
+        return 'voice';
       default:
         return 'unknown';
     }
@@ -111,6 +114,8 @@ class MessageDBISAR {
     switch (type) {
       case 'call':
         return MessageType.call;
+      case 'voice':
+        return MessageType.voice;
       default:
         return MessageType.unknown;
     }
@@ -139,10 +144,18 @@ class MessageDBISAR {
   static Future<Map<String, dynamic>> _decodeContentInIsolate(String content) async {
     content = content.trim();
     try {
-      Map<String, dynamic> map = jsonDecode(content);
+      Map<String, dynamic> map = jsonDecode(content) as Map<String, dynamic>;
       if (map.containsKey('contentType') && map.containsKey('content')) {
         String type = map['contentType'];
         if (type == 'call') return map;
+        if (type == 'voice') {
+          map['content'] ??= content;
+          return map;
+        }
+      }
+      if (map.containsKey('contentType') && map['contentType'] == 'voice') {
+        map['content'] ??= content;
+        return map;
       }
       return {'contentType': 'text', 'content': content};
     } catch (e) {
@@ -155,6 +168,14 @@ class MessageDBISAR {
     switch (type) {
       case MessageType.call:
         return '[You\'ve received a call via noscall!]';
+      case MessageType.voice:
+        try {
+          final map = jsonDecode(content) as Map<String, dynamic>;
+          final sec = (map['durationSeconds'] as num?)?.toInt() ?? 0;
+          return 'Voice ${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
+        } catch (_) {
+          return 'Voice message';
+        }
       default:
         return content;
     }
@@ -164,8 +185,25 @@ class MessageDBISAR {
     switch (type) {
       case MessageType.call:
         return jsonEncode({'contentType': messageTypeToString(type), 'content': content});
+      case MessageType.voice:
+        return content;
       default:
         return null;
+    }
+  }
+
+  /// Parses voice message payload from [decryptContent] or [content] JSON.
+  /// Returns map with url, durationSeconds, mimeType or null.
+  static Map<String, dynamic>? parseVoiceContent(String? jsonContent) {
+    if (jsonContent == null || jsonContent.isEmpty) return null;
+    try {
+      final map = jsonDecode(jsonContent) as Map<String, dynamic>;
+      if (map['contentType'] == 'voice' || map['url'] != null) {
+        return map;
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -185,6 +223,8 @@ class MessageDBISAR {
     EDMessage? message;
     if (event.kind == 44) {
       message = await Contacts.sharedInstance.decodeNip44Event(event, receiver, privkey);
+    } else if (event.kind == 4) {
+      message = await Contacts.sharedInstance.decodeNip4Event(event, receiver, privkey);
     } else if (event.kind == 14 || event.kind == 15) {
       message = await Contacts.sharedInstance.decodeKind14Event(event, receiver);
     }
