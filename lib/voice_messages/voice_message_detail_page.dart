@@ -21,6 +21,7 @@ class VoiceMessageDetailPage extends StatefulWidget {
 class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
   MessageDBISAR? _message;
   bool _loading = true;
+  bool _playbackError = false;
   final AudioPlayer _player = AudioPlayer();
 
   Future<void> _loadMessage() async {
@@ -35,9 +36,19 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
           MessageDBISAR.parseVoiceContent(_message!.content);
       final url = payload?['url'] as String?;
       if (url != null && url.isNotEmpty) {
-        await _player.setUrl(url);
+        try {
+          await _player.setUrl(url);
+          if (mounted) setState(() => _playbackError = false);
+        } catch (_) {
+          if (mounted) setState(() => _playbackError = true);
+        }
       }
     }
+  }
+
+  Future<void> _retryLoadAudio() async {
+    setState(() => _playbackError = false);
+    await _loadMessage();
   }
 
   @override
@@ -154,53 +165,67 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
                 style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 32),
-              StreamBuilder<Duration>(
-                stream: _player.positionStream,
-                builder: (context, snapshot) {
-                  final position = snapshot.data ?? Duration.zero;
-                  final duration = _player.duration ?? Duration(seconds: durationSec);
-                  final positionSec = position.inSeconds.clamp(0, duration.inSeconds);
-                  final positionStr = '${positionSec ~/ 60}:${(positionSec % 60).toString().padLeft(2, '0')}';
-                  final totalStr = '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
-                  final positionValue = duration.inSeconds > 0
-                      ? position.inSeconds.toDouble().clamp(0.0, duration.inSeconds.toDouble())
-                      : 0.0;
-                  final durationValue = duration.inSeconds.toDouble().clamp(1.0, double.infinity);
+              if (_playbackError) ...[
+                Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+                const SizedBox(height: 16),
+                Text(
+                  'Playback failed',
+                  style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: _retryLoadAudio,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ] else
+                StreamBuilder<Duration>(
+                  stream: _player.positionStream,
+                  builder: (context, snapshot) {
+                    final position = snapshot.data ?? Duration.zero;
+                    final duration = _player.duration ?? Duration(seconds: durationSec);
+                    final positionSec = position.inSeconds.clamp(0, duration.inSeconds);
+                    final positionStr = '${positionSec ~/ 60}:${(positionSec % 60).toString().padLeft(2, '0')}';
+                    final totalStr = '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+                    final positionValue = duration.inSeconds > 0
+                        ? position.inSeconds.toDouble().clamp(0.0, duration.inSeconds.toDouble())
+                        : 0.0;
+                    final durationValue = duration.inSeconds.toDouble().clamp(1.0, double.infinity);
 
-                  return Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton.filled(
-                            icon: Icon(_player.playing ? Icons.pause : Icons.play_arrow),
-                            onPressed: _togglePlayPause,
-                            iconSize: 40,
+                    return Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton.filled(
+                              icon: Icon(_player.playing ? Icons.pause : Icons.play_arrow),
+                              onPressed: _togglePlayPause,
+                              iconSize: 40,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          '$positionStr / $totalStr',
+                          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                        ),
+                        const SizedBox(height: 8),
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        '$positionStr / $totalStr',
-                        style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 8),
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 4,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                          child: Slider(
+                            value: positionValue,
+                            max: durationValue,
+                            onChanged: (v) => _player.seek(Duration(seconds: v.round())),
+                          ),
                         ),
-                        child: Slider(
-                          value: positionValue,
-                          max: durationValue,
-                          onChanged: (v) => _player.seek(Duration(seconds: v.round())),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                      ],
+                    );
+                  },
+                ),
             ],
           ),
         ),

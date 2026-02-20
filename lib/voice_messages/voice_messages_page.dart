@@ -17,14 +17,27 @@ class VoiceMessagesPage extends StatefulWidget {
 class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   List<MessageDBISAR> _messages = [];
   bool _loading = true;
-  static const int _pageSize = 100;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  static const int _pageSize = 50;
+  final ScrollController _scrollController = ScrollController();
 
   void _onNewMessage(MessageDBISAR message) {
     if (message.type != MessageDBISAR.messageTypeToString(MessageType.voice)) return;
     if (!mounted) return;
+    if (_messages.any((m) => m.messageId == message.messageId)) return;
+    final isIncoming = message.receiver == Account.sharedInstance.currentPubkey;
     setState(() {
       _messages.insert(0, message.withGrowableLevels());
     });
+    if (mounted && isIncoming) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: const Text('New voice message'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _loadMessages() async {
@@ -35,10 +48,41 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
     );
     if (!mounted) return;
     final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
+    final lastTime = list.isEmpty ? 0 : list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
     setState(() {
       _messages = list;
       _loading = false;
+      _hasMore = list.length >= _pageSize;
     });
+    _oldestCreateTime = lastTime;
+  }
+
+  int _oldestCreateTime = 0;
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _messages.isEmpty) return;
+    setState(() => _loadingMore = true);
+    final result = await Messages.loadMessagesFromDB(
+      messageTypes: const [MessageType.voice],
+      until: _oldestCreateTime,
+      limit: _pageSize,
+    );
+    if (!mounted) return;
+    final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
+    if (list.isEmpty) {
+      setState(() {
+        _loadingMore = false;
+        _hasMore = false;
+      });
+      return;
+    }
+    final newOldest = list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
+    setState(() {
+      _messages.addAll(list);
+      _loadingMore = false;
+      _hasMore = list.length >= _pageSize;
+    });
+    _oldestCreateTime = newOldest;
   }
 
   void _onMessagesDeleted(List<MessageDBISAR> deleted) {
@@ -55,10 +99,19 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
     _loadMessages();
     Contacts.sharedInstance.privateChatMessageCallBack = _onNewMessage;
     Messages.sharedInstance.deleteCallBack = _onMessagesDeleted;
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _loadingMore || _messages.length < _pageSize) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) _loadMore();
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     if (Contacts.sharedInstance.privateChatMessageCallBack == _onNewMessage) {
       Contacts.sharedInstance.privateChatMessageCallBack = null;
     }
@@ -128,9 +181,16 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
               : RefreshIndicator(
                   onRefresh: _loadMessages,
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _messages.length,
+                    itemCount: _messages.length + (_hasMore && _loadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index >= _messages.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+                        );
+                      }
                       final msg = _messages[index];
                       return _VoiceMessageListItem(
                         message: msg,
