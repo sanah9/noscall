@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart' hide AboutDialog;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -10,9 +10,6 @@ import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
-import 'widgets/keys_dialog.dart';
-import 'widgets/about_dialog.dart';
-import 'widgets/theme_dialog.dart';
 
 class _MenuItem {
   final IconData icon;
@@ -392,54 +389,29 @@ class _SettingPageState extends State<SettingPage> {
   Widget _buildMenuSection(BuildContext context) {
     final menuItems = [
       _MenuItem(
-        icon: Icons.key,
-        title: 'Keys',
-        onTap: () => _showKeysDialog(context),
+        icon: Icons.security,
+        title: 'Account & Security',
+        onTap: () => context.push('/settings/account'),
       ),
       _MenuItem(
-        icon: Icons.cloud_circle,
-        title: 'Relays',
-        onTap: () => context.push('/relay-management'),
+        icon: Icons.cloud,
+        title: 'Connection',
+        onTap: () => context.push('/settings/connection'),
       ),
       _MenuItem(
-        icon: Icons.settings_ethernet,
-        title: 'ICE Servers',
-        onTap: () => context.push('/ice-server-management'),
+        icon: Icons.palette_outlined,
+        title: 'Appearance & Notifications',
+        onTap: () => context.push('/settings/appearance'),
       ),
       _MenuItem(
-        icon: Icons.notifications,
-        title: 'Notification',
-        onTap: () => context.push('/notification-settings'),
-      ),
-      _MenuItem(
-        icon: Icons.palette,
-        title: 'Theme',
-        onTap: () => ThemeDialog.show(context),
-      ),
-      _MenuItem(
-        icon: Icons.accessibility_new,
-        title: 'Accessibility',
-        onTap: () => context.push('/accessibility-settings'),
-      ),
-      _MenuItem(
-        icon: Icons.cleaning_services,
-        title: 'Data cleanup',
-        onTap: () => context.push('/data-cleanup'),
-      ),
-      _MenuItem(
-        icon: Icons.upload_file,
-        title: 'Data export',
-        onTap: () => context.push('/data-export'),
-      ),
-      _MenuItem(
-        icon: Icons.bug_report,
-        title: 'Logs',
-        onTap: () => context.push('/log-viewer'),
+        icon: Icons.storage,
+        title: 'Data',
+        onTap: () => context.push('/settings/data'),
       ),
       _MenuItem(
         icon: Icons.info_outline,
-        title: 'About',
-        onTap: () => _showAboutDialog(context),
+        title: 'About & Debug',
+        onTap: () => context.push('/settings/about'),
       ),
       _MenuItem(
         icon: Icons.logout,
@@ -467,10 +439,6 @@ class _SettingPageState extends State<SettingPage> {
         );
       },
     );
-  }
-
-  void _showKeysDialog(BuildContext context) {
-    KeysDialog.show(context);
   }
 
   void _navigateToProfileSettings(BuildContext context) {
@@ -633,10 +601,6 @@ class _SettingPageState extends State<SettingPage> {
     );
   }
 
-
-  void _showAboutDialog(BuildContext context) {
-    AboutDialog.show(context);
-  }
 
 }
 

@@ -24,6 +24,11 @@ import 'package:noscall/setting/pages/ice_server_management_page.dart';
 import 'package:noscall/setting/pages/data_cleanup_page.dart';
 import 'package:noscall/setting/pages/data_export_page.dart';
 import 'package:noscall/setting/pages/log_viewer_page.dart';
+import 'package:noscall/setting/pages/account_settings_page.dart';
+import 'package:noscall/setting/pages/connection_settings_page.dart';
+import 'package:noscall/setting/pages/appearance_settings_page.dart';
+import 'package:noscall/setting/pages/data_settings_page.dart';
+import 'package:noscall/setting/pages/about_settings_page.dart';
 import 'package:noscall/voice_messages/send_voice_message_page.dart';
 import 'package:noscall/voice_messages/voice_message_detail_page.dart';
 
@@ -202,6 +207,31 @@ class AppRouter {
         path: '/log-viewer',
         name: 'log-viewer',
         builder: (context, state) => const LogViewerPage(),
+      ),
+      GoRoute(
+        path: '/settings/account',
+        name: 'settings-account',
+        builder: (context, state) => const AccountSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/connection',
+        name: 'settings-connection',
+        builder: (context, state) => const ConnectionSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/appearance',
+        name: 'settings-appearance',
+        builder: (context, state) => const AppearanceSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/data',
+        name: 'settings-data',
+        builder: (context, state) => const DataSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/about',
+        name: 'settings-about',
+        builder: (context, state) => const AboutSettingsPage(),
       ),
       GoRoute(
         path: '/voice-message-detail',
