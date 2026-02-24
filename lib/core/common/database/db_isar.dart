@@ -5,6 +5,7 @@ import 'package:isar/isar.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/contacts/models/contact_group_isar.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:noscall/core/account/model/relayDB_isar.dart';
@@ -27,6 +28,7 @@ class DBISAR {
   String? _currentCircleId;
 
   List<CollectionSchema<dynamic>> schemas = [
+    MessageDBISARSchema,
     UserDBISARSchema,
     RelayDBISARSchema,
     EventDBISARSchema,

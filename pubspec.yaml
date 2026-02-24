@@ -54,6 +54,9 @@ dependencies:
       url: https://github.com/sanah9/nostr-dart
       ref: 71cc545e54565c2df6d8ab347cf54fcae646e770
 
+dependency_overrides:
+  record_linux: ^1.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

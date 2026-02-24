@@ -42,19 +42,31 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
 
   Future<void> _loadMessages() async {
     setState(() => _loading = true);
-    final result = await Messages.loadMessagesFromDB(
-      messageTypes: const [MessageType.voice],
-      limit: _pageSize,
-    );
-    if (!mounted) return;
-    final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
-    final lastTime = list.isEmpty ? 0 : list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
-    setState(() {
-      _messages = list;
-      _loading = false;
-      _hasMore = list.length >= _pageSize;
-    });
-    _oldestCreateTime = lastTime;
+    try {
+      final result = await Messages.loadMessagesFromDB(
+        messageTypes: const [MessageType.voice],
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
+      final lastTime = list.isEmpty ? 0 : list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
+      if (!mounted) return;
+      setState(() {
+        _messages = list;
+        _hasMore = list.length >= _pageSize;
+      });
+      _oldestCreateTime = lastTime;
+    } catch (e, st) {
+      if (mounted) {
+        setState(() => _messages = []);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text('Load failed: $e'), behavior: SnackBarBehavior.floating),
+        );
+      }
+      debugPrint('Voice messages load error: $e\n$st');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   int _oldestCreateTime = 0;
@@ -62,27 +74,28 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore || _messages.isEmpty) return;
     setState(() => _loadingMore = true);
-    final result = await Messages.loadMessagesFromDB(
-      messageTypes: const [MessageType.voice],
-      until: _oldestCreateTime,
-      limit: _pageSize,
-    );
-    if (!mounted) return;
-    final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
-    if (list.isEmpty) {
+    try {
+      final result = await Messages.loadMessagesFromDB(
+        messageTypes: const [MessageType.voice],
+        until: _oldestCreateTime,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
+      if (list.isEmpty) {
+        setState(() => _hasMore = false);
+        return;
+      }
+      final newOldest = list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
+      if (!mounted) return;
       setState(() {
-        _loadingMore = false;
-        _hasMore = false;
+        _messages.addAll(list);
+        _hasMore = list.length >= _pageSize;
       });
-      return;
+      _oldestCreateTime = newOldest;
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
-    final newOldest = list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
-    setState(() {
-      _messages.addAll(list);
-      _loadingMore = false;
-      _hasMore = list.length >= _pageSize;
-    });
-    _oldestCreateTime = newOldest;
   }
 
   void _onMessagesDeleted(List<MessageDBISAR> deleted) {
