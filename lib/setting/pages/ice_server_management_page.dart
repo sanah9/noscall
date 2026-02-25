@@ -1,8 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/call/ice_server_manager.dart';
 import 'package:noscall/utils/toast.dart';
-import 'package:noscall/component/icon.dart';
 
 class IceServerManagementPage extends StatefulWidget {
   const IceServerManagementPage({super.key});
@@ -86,12 +85,22 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
 
   bool _isValidIceServerUrl(String url) {
     if (url.isEmpty) return false;
-    
-    // Support STUN format: stun:host:port or stuns:host:port
+
+    // Support STUN format: stun:host or stun:host:port (Uri.parse does not fill host for stun:host:port)
     if (url.startsWith('stun:') || url.startsWith('stuns:')) {
       try {
-        final uri = Uri.parse(url);
-        return uri.host.isNotEmpty;
+        final rest = url.substring(url.indexOf(':') + 1);
+        if (rest.isEmpty) return false;
+        final lastColon = rest.lastIndexOf(':');
+        if (lastColon >= 0) {
+          final portStr = rest.substring(lastColon + 1);
+          final port = int.tryParse(portStr);
+          if (port != null && port >= 0 && port <= 65535) {
+            final host = rest.substring(0, lastColon);
+            return host.isNotEmpty;
+          }
+        }
+        return rest.isNotEmpty;
       } catch (e) {
         return false;
       }
@@ -281,7 +290,7 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+              foregroundColor: Theme.of(context).colorScheme.error,
             ),
             child: const Text('Delete'),
           ),
@@ -317,7 +326,7 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.orange,
+              foregroundColor: Theme.of(context).colorScheme.tertiary,
             ),
             child: const Text('Reset'),
           ),
@@ -356,172 +365,314 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ICE Server Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Reset to Default',
-            onPressed: _resetToDefault,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Status header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: colorScheme.surfaceContainerHighest,
-                  child: Row(
-                    children: [
-                      SSIcon(
-                        icon: Icons.settings_ethernet,
-                        size: 32,
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_iceServers.length} ICE Server${_iceServers.length != 1 ? 's' : ''}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _useCustomServers ? 'Custom configuration' : 'Default configuration',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _useCustomServers
-                              ? Colors.blue.withValues(alpha: 0.2)
-                              : Colors.grey.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _useCustomServers ? 'Custom' : 'Default',
-                          style: TextStyle(
-                            color: _useCustomServers ? Colors.blue : Colors.grey,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Server list
-                Expanded(
-                  child: _iceServers.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.cloud_off,
-                                size: 64,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No ICE servers configured',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Add an ICE server to get started',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _iceServers.length,
-                          itemBuilder: (context, index) {
-                            final server = _iceServers[index];
-                            final serverType = _getServerType(server);
-                            final displayUrl = _getServerDisplayUrl(server);
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: Icon(
-                                  server.isTurnAddress
-                                      ? Icons.swap_horiz
-                                      : Icons.dns,
-                                  color: colorScheme.primary,
-                                ),
-                                title: Text(
-                                  displayUrl,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Type: $serverType',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    if (server.isTurnAddress)
-                                      Text(
-                                        'User: ${server.username}',
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, size: 20),
-                                      onPressed: () => _editServer(index),
-                                      tooltip: 'Edit',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, size: 20),
-                                      onPressed: () => _deleteServer(index),
-                                      tooltip: 'Delete',
-                                      color: colorScheme.error,
-                                    ),
-                                  ],
-                                ),
-                                isThreeLine: server.isTurnAddress,
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      appBar: _buildAppBar(context, theme, colorScheme),
+      body: _buildBody(context, theme, colorScheme),
       floatingActionButton: FloatingActionButton(
         onPressed: _addServer,
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return AppBar(
+      title: Text(
+        'ICE Servers',
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      backgroundColor: colorScheme.surface,
+      elevation: 1,
+      scrolledUnderElevation: 1,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+        onPressed: () => context.pop(),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.refresh, color: colorScheme.onSurface),
+          tooltip: 'Reset to Default',
+          onPressed: _resetToDefault,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildSummaryCard(theme, colorScheme),
+        Expanded(
+          child: _iceServers.isEmpty
+              ? _buildEmptyState(theme, colorScheme)
+              : _buildServerList(context, theme, colorScheme),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(ThemeData theme, ColorScheme colorScheme) {
+    final primary = colorScheme.primary;
+    final onPrimary = colorScheme.onPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              primary,
+              primary.withValues(alpha: 0.9),
+              Color.lerp(primary, colorScheme.tertiary, 0.4)!,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: onPrimary.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.settings_ethernet,
+                color: onPrimary,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_iceServers.length} ICE Server${_iceServers.length != 1 ? 's' : ''}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _useCustomServers
+                        ? 'Custom configuration'
+                        : 'Default configuration',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: onPrimary.withValues(alpha: 0.9),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: onPrimary.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _useCustomServers ? 'Custom' : 'Default',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: onPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.cloud_off,
+            size: 64,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No ICE servers configured',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add an ICE server to get started',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServerList(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: _iceServers.length,
+      itemBuilder: (context, index) => _buildServerItem(
+        context,
+        theme,
+        colorScheme,
+        index,
+      ),
+    );
+  }
+
+  Widget _buildServerItem(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    int index,
+  ) {
+    final server = _iceServers[index];
+    final serverType = _getServerType(server);
+    final displayUrl = _getServerDisplayUrl(server);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                server.isTurnAddress ? Icons.swap_horiz : Icons.dns,
+                size: 16,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayUrl,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    server.isTurnAddress
+                        ? '$serverType · ${server.username}'
+                        : serverType,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildActionButton(
+              icon: Icons.edit_outlined,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              iconColor: colorScheme.onSurfaceVariant,
+              onPressed: () => _editServer(index),
+              tooltip: 'Edit',
+            ),
+            const SizedBox(width: 12),
+            _buildActionButton(
+              icon: Icons.delete_outlined,
+              backgroundColor: colorScheme.errorContainer,
+              iconColor: colorScheme.error,
+              onPressed: () => _deleteServer(index),
+              tooltip: 'Delete',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color backgroundColor,
+    required Color iconColor,
+    required VoidCallback onPressed,
+    String? tooltip,
+  }) {
+    return Material(
+      color: backgroundColor.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(20),
+        child: Tooltip(
+          message: tooltip ?? '',
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(icon, size: 20, color: iconColor),
+          ),
+        ),
       ),
     );
   }
