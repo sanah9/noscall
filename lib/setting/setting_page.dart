@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:noscall/core/ui/status_bar_style.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:noscall/contacts/user_avatar.dart';
@@ -143,14 +144,23 @@ class _SettingPageState extends State<SettingPage> {
     theme = Theme.of(context);
 
     if (_isLoading) {
-      return _buildLoadingState(context);
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: StatusBarStyle.forBrightness(theme.brightness),
+        child: _buildLoadingState(context),
+      );
     }
 
     if (userNotifier == null) {
-      return _buildErrorState(context);
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: StatusBarStyle.forBrightness(theme.brightness),
+        child: _buildErrorState(context),
+      );
     }
 
-    return _buildProfileContent(context);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: StatusBarStyle.forDarkHeader,
+      child: _buildProfileContent(context),
+    );
   }
 
   Widget _buildLoadingState(BuildContext context) {

@@ -11,6 +11,7 @@ import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
 import 'package:noscall/contacts/services/contact_remark_service.dart';
+import 'package:noscall/core/ui/status_bar_style.dart';
 import 'package:noscall/setting/services/theme_service.dart';
 import 'package:noscall/setting/services/notification_settings_service.dart';
 import 'package:noscall/setting/services/accessibility_service.dart';
@@ -100,6 +101,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                       brightness: Brightness.light,
                     ),
                     useMaterial3: true,
+                    appBarTheme: AppBarTheme(
+                      systemOverlayStyle:
+                          StatusBarStyle.forBrightness(Brightness.light),
+                    ),
                   ),
                   darkTheme: ThemeData(
                     colorScheme: ColorScheme.fromSeed(
@@ -107,6 +112,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                       brightness: Brightness.dark,
                     ),
                     useMaterial3: true,
+                    appBarTheme: AppBarTheme(
+                      systemOverlayStyle:
+                          StatusBarStyle.forBrightness(Brightness.dark),
+                    ),
                   ),
                   themeMode: themeMode,
                   routerConfig: AppRouter.router,
