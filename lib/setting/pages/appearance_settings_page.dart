@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:noscall/setting/widgets/theme_dialog.dart';
 
 class AppearanceSettingsPage extends StatelessWidget {
   const AppearanceSettingsPage({super.key});
@@ -32,7 +31,7 @@ class AppearanceSettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.palette,
             title: 'Theme',
-            onTap: () => ThemeDialog.show(context),
+            onTap: () => context.push('/settings/theme'),
           ),
           _SettingsTile(
             icon: Icons.accessibility_new,

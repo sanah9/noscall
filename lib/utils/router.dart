@@ -27,6 +27,7 @@ import 'package:noscall/setting/pages/log_viewer_page.dart';
 import 'package:noscall/setting/pages/account_settings_page.dart';
 import 'package:noscall/setting/pages/connection_settings_page.dart';
 import 'package:noscall/setting/pages/appearance_settings_page.dart';
+import 'package:noscall/setting/pages/theme_settings_page.dart';
 import 'package:noscall/setting/pages/data_settings_page.dart';
 import 'package:noscall/setting/pages/about_settings_page.dart';
 import 'package:noscall/voice_messages/send_voice_message_page.dart';
@@ -222,6 +223,11 @@ class AppRouter {
         path: '/settings/appearance',
         name: 'settings-appearance',
         builder: (context, state) => const AppearanceSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/theme',
+        name: 'settings-theme',
+        builder: (context, state) => const ThemeSettingsPage(),
       ),
       GoRoute(
         path: '/settings/data',

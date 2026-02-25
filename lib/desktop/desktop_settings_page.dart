@@ -7,7 +7,6 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/setting/widgets/keys_dialog.dart';
 import 'package:noscall/setting/widgets/about_dialog.dart' as app_about;
-import 'package:noscall/setting/widgets/theme_dialog.dart';
 import 'desktop_page_wrapper.dart';
 import 'desktop_navigator.dart';
 
@@ -308,7 +307,7 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                 context: context,
                 icon: Icons.palette,
                 title: 'Theme',
-                onTap: () => ThemeDialog.show(context),
+                onTap: () => context.push('/settings/theme'),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(
