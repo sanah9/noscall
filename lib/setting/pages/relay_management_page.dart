@@ -1,11 +1,16 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account+relay.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/utils/toast.dart';
-import 'package:noscall/component/icon.dart';
+
+Color _connectedGreen(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFF66BB6A)
+      : const Color(0xFF43A047);
+}
 
 class RelayManagementPage extends StatefulWidget {
   const RelayManagementPage({super.key});
@@ -277,7 +282,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+              foregroundColor: Theme.of(context).colorScheme.error,
             ),
             child: const Text('Delete'),
           ),
@@ -310,7 +315,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.orange,
+              foregroundColor: Theme.of(context).colorScheme.tertiary,
             ),
             child: const Text('Reset'),
           ),
@@ -343,164 +348,311 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final connectedCount = _getConnectedCount();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Relay Management'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Reset to Default',
-            onPressed: _resetToDefault,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Status header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: colorScheme.surfaceContainerHighest,
-                  child: Row(
-                    children: [
-                      SSIcon(
-                        icon: Icons.dns,
-                        size: 32,
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_relays.length} Relay${_relays.length != 1 ? 's' : ''}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '$connectedCount connected',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: connectedCount > 0
-                              ? Colors.green.withValues(alpha: 0.2)
-                              : Colors.red.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          connectedCount > 0 ? 'Active' : 'Inactive',
-                          style: TextStyle(
-                            color: connectedCount > 0 ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Relay list
-                Expanded(
-                  child: _relays.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.cloud_off,
-                                size: 64,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No relays configured',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Add a relay to get started',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _relays.length,
-                          itemBuilder: (context, index) {
-                            final relay = _relays[index];
-                            final socket = Connect.sharedInstance.webSockets[relay];
-                            final status = socket?.connectStatus ?? 3;
-                            final isConnected = status == 1;
-                            final isTesting = _testingRelays[relay] ?? false;
-                            final testResult = _testResults[relay];
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: _buildStatusIndicator(
-                                  isConnected,
-                                  isTesting,
-                                  testResult,
-                                ),
-                                title: Text(
-                                  relay,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  _getStatusText(status, isTesting),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, size: 20),
-                                      onPressed: () => _editRelay(index),
-                                      tooltip: 'Edit',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, size: 20),
-                                      onPressed: () => _deleteRelay(index),
-                                      tooltip: 'Delete',
-                                      color: colorScheme.error,
-                                    ),
-                                  ],
-                                ),
-                                isThreeLine: false,
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      appBar: _buildAppBar(context, theme, colorScheme),
+      body: _buildBody(context, theme, colorScheme),
       floatingActionButton: FloatingActionButton(
         onPressed: _addRelay,
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return AppBar(
+      title: Text(
+        'Relays',
+        style: theme.textTheme.titleLarge?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      backgroundColor: colorScheme.surface,
+      elevation: 1,
+      scrolledUnderElevation: 1,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+        onPressed: () => context.pop(),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.refresh, color: colorScheme.onSurface),
+          tooltip: 'Reset to Default',
+          onPressed: _resetToDefault,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildSummaryCard(theme, colorScheme),
+        Expanded(
+          child: _relays.isEmpty
+              ? _buildEmptyState(theme, colorScheme)
+              : _buildRelayList(context, theme, colorScheme),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(ThemeData theme, ColorScheme colorScheme) {
+    final connectedCount = _getConnectedCount();
+    final primary = colorScheme.primary;
+    final onPrimary = colorScheme.onPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              primary,
+              primary.withValues(alpha: 0.9),
+              Color.lerp(primary, colorScheme.tertiary, 0.4)!,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: onPrimary.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.bolt,
+                color: onPrimary,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_relays.length} Relay${_relays.length != 1 ? 's' : ''}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: onPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$connectedCount connected',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: onPrimary.withValues(alpha: 0.9),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: onPrimary.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                connectedCount > 0 ? 'Active' : 'Inactive',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: onPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.cloud_off,
+            size: 64,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No relays configured',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add a relay to get started',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRelayList(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: _relays.length,
+      itemBuilder: (context, index) => _buildRelayItem(
+        context,
+        theme,
+        colorScheme,
+        index,
+      ),
+    );
+  }
+
+  Widget _buildRelayItem(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    int index,
+  ) {
+    final relay = _relays[index];
+    final socket = Connect.sharedInstance.webSockets[relay];
+    final status = socket?.connectStatus ?? 3;
+    final isConnected = status == 1;
+    final isTesting = _testingRelays[relay] ?? false;
+    final testResult = _testResults[relay];
+    final statusText = _getStatusText(status, isTesting);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      color: colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+        child: Row(
+          children: [
+            _buildStatusIndicator(
+              isConnected,
+              isTesting,
+              testResult,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    relay,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    statusText,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isConnected
+                          ? _connectedGreen(context)
+                          : colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildActionButton(
+              icon: Icons.edit_outlined,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              iconColor: colorScheme.onSurfaceVariant,
+              onPressed: () => _editRelay(index),
+              tooltip: 'Edit',
+            ),
+            const SizedBox(width: 12),
+            _buildActionButton(
+              icon: Icons.delete_outlined,
+              backgroundColor: colorScheme.errorContainer,
+              iconColor: colorScheme.error,
+              onPressed: () => _deleteRelay(index),
+              tooltip: 'Delete',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color backgroundColor,
+    required Color iconColor,
+    required VoidCallback onPressed,
+    String? tooltip,
+  }) {
+    return Material(
+      color: backgroundColor.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(20),
+        child: Tooltip(
+          message: tooltip ?? '',
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(icon, size: 20, color: iconColor),
+          ),
+        ),
       ),
     );
   }
@@ -510,34 +662,54 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
     bool isTesting,
     bool? testResult,
   ) {
+    final context = this.context;
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (isTesting) {
-      return const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      return SizedBox(
+        width: 28,
+        height: 28,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+        ),
       );
     }
 
-    if (isConnected) {
-      return const Icon(
-        CupertinoIcons.check_mark_circled,
-        color: Colors.green,
-        size: 24,
-      );
-    }
+    // Circle with inner dot: green when connected, error when failed, outline when disconnected
+    final bool showError = testResult == false;
+    final Color tintColor = showError
+        ? colorScheme.error
+        : (isConnected
+            ? _connectedGreen(context)
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
 
-    if (testResult == false) {
-      return const Icon(
-        Icons.error_outline,
-        color: Colors.red,
-        size: 24,
-      );
-    }
-
-    return Icon(
-      Icons.circle_outlined,
-      color: Colors.grey,
-      size: 24,
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: Center(
+        child: Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: tintColor,
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tintColor,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
