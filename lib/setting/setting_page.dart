@@ -468,7 +468,7 @@ class _SettingPageState extends State<SettingPage> {
         // Combine slide from bottom and fade animation
         return SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0.0, 1.0), // Start from bottom
+            begin: const Offset(0.0, 0.15), // Slight slide from below
             end: Offset.zero, // End at center
           ).animate(
             CurvedAnimation(
