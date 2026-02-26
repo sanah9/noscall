@@ -95,6 +95,65 @@ class MessageDBISAR {
     this.zapEventIds,
   });
 
+  /// Copy with optional overrides. Used e.g. for marking read without duplicating all fields.
+  MessageDBISAR copyWith({
+    int? id,
+    String? messageId,
+    String? sender,
+    String? receiver,
+    String? groupId,
+    String? sessionId,
+    int? kind,
+    String? tags,
+    String? content,
+    int? createTime,
+    bool? read,
+    String? replyId,
+    String? decryptContent,
+    String? type,
+    int? status,
+    List<String>? reportList,
+    String? plaintEvent,
+    int? chatType,
+    String? subType,
+    String? previewData,
+    int? expiration,
+    String? decryptSecret,
+    String? decryptNonce,
+    String? decryptAlgo,
+    List<String>? reactionEventIds,
+    List<String>? zapEventIds,
+  }) {
+    return MessageDBISAR(
+      messageId: messageId ?? this.messageId,
+      sender: sender ?? this.sender,
+      receiver: receiver ?? this.receiver,
+      groupId: groupId ?? this.groupId,
+      sessionId: sessionId ?? this.sessionId,
+      kind: kind ?? this.kind,
+      tags: tags ?? this.tags,
+      content: content ?? this.content,
+      createTime: createTime ?? this.createTime,
+      read: read ?? this.read,
+      replyId: replyId ?? this.replyId,
+      decryptContent: decryptContent ?? this.decryptContent,
+      type: type ?? this.type,
+      status: status ?? this.status,
+      plaintEvent: plaintEvent ?? this.plaintEvent,
+      chatType: chatType ?? this.chatType,
+      subType: subType ?? this.subType,
+      previewData: previewData ?? this.previewData,
+      expiration: expiration ?? this.expiration,
+      decryptSecret: decryptSecret ?? this.decryptSecret,
+      decryptNonce: decryptNonce ?? this.decryptNonce,
+      decryptAlgo: decryptAlgo ?? this.decryptAlgo,
+      reactionEventIds: reactionEventIds ?? this.reactionEventIds,
+      zapEventIds: zapEventIds ?? this.zapEventIds,
+    )
+      ..id = id ?? this.id
+      ..reportList = reportList ?? this.reportList;
+  }
+
   static MessageDBISAR fromMap(Map<String, Object?> map) {
     return _messageInfoFromMap(map);
   }

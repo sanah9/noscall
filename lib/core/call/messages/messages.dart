@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
@@ -26,13 +27,56 @@ class Messages {
   MessageActionsCallBack? actionsCallBack;
   MessagesDeleteCallBack? deleteCallBack;
 
+  /// Voice message unread count (incoming, read==false). Used for desktop sidebar badge.
+  final ValueNotifier<int> voiceUnreadCountNotifier = ValueNotifier(0);
+
   late Completer<void> contactMessageCompleter;
+
+  /// Returns count of incoming voice messages that are not read.
+  static Future<int> getVoiceUnreadCount() async {
+    final isar = DBISAR.sharedInstance.isar;
+    final currentPubkey = Account.sharedInstance.currentPubkey;
+    if (currentPubkey.isEmpty) return 0;
+    final count = await isar.messageDBISARs
+        .filter()
+        .typeEqualTo(MessageDBISAR.messageTypeToString(MessageType.voice))
+        .receiverEqualTo(currentPubkey)
+        .readEqualTo(false)
+        .count();
+    return count;
+  }
+
+  /// Refreshes [voiceUnreadCountNotifier] from DB. Call when entering voice tab, on new voice message, or after marking read.
+  static Future<void> refreshVoiceUnreadCount() async {
+    final count = await getVoiceUnreadCount();
+    sharedInstance.voiceUnreadCountNotifier.value = count;
+  }
+
+  /// Marks a voice message as read and refreshes unread count.
+  static Future<void> markVoiceMessageRead(String messageId) async {
+    final msg = await sharedInstance.loadMessageDBFromDB(messageId);
+    if (msg == null || msg.read) return;
+    final updated = msg.copyWith(read: true);
+    await saveMessageToDB(updated);
+    await refreshVoiceUnreadCount();
+  }
+
+  /// Call when user opens a voice message (e.g. detail page). Marks read and updates badge.
+  static Future<void> onVoiceMessageOpened(String messageId) async {
+    await markVoiceMessageRead(messageId);
+  }
+
+  /// Call when an incoming voice message is received/saved. Updates desktop badge.
+  static Future<void> notifyIncomingVoiceMessage() async {
+    await refreshVoiceUnreadCount();
+  }
 
   Future<void> init() async {
     privkey = Account.sharedInstance.currentPrivkey;
     pubkey = Account.sharedInstance.currentPubkey;
 
     contactMessageCompleter = Completer<void>();
+    refreshVoiceUnreadCount();
   }
 
   Future<void> closeMessagesActionsRequests() async {
