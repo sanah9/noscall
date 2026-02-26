@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:noscall/core/call/messages/messages.dart';
 
 class DesktopScaffold extends StatelessWidget {
   final int selectedIndex;
@@ -54,12 +55,25 @@ class DesktopScaffold extends StatelessWidget {
             isSelected: selectedIndex == 2,
             onTap: () => onNavigationChanged(2),
           ),
+          ValueListenableBuilder<int>(
+            valueListenable: Messages.sharedInstance.voiceUnreadCountNotifier,
+            builder: (context, unreadCount, child) {
+              return _NavigationItem(
+                icon: Icons.mic_none,
+                selectedIcon: Icons.mic,
+                label: 'Voice',
+                isSelected: selectedIndex == 3,
+                onTap: () => onNavigationChanged(3),
+                badgeCount: unreadCount,
+              );
+            },
+          ),
           _NavigationItem(
             icon: Icons.person_outline,
             selectedIcon: Icons.person,
             label: 'Me',
-            isSelected: selectedIndex == 3,
-            onTap: () => onNavigationChanged(3),
+            isSelected: selectedIndex == 4,
+            onTap: () => onNavigationChanged(4),
           ),
         ],
       ),
@@ -73,6 +87,7 @@ class _NavigationItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _NavigationItem({
     required this.icon,
@@ -80,6 +95,7 @@ class _NavigationItem extends StatelessWidget {
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -101,12 +117,16 @@ class _NavigationItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                Icon(
-                  isSelected ? selectedIcon : icon,
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant,
-                  size: 24,
+                Badge(
+                  isLabelVisible: badgeCount > 0,
+                  label: Text('$badgeCount'),
+                  child: Icon(
+                    isSelected ? selectedIcon : icon,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Text(

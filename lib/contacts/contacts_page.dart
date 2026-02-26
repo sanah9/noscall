@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call/start_call_helper.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/router.dart';
 import 'package:noscall/component/contact_list_tile.dart';
 import 'package:noscall/component/empty_search_state.dart';
@@ -284,10 +286,7 @@ class _ContactsPageState extends State<ContactsPage> {
       user: contact,
       searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
       onTap: () {
-        AppRouter.router.push(
-          '/user-detail',
-          extra: {'pubkey': contact.pubKey},
-        );
+        AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey);
       },
       onCallVoice: () => _startVoiceCall(contact.pubKey, contact.displayName()),
       onCallVideo: () => _startVideoCall(contact.pubKey, contact.displayName()),

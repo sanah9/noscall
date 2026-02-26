@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/core/navigation/go_router_app_navigator.dart';
 import 'package:noscall/utils/http_client.dart';
 import 'package:noscall/utils/router.dart';
 import 'package:noscall/utils/loading.dart';
@@ -130,6 +132,10 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                         child: w,
                       );
                     }
+                    w = AppNavigatorScope(
+                      navigator: GoRouterAppNavigator(),
+                      child: w,
+                    );
                     return w;
                   },
                 );

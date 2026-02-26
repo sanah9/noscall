@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/contacts/contacts+calling.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/utils/file_upload_manager.dart';
+import 'package:noscall/utils/microphone_permission_service.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -52,17 +52,9 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
   }
 
   Future<void> _checkPermission() async {
-    final status = await Permission.microphone.status;
-    if (status.isGranted) {
-      setState(() => _hasPermission = true);
-      return;
-    }
-    if (status.isDenied) {
-      final result = await Permission.microphone.request();
-      setState(() => _hasPermission = result.isGranted);
-      return;
-    }
-    setState(() => _hasPermission = false);
+    final granted = await MicrophonePermissionService.instance.request();
+    if (!mounted) return;
+    setState(() => _hasPermission = granted);
   }
 
   void _showOpenSettingsDialog() {
@@ -213,7 +205,7 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
 
     if (!mounted) return;
     AppToast.showSuccess(context, 'Voice message sent');
-    context.pop();
+    Navigator.of(context).pop();
   }
 
   @override
@@ -225,7 +217,7 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.close, color: colorScheme.onSurface),
-          onPressed: _isSending ? null : () => context.pop(),
+          onPressed: _isSending ? null : () => Navigator.of(context).pop(),
         ),
         title: const Text('Send voice message'),
         backgroundColor: colorScheme.surface,

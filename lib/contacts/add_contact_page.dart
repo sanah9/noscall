@@ -4,6 +4,7 @@ import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account+profile.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 
@@ -448,10 +449,7 @@ class _AddContactPageState extends State<AddContactPage> {
         _dismissKeyboard();
 
         final pubkey = user.pubKey;
-        await context.push(
-          '/user-detail',
-          extra: {'pubkey': pubkey},
-        );
+        await AppNavigatorScope.requireOf(context).pushUserDetail(context, pubkey);
         if (!mounted) return;
 
         final isContact =

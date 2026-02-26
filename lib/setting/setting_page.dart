@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/ui/status_bar_style.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -452,7 +453,7 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   void _navigateToProfileSettings(BuildContext context) {
-    context.push('/profile-settings');
+    AppNavigatorScope.requireOf(context).pushProfileSettings(context);
   }
 
   void _showQrCodeDialog(BuildContext context) {

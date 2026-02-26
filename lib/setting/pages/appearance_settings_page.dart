@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class AppearanceSettingsPage extends StatelessWidget {
   const AppearanceSettingsPage({super.key});
@@ -31,7 +32,9 @@ class AppearanceSettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.palette,
             title: 'Theme',
-            onTap: () => context.push('/settings/theme'),
+            onTap: () {
+              AppNavigatorScope.requireOf(context).pushThemeSettings(context);
+            },
           ),
           _SettingsTile(
             icon: Icons.accessibility_new,

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class VoiceMessagesPage extends StatefulWidget {
   const VoiceMessagesPage({super.key});
@@ -135,14 +135,12 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   }
 
   Future<void> _onTapSendVoice() async {
-    final selected = await context.push<List<String>>(
-      '/contact-select',
-      extra: <String, dynamic>{},
-    );
+    final nav = AppNavigatorScope.requireOf(context);
+    final selected = await nav.pushContactSelect(context);
     if (selected == null || selected.isEmpty || !mounted) return;
     final receiverPubkey = selected.first;
     if (!mounted) return;
-    context.push('/send-voice-message', extra: {'receiverPubkey': receiverPubkey});
+    nav.pushSendVoiceMessage(context, receiverPubkey);
   }
 
   @override
@@ -208,10 +206,7 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                       return _VoiceMessageListItem(
                         message: msg,
                         onTap: () {
-                          context.push(
-                            '/voice-message-detail',
-                            extra: {'messageId': msg.messageId},
-                          );
+                          AppNavigatorScope.requireOf(context).pushVoiceMessageDetail(context, msg.messageId);
                         },
                       );
                     },

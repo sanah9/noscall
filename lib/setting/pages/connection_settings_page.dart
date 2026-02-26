@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class ConnectionSettingsPage extends StatelessWidget {
   const ConnectionSettingsPage({super.key});
@@ -31,12 +32,16 @@ class ConnectionSettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.cloud_circle,
             title: 'Relays',
-            onTap: () => context.push('/relay-management'),
+            onTap: () {
+              AppNavigatorScope.requireOf(context).pushRelayManagement(context);
+            },
           ),
           _SettingsTile(
             icon: Icons.settings_ethernet,
             title: 'ICE Servers',
-            onTap: () => context.push('/ice-server-management'),
+            onTap: () {
+              AppNavigatorScope.requireOf(context).pushIceServerManagement(context);
+            },
           ),
         ],
       ),

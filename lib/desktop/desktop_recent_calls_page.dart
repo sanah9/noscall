@@ -8,8 +8,8 @@ import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/component/empty_search_state.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'desktop_page_wrapper.dart';
-import 'desktop_navigator.dart';
 
 class DesktopRecentCallsPage extends StatefulWidget {
   const DesktopRecentCallsPage({super.key});
@@ -113,8 +113,11 @@ class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage> {
                   return _CallLogGroupItem(
                     group: group,
                     onTap: () {
-                      final navigatorState = DesktopNavigatorProvider.of(context);
-                      navigatorState?.navigateToContactDetail(group.peerPubkey);
+                      AppNavigatorScope.requireOf(context).pushUserDetail(
+                        context,
+                        group.peerPubkey,
+                        callHistory: group.callEntries.reversed.toList(),
+                      );
                     },
                   );
                 },

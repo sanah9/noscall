@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
 import 'package:noscall/contacts/services/contact_navigation_service.dart';
@@ -285,10 +286,7 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
       searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
       showFavoriteStar: false,
       onTap: () {
-        context.push(
-          '/user-detail',
-          extra: {'pubkey': contact.pubKey},
-        );
+        AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey);
       },
       onLongPress: () => _removeContact(contact.pubKey, contact.displayName()),
     );

@@ -13,6 +13,7 @@ import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/utils/navigation_helper.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'services/favorite_contacts_service.dart';
 import 'services/contact_remark_service.dart';
 
@@ -179,7 +180,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void _sendVoiceMessage() {
-    context.push('/send-voice-message', extra: {'receiverPubkey': widget.pubkey});
+    AppNavigatorScope.requireOf(context).pushSendVoiceMessage(context, widget.pubkey);
   }
 
   Widget _buildCallHistorySection() {

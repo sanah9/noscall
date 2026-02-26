@@ -8,7 +8,7 @@ import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/setting/widgets/keys_dialog.dart';
 import 'package:noscall/setting/widgets/about_dialog.dart' as app_about;
 import 'desktop_page_wrapper.dart';
-import 'desktop_navigator.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class DesktopSettingsPage extends StatefulWidget {
   const DesktopSettingsPage({super.key});
@@ -260,8 +260,7 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
               child: IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white),
                 onPressed: () {
-                  final navigatorState = DesktopNavigatorProvider.of(context);
-                  navigatorState?.navigateToProfileSettings();
+                  AppNavigatorScope.requireOf(context).pushProfileSettings(context);
                 },
                 tooltip: 'Edit Profile',
               ),
@@ -293,21 +292,21 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                 context: context,
                 icon: Icons.cloud_outlined,
                 title: 'Relays',
-                onTap: () => context.push('/relay-management'),
+                onTap: () => AppNavigatorScope.requireOf(context).pushRelayManagement(context),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
                 icon: Icons.settings_ethernet,
                 title: 'ICE Servers',
-                onTap: () => context.push('/ice-server-management'),
+                onTap: () => AppNavigatorScope.requireOf(context).pushIceServerManagement(context),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
                 icon: Icons.palette,
                 title: 'Theme',
-                onTap: () => context.push('/settings/theme'),
+                onTap: () => AppNavigatorScope.requireOf(context).pushThemeSettings(context),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(

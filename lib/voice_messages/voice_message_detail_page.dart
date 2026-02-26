@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/messages/messages.dart';
@@ -80,7 +79,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     if (confirmed != true || !mounted) return;
     await Messages.deleteMessagesFromDB(messageIds: [widget.messageId], notify: true);
     if (!mounted) return;
-    context.pop();
+    Navigator.of(context).pop();
   }
 
   Future<void> _togglePlayPause() async {
@@ -108,7 +107,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-            onPressed: () => context.pop(),
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -120,7 +119,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-            onPressed: () => context.pop(),
+            onPressed: () => Navigator.of(context).pop(),
           ),
         ),
         body: const Center(child: Text('Message not found')),
@@ -139,7 +138,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(user.displayName(), style: TextStyle(color: colorScheme.onSurface, fontSize: 18)),
         backgroundColor: colorScheme.surface,

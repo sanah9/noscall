@@ -13,6 +13,7 @@ import 'package:noscall/core/account/model/userDB_isar.dart';
 
 import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/component/empty_search_state.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class RecentCallsPage extends StatefulWidget {
   const RecentCallsPage({super.key});
@@ -625,12 +626,10 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
   void _navigateToUserDetail(CallLogGroup group) {
     _dismissKeyboard();
-    context.push(
-      '/user-detail',
-      extra: {
-        'pubkey': group.peerPubkey,
-        'callHistory': group.callEntries.reversed.toList(),
-      },
+    AppNavigatorScope.requireOf(context).pushUserDetail(
+      context,
+      group.peerPubkey,
+      callHistory: group.callEntries.reversed.toList(),
     );
   }
 

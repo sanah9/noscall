@@ -8,8 +8,8 @@ import 'package:noscall/utils/toast.dart';
 import 'package:noscall/component/contact_list_tile.dart';
 import 'package:noscall/component/empty_search_state.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'desktop_page_wrapper.dart';
-import 'desktop_navigator.dart';
 
 class DesktopContactsPage extends StatefulWidget {
   const DesktopContactsPage({super.key});
@@ -132,11 +132,10 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
                         itemCount: filteredContacts.length,
                         itemBuilder: (context, index) {
                           final contact = filteredContacts[index];
-                          final navigatorState = DesktopNavigatorProvider.of(context);
                           return ContactListTile(
                             user: contact,
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            onTap: () => navigatorState?.navigateToContactDetail(contact.pubKey),
+                            onTap: () => AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey),
                             onCallVoice: () => _startVoiceCall(contact.pubKey),
                             onCallVideo: () => _startVideoCall(contact.pubKey),
                             showFavoriteStar: true,
