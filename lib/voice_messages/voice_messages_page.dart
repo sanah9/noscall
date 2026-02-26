@@ -30,6 +30,7 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
     setState(() {
       _messages.insert(0, message.withGrowableLevels());
     });
+    if (isIncoming) Messages.notifyIncomingVoiceMessage();
     if (mounted && isIncoming) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
@@ -110,6 +111,7 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   void initState() {
     super.initState();
     _loadMessages();
+    Messages.refreshVoiceUnreadCount();
     Contacts.sharedInstance.privateChatMessageCallBack = _onNewMessage;
     Messages.sharedInstance.deleteCallBack = _onMessagesDeleted;
     _scrollController.addListener(_onScroll);

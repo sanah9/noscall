@@ -31,6 +31,11 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
       _loading = false;
     });
     if (_message != null) {
+      final myPubkey = Account.sharedInstance.currentPubkey;
+      final isIncoming = _message!.receiver == myPubkey;
+      if (isIncoming && !_message!.read) {
+        await Messages.onVoiceMessageOpened(widget.messageId);
+      }
       final payload = MessageDBISAR.parseVoiceContent(_message!.decryptContent) ??
           MessageDBISAR.parseVoiceContent(_message!.content);
       final url = payload?['url'] as String?;
