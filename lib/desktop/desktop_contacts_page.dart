@@ -167,6 +167,7 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
             ),
             label: const Text('Favorites'),
             selected: _showFavoritesOnly,
+            showCheckmark: false,
             onSelected: (_) => setState(() => _showFavoritesOnly = true),
           ),
         ],

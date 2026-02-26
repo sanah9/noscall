@@ -392,6 +392,7 @@ class _FavoriteFilterChips extends StatelessWidget {
             ),
             label: const Text('Favorites'),
             selected: showFavoritesOnly,
+            showCheckmark: false,
             onSelected: (_) => onSelectFavorites(),
           ),
         ],
