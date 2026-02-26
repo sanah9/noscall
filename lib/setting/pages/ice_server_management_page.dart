@@ -365,7 +365,6 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerLowest,
       appBar: _buildAppBar(context, theme, colorScheme),
       body: _buildBody(context, theme, colorScheme),
       floatingActionButton: FloatingActionButton(
@@ -388,10 +387,6 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
           fontWeight: FontWeight.bold,
         ),
       ),
-      backgroundColor: colorScheme.surface,
-      elevation: 1,
-      scrolledUnderElevation: 1,
-      shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
         onPressed: () => context.pop(),
@@ -582,8 +577,12 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+          width: 1,
+        ),
       ),
-      color: colorScheme.surface,
+      color: colorScheme.surfaceContainerLow,
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
