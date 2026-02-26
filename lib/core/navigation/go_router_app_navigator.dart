@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 
 import 'app_navigator.dart';
 import 'navigation_scope.dart';
@@ -33,10 +34,10 @@ class GoRouterAppNavigator implements AppNavigator {
   @override
   void pushVoiceMessageDetail(
     BuildContext context,
-    String messageId, {
+    MessageDBISAR message, {
     NavigationScope scope = NavigationScope.automatic,
   }) {
-    context.push('/voice-message-detail', extra: {'messageId': messageId});
+    context.push('/voice-message-detail', extra: {'message': message});
   }
 
   @override

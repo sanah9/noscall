@@ -9,6 +9,7 @@ import 'package:noscall/profile/profile_settings_page.dart';
 import 'package:noscall/setting/pages/ice_server_management_page.dart';
 import 'package:noscall/setting/pages/relay_management_page.dart';
 import 'package:noscall/setting/pages/theme_settings_page.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/voice_messages/send_voice_message_page.dart';
 import 'package:noscall/voice_messages/voice_message_detail_page.dart';
 
@@ -73,17 +74,17 @@ class DesktopTabAppNavigator implements AppNavigator {
   @override
   void pushVoiceMessageDetail(
     BuildContext context,
-    String messageId, {
+    MessageDBISAR message, {
     NavigationScope scope = NavigationScope.automatic,
   }) {
     if (_useTab(scope, _routeVoiceDetail)) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => VoiceMessageDetailPage(messageId: messageId),
+          builder: (context) => VoiceMessageDetailPage(message: message),
         ),
       );
     } else {
-      context.push(_routeVoiceDetail, extra: {'messageId': messageId});
+      context.push(_routeVoiceDetail, extra: {'message': message});
     }
   }
 

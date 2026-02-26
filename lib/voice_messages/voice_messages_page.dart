@@ -208,7 +208,7 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                       return _VoiceMessageListItem(
                         message: msg,
                         onTap: () {
-                          AppNavigatorScope.requireOf(context).pushVoiceMessageDetail(context, msg.messageId);
+                          AppNavigatorScope.requireOf(context).pushVoiceMessageDetail(context, msg);
                         },
                       );
                     },

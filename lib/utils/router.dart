@@ -30,6 +30,7 @@ import 'package:noscall/setting/pages/appearance_settings_page.dart';
 import 'package:noscall/setting/pages/theme_settings_page.dart';
 import 'package:noscall/setting/pages/data_settings_page.dart';
 import 'package:noscall/setting/pages/about_settings_page.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/voice_messages/send_voice_message_page.dart';
 import 'package:noscall/voice_messages/voice_message_detail_page.dart';
 
@@ -244,13 +245,13 @@ class AppRouter {
         name: 'voice-message-detail',
         builder: (context, state) {
           final params = state.extra as Map? ?? {};
-          final messageId = params['messageId'] as String?;
-          if (messageId == null || messageId.isEmpty) {
+          final message = params['message'] as MessageDBISAR?;
+          if (message == null) {
             return const Scaffold(
               body: Center(child: Text('Message not found')),
             );
           }
-          return VoiceMessageDetailPage(messageId: messageId);
+          return VoiceMessageDetailPage(message: message);
         },
       ),
       GoRoute(

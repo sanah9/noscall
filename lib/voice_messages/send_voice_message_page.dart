@@ -224,11 +224,14 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
         foregroundColor: colorScheme.onSurface,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
               if (!_hasPermission) ...[
                 Icon(Icons.mic_off, size: 64, color: colorScheme.error),
                 const SizedBox(height: 16),
@@ -273,6 +276,7 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
                 ),
               ],
             ],
+            ),
           ),
         ),
       ),

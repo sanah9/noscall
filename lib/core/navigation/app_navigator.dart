@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'navigation_scope.dart';
 
 /// Abstraction for app-level navigation. Callers use this interface only;
@@ -21,7 +22,7 @@ abstract class AppNavigator {
 
   void pushVoiceMessageDetail(
     BuildContext context,
-    String messageId, {
+    MessageDBISAR message, {
     NavigationScope scope = NavigationScope.automatic,
   });
 

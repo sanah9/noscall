@@ -117,27 +117,30 @@ class _NavigationItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                Badge(
-                  isLabelVisible: badgeCount > 0,
-                  label: Text('$badgeCount'),
-                  child: Icon(
-                    isSelected ? selectedIcon : icon,
-                    color: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
-                    size: 24,
-                  ),
+                Icon(
+                  isSelected ? selectedIcon : icon,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  size: 24,
                 ),
                 const SizedBox(width: 16),
-                Text(
-                  label,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.onSurface,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    ),
                   ),
                 ),
+                if (badgeCount > 0)
+                  Badge(
+                    isLabelVisible: true,
+                    label: Text('$badgeCount'),
+                  ),
               ],
             ),
           ),
