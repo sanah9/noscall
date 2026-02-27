@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/setting/services/notification_settings_service.dart';
 
 class NotificationSettingsPage extends StatelessWidget {
@@ -24,7 +25,8 @@ class NotificationSettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(

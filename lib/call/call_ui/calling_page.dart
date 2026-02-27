@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call/calling_controller.dart';
@@ -582,7 +583,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
     final state = controller.state.value;
 
     if (state == CallingState.ended) {
-      context.pop();
+      AppNavigatorScope.requireOf(context).pop(context);
     } else if (_isVideoConnected) {
       // Restart auto-hide timer when call is connected
       _startAutoHideTimer();

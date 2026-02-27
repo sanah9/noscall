@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';
 import 'auth_service.dart';
 
@@ -160,7 +161,8 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(

@@ -23,7 +23,8 @@ class AppearanceSettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(

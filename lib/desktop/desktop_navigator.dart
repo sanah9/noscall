@@ -60,7 +60,7 @@ class DesktopNavigatorState extends State<DesktopNavigator> {
     return DesktopNavigatorProvider(
       navigatorState: this,
         child: AppNavigatorScope(
-        navigator: const DesktopTabAppNavigator(),
+        navigator: DesktopTabAppNavigator(),
         child: IndexedStack(
         index: widget.selectedIndex,
         children: [

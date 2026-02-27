@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class QRScanPage extends StatefulWidget {
   const QRScanPage({super.key});
@@ -48,7 +49,8 @@ class _QRScanPageState extends State<QRScanPage> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => context.pop(),
+        onPressed: () =>
+            AppNavigatorScope.requireOf(context).pop(context),
       ),
     );
   }
@@ -113,7 +115,7 @@ class _QRScanPageState extends State<QRScanPage> {
     _hasScanned = true;
 
     // Return the scanned value to previous page
-    context.pop(barcode.rawValue);
+    AppNavigatorScope.requireOf(context).pop(context);
   }
 }
 

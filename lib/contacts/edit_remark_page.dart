@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';
 import 'services/contact_remark_service.dart';
 
@@ -53,7 +54,8 @@ class _EditRemarkPageState extends State<EditRemarkPage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              AppNavigatorScope.requireOf(context).pop(context),
         ),
         actions: [
           TextButton(
@@ -137,7 +139,7 @@ class _EditRemarkPageState extends State<EditRemarkPage> {
     final newRemark = _remarkController.text.trim();
     final current = ContactRemarkService().getRemark(widget.pubkey);
     if (newRemark == (current ?? '')) {
-      context.pop();
+      AppNavigatorScope.requireOf(context).pop(context);
       return;
     }
 
@@ -151,7 +153,7 @@ class _EditRemarkPageState extends State<EditRemarkPage> {
         _isLoading = false;
       });
       AppToast.showSuccess(context, 'Remark saved');
-      context.pop();
+      AppNavigatorScope.requireOf(context).pop(context);
     }
   }
 }

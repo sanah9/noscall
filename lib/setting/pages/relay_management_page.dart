@@ -4,6 +4,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account+relay.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';
 
 Color _connectedGreen(BuildContext context) {
@@ -374,7 +375,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
       ),
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-        onPressed: () => context.pop(),
+        onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
       ),
       actions: [
         IconButton(

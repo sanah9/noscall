@@ -7,7 +7,7 @@ import 'navigation_scope.dart';
 
 /// [AppNavigator] implementation using root GoRouter (mobile or any global push).
 /// [scope] is ignored: there is only one stack on mobile.
-class GoRouterAppNavigator implements AppNavigator {
+class GoRouterAppNavigator extends AppNavigator {
   GoRouterAppNavigator();
 
   @override

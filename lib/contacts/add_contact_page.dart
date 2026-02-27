@@ -160,7 +160,7 @@ class _AddContactPageState extends State<AddContactPage> {
         icon: const Icon(Icons.arrow_back),
         onPressed: () {
           _dismissKeyboard();
-          context.pop();
+          AppNavigatorScope.requireOf(context).pop(context);
         },
       ),
     );

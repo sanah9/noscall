@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';
 
 class DataExportPage extends StatefulWidget {
@@ -196,7 +197,8 @@ class _DataExportPageState extends State<DataExportPage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(

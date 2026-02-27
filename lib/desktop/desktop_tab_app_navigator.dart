@@ -18,8 +18,8 @@ import 'package:noscall/voice_messages/voice_message_detail_page.dart';
 ///   i.e. [Navigator.of(context)] — no dependency on selected tab index.
 /// - Global: push onto root GoRouter (full-screen overlay).
 /// Effective scope: call-site > page preference ([NavigationScopeDefaults]) > default (tabInternal).
-class DesktopTabAppNavigator implements AppNavigator {
-  const DesktopTabAppNavigator();
+class DesktopTabAppNavigator extends AppNavigator {
+  DesktopTabAppNavigator();
 
   static const _routeContactSelect = '/contact-select';
   static const _routeSendVoice = '/send-voice-message';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/core.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';
 
 class EditNicknamePage extends StatefulWidget {
@@ -53,7 +54,8 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              AppNavigatorScope.requireOf(context).pop(context),
         ),
         actions: [
           TextButton(
@@ -141,7 +143,10 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
     final userNotifier = Account.sharedInstance.getUserNotifier(widget.pubkey);
     final currentUser = userNotifier.value;
 
-    if (newNickname == currentUser.nickName) return;
+    if (newNickname == currentUser.nickName) {
+      AppNavigatorScope.requireOf(context).pop(context);
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -156,7 +161,7 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
     });
     if (event.status) {
       AppToast.showSuccess(context, 'Nickname updated successfully');
-      context.pop();
+      AppNavigatorScope.requireOf(context).pop(context);
     } else {
       AppToast.showError(context, 'Failed to update nickname: ${event.message}');
     }

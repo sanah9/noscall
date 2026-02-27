@@ -389,7 +389,7 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
       ),
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-        onPressed: () => context.pop(),
+        onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
       ),
       actions: [
         IconButton(
