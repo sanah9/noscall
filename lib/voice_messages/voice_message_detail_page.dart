@@ -380,11 +380,8 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
         Align(
           alignment: Alignment.centerRight,
           child: IconButton(
-            icon: Icon(
-              CupertinoIcons.delete,
-              color: isPreloading ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5) : colorScheme.primary,
-            ),
-            onPressed: isPreloading ? null : _onDelete,
+            icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
+            onPressed: _onDelete,
             iconSize: 28,
             tooltip: 'Delete',
           ),
