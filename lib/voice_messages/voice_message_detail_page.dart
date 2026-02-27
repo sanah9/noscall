@@ -7,6 +7,7 @@ import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/unread_message_manager.dart';
 
 class VoiceMessageDetailPage extends StatefulWidget {
   final MessageDBISAR message;
@@ -32,6 +33,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     final isIncoming = msg.receiver == Account.sharedInstance.currentPubkey;
     if (isIncoming && !msg.read) {
       await Messages.onVoiceMessageOpened(msg.messageId);
+      await VoiceUnreadManager.instance.removeUnread(msg.messageId);
     }
   }
 

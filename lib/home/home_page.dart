@@ -6,6 +6,9 @@ import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call_history/widget/recent_calls_page.dart';
 import 'package:noscall/contacts/contact_navigator.dart';
 import 'package:noscall/setting/setting_page.dart';
+import 'package:noscall/core/call/messages/unread_message_manager.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/core/navigation/go_router_app_navigator.dart';
 import 'package:noscall/desktop/desktop_home_page.dart';
 import 'package:noscall/utils/profile_sync_mixin.dart';
 import 'package:noscall/voice_messages/voice_messages_page.dart';
@@ -102,9 +105,23 @@ class _HomePageState extends State<HomePage> with ProfileSyncOnConnectMixin<Home
             label: 'Contacts',
           ),
           BottomNavigationBarItem(
-            icon: _selectedIndex == 2
-                ? const Icon(Icons.mic)
-                : const Icon(Icons.mic_none),
+            icon: ValueListenableBuilder<int>(
+              valueListenable: VoiceUnreadManager.instance.unreadCountNotifier,
+              builder: (context, unreadCount, child) {
+                final icon = _selectedIndex == 2
+                    ? const Icon(Icons.mic)
+                    : const Icon(Icons.mic_none);
+                if (unreadCount <= 0) return icon;
+                return Badge(
+                  isLabelVisible: true,
+                  label: Text(
+                    '$unreadCount',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  child: icon,
+                );
+              },
+            ),
             label: 'Voice',
           ),
           BottomNavigationBarItem(

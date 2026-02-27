@@ -5,6 +5,7 @@ import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class VoiceMessagesPage extends StatefulWidget {
@@ -30,7 +31,9 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
     setState(() {
       _messages.insert(0, message.withGrowableLevels());
     });
-    if (isIncoming) Messages.notifyIncomingVoiceMessage();
+    if (isIncoming) {
+      VoiceUnreadManager.instance.addUnread(message.messageId);
+    }
     if (mounted && isIncoming) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
@@ -110,8 +113,9 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   @override
   void initState() {
     super.initState();
+    // Ensure unread voice IDs are loaded for current account.
+    VoiceUnreadManager.instance.init();
     _loadMessages();
-    Messages.refreshVoiceUnreadCount();
     Contacts.sharedInstance.privateChatMessageCallBack = _onNewMessage;
     Messages.sharedInstance.deleteCallBack = _onMessagesDeleted;
     _scrollController.addListener(_onScroll);
@@ -207,8 +211,19 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                       final msg = _messages[index];
                       return _VoiceMessageListItem(
                         message: msg,
-                        onTap: () {
-                          AppNavigatorScope.requireOf(context).pushVoiceMessageDetail(context, msg);
+                        onTap: () async {
+                          final myPubkey = Account.sharedInstance.currentPubkey;
+                          final isIncoming = msg.receiver == myPubkey;
+                          if (isIncoming && !msg.read) {
+                            await Messages.markVoiceMessageRead(msg.messageId);
+                            if (!mounted) return;
+                            setState(() {
+                              _messages[index] = msg.copyWith(read: true);
+                            });
+                            await VoiceUnreadManager.instance.removeUnread(msg.messageId);
+                          }
+                          AppNavigatorScope.requireOf(context)
+                              .pushVoiceMessageDetail(context, msg);
                         },
                       );
                     },
@@ -247,7 +262,9 @@ class _VoiceMessageListItem extends StatelessWidget {
     ColorScheme colorScheme,
     UserDBISAR user,
   ) {
-
+    final myPubkey = Account.sharedInstance.currentPubkey;
+    final isIncoming = message.receiver == myPubkey;
+    final isUnread = isIncoming && VoiceUnreadManager.instance.isUnread(message.messageId);
     final voicePayload = MessageDBISAR.parseVoiceContent(message.decryptContent) ??
         MessageDBISAR.parseVoiceContent(message.content);
     final durationSec = (voicePayload?['durationSeconds'] as num?)?.toInt() ?? 0;
@@ -273,7 +290,7 @@ class _VoiceMessageListItem extends StatelessWidget {
                     Text(
                       user.displayName(),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: isUnread ? FontWeight.w700 : FontWeight.w500,
                         color: colorScheme.onSurface,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -284,20 +301,22 @@ class _VoiceMessageListItem extends StatelessWidget {
                         Icon(
                           Icons.mic,
                           size: 14,
-                          color: colorScheme.onSurfaceVariant,
+                          color: isUnread ? colorScheme.primary : colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           durationStr,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                            color: isUnread ? colorScheme.primary : colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           timeStr,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                            color: isUnread
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -305,7 +324,24 @@ class _VoiceMessageListItem extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              if (isUnread)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: colorScheme.error,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                  ],
+                )
+              else
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ),

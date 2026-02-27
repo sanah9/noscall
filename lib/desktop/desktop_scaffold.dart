@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:noscall/core/call/messages/messages.dart';
+import 'package:noscall/core/call/messages/unread_message_manager.dart';
 
 class DesktopScaffold extends StatelessWidget {
   final int selectedIndex;
@@ -56,7 +56,7 @@ class DesktopScaffold extends StatelessWidget {
             onTap: () => onNavigationChanged(2),
           ),
           ValueListenableBuilder<int>(
-            valueListenable: Messages.sharedInstance.voiceUnreadCountNotifier,
+            valueListenable: VoiceUnreadManager.instance.unreadCountNotifier,
             builder: (context, unreadCount, child) {
               return _NavigationItem(
                 icon: Icons.mic_none,
