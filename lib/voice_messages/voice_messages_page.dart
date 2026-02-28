@@ -7,6 +7,7 @@ import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/utils/snackbar_helper.dart';
 
 class VoiceMessagesPage extends StatefulWidget {
   const VoiceMessagesPage({super.key});
@@ -35,12 +36,7 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
       VoiceUnreadManager.instance.addUnread(message.messageId);
     }
     if (mounted && isIncoming) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: const Text('New voice message'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackBar.info(context, 'New voice message');
     }
   }
 
@@ -63,9 +59,7 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
     } catch (e, st) {
       if (mounted) {
         setState(() => _messages = []);
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text('Load failed: $e'), behavior: SnackBarBehavior.floating),
-        );
+        AppSnackBar.error(context, 'Load failed: $e');
       }
       debugPrint('Voice messages load error: $e\n$st');
     } finally {

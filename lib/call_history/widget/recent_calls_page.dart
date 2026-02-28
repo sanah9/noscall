@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
@@ -14,6 +13,7 @@ import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/component/empty_search_state.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/utils/snackbar_helper.dart';
 
 class RecentCallsPage extends StatefulWidget {
   const RecentCallsPage({super.key});
@@ -445,13 +445,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to start call: $e'),
-            backgroundColor: errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackBar.error(context, 'Failed to start call: $e');
       }
     }
   }
@@ -602,23 +596,11 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
       try {
         await _manager.deleteCallLogGroup(group.groupId);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Call history with ${user.displayName()} deleted'),
-              backgroundColor: primary,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppSnackBar.info(context, 'Call history with ${user.displayName()} deleted');
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to delete call history: $e'),
-              backgroundColor: errorColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppSnackBar.error(context, 'Failed to delete call history: $e');
         }
       }
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/utils/snackbar_helper.dart';
 
 class AppearanceSettingsPage extends StatelessWidget {
   const AppearanceSettingsPage({super.key});
@@ -45,11 +46,7 @@ class AppearanceSettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.notifications,
             title: 'Notification',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Coming soon')),
-              );
-            },
+            onTap: () => AppSnackBar.info(context, 'Coming soon'),
           ),
         ],
       ),

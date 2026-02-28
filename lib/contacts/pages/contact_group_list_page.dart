@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/contacts/models/contact_group_isar.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
+import 'package:noscall/contacts/contact_navigation_extension.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
-import 'package:noscall/contacts/contact_navigation_extension.dart';
+import 'package:noscall/utils/snackbar_helper.dart';
 
 class ContactGroupListPage extends StatefulWidget {
   const ContactGroupListPage({super.key});
@@ -114,9 +115,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
           setState(() {});
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to save group: $e')),
-            );
+            AppSnackBar.error(context, 'Failed to save group: $e');
             setState(() {
               _groups = _groups.where((g) => g.id != groupId).toList();
               _editingControllers.remove(groupId)?.dispose();
@@ -138,9 +137,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
       setState(() {});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to rename group: $e')),
-        );
+        AppSnackBar.error(context, 'Failed to rename group: $e');
       }
     }
   }
@@ -223,9 +220,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
                     }
                   } catch (e) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Failed to sync to database: $e')),
-                      );
+                      AppSnackBar.error(context, 'Failed to sync to database: $e');
                     }
                   }
                 },
