@@ -45,7 +45,11 @@ class AppearanceSettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.notifications,
             title: 'Notification',
-            onTap: () => context.push('/notification-settings'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Coming soon')),
+              );
+            },
           ),
         ],
       ),
