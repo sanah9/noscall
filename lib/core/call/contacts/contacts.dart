@@ -16,6 +16,7 @@ import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/core/call/contacts/contacts+calling.dart';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
+import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 
 typedef PrivateChatMessageCallBack = void Function(MessageDBISAR);
 typedef ContactUpdatedCallBack = void Function();
@@ -305,6 +306,9 @@ class Contacts {
           await Messages.saveMessageToDB(messageDB);
           updateFriendMessageTime(event.createdAt, relay);
           privateChatMessageCallBack?.call(messageDB);
+          if (messageDB.type == MessageDBISAR.messageTypeToString(MessageType.voice)) {
+            VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
+          }
         }
         return;
       }
@@ -328,6 +332,9 @@ class Contacts {
               if (messageDB != null) {
                 await Messages.saveMessageToDB(messageDB);
                 privateChatMessageCallBack?.call(messageDB);
+                if (messageDB.type == MessageDBISAR.messageTypeToString(MessageType.voice)) {
+                  VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
+                }
               }
               break;
             default:

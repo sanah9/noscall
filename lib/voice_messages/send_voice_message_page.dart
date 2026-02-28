@@ -6,6 +6,7 @@ import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/contacts/contacts+calling.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 import 'package:noscall/utils/file_upload_manager.dart';
 import 'package:noscall/utils/microphone_permission_service.dart';
 import 'package:noscall/utils/toast.dart';
@@ -185,6 +186,12 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
       AppToast.showError(context, 'Send failed');
       return;
     }
+
+    await VoiceCacheManager.instance.bindLocalFile(
+      messageId: eventId,
+      url: url,
+      localFilePath: path,
+    );
 
     final myPubkey = Account.sharedInstance.currentPubkey;
     final message = MessageDBISAR(

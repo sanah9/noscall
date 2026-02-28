@@ -6,6 +6,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 
 typedef MessageActionsCallBack = void Function(MessageDBISAR);
 typedef MessagesDeleteCallBack = void Function(List<MessageDBISAR>);
@@ -221,6 +222,9 @@ class Messages {
 
   static deleteMessagesFromDB({List<String>? messageIds, bool notify = true}) async {
     if (messageIds != null) {
+      for (final id in messageIds) {
+        VoiceCacheManager.instance.deleteCacheForMessage(id).ignore();
+      }
       final isar = DBISAR.sharedInstance.isar;
       var queryBuilder = isar.messageDBISARs.where();
       final messages = await queryBuilder

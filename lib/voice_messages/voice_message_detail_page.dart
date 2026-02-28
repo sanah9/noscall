@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -8,6 +9,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
+import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 
 class VoiceMessageDetailPage extends StatefulWidget {
   final MessageDBISAR message;
@@ -22,9 +24,7 @@ class VoiceMessageDetailPage extends StatefulWidget {
 }
 
 class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
-  bool _playbackError = false;
-  bool _isPreloading = true;
-  Duration? _cachedDuration;
+  late Future<File> _fileFuture;
   final AudioPlayer _player = AudioPlayer();
   StreamSubscription<ProcessingState>? _processingStateSubscription;
 
@@ -37,58 +37,17 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     }
   }
 
-  static String? _getVoiceUrl(MessageDBISAR message) {
-    final payload = MessageDBISAR.parseVoiceContent(message.decryptContent) ??
-        MessageDBISAR.parseVoiceContent(message.content);
-    return payload?['url'] as String?;
+  void _retryLoadAudio() {
+    setState(() {
+      _fileFuture = VoiceCacheManager.instance.getOrDownload(widget.message);
+    });
   }
 
-  /// Loads audio from [url] and prepares for playback (buffer until ready).
-  Future<void> _prepareAudio(String url) async {
-    if (url.isEmpty) return;
-    try {
-      await _player.setUrl(url);
-      await _waitUntilReadyToPlay();
-      if (!mounted) return;
-      setState(() {
-        _cachedDuration = _player.duration;
-        _isPreloading = false;
-        _playbackError = false;
-      });
-      _processingStateSubscription?.cancel();
-      _processingStateSubscription = _player.processingStateStream.listen(_onProcessingState);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isPreloading = false;
-        _playbackError = true;
-      });
-    }
-  }
-
-  /// Waits for the player to be ready to play (buffered) without starting playback.
-  Future<void> _waitUntilReadyToPlay() async {
-    if (_player.processingState == ProcessingState.ready ||
-        _player.processingState == ProcessingState.completed) {
-      return;
-    }
-    await _player.processingStateStream
-        .where((s) => s == ProcessingState.ready || s == ProcessingState.completed)
-        .first
-        .timeout(const Duration(seconds: 30));
-  }
-
-  void _onProcessingState(ProcessingState state) {
-    if (state != ProcessingState.completed) return;
-    _player.seek(Duration.zero);
-    _player.pause();
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _retryLoadAudio() async {
-    setState(() => _playbackError = false);
-    final url = _getVoiceUrl(widget.message) ?? '';
-    await _prepareAudio(url);
+  @override
+  void initState() {
+    super.initState();
+    _markAsReadIfIncoming();
+    _fileFuture = VoiceCacheManager.instance.getOrDownload(widget.message);
   }
 
   @override
@@ -119,29 +78,10 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    await VoiceCacheManager.instance.deleteCacheForMessage(widget.message.messageId);
     await Messages.deleteMessagesFromDB(messageIds: [widget.message.messageId], notify: true);
     if (!mounted) return;
     Navigator.of(context).pop();
-  }
-
-  Future<void> _togglePlayPause() async {
-    if (_isPreloading) return;
-    if (_player.playing) {
-      await _player.pause();
-    } else {
-      await _player.play();
-    }
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _markAsReadIfIncoming();
-    final url = _getVoiceUrl(widget.message);
-    if (url != null && url.isNotEmpty) {
-      _prepareAudio(url);
-    }
   }
 
   @override
@@ -163,9 +103,24 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
               const SizedBox(height: 24),
               _buildMessageTimeSection(context, timeStr),
               const SizedBox(height: 32),
-              _playbackError
-                  ? _buildPlaybackErrorSection(context)
-                  : _buildPlayerSection(context, durationSec, _isPreloading),
+              FutureBuilder<File>(
+                future: _fileFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingSection(context, durationSec);
+                  }
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return _buildPlaybackErrorSection(context);
+                  }
+                  return _VoicePlayerSection(
+                    file: snapshot.data!,
+                    player: _player,
+                    durationSec: durationSec,
+                    onReady: () => setState(() {}),
+                    onDelete: _onDelete,
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -229,6 +184,64 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     );
   }
 
+  Widget _buildLoadingSection(BuildContext context, int durationSec) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final placeholderDuration = Duration(seconds: durationSec);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildProgressTimeRow(theme, colorScheme, Duration.zero, placeholderDuration),
+        const SizedBox(height: 4),
+        _buildProgressSliderPlaceholder(context),
+        const SizedBox(height: 24),
+        _buildPlaybackActionsPlaceholder(context, colorScheme),
+      ],
+    );
+  }
+
+  Widget _buildProgressSliderPlaceholder(BuildContext context) {
+    return Container(
+      height: 4,
+      margin: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
+  Widget _buildPlaybackActionsPlaceholder(BuildContext context, ColorScheme colorScheme) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton(
+            icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
+            onPressed: _onDelete,
+            iconSize: 28,
+            tooltip: 'Delete',
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlaybackErrorSection(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -252,27 +265,162 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     );
   }
 
-  Widget _buildPlayerSection(
-    BuildContext context,
-    int durationSec,
-    bool isPreloading,
+  Widget _buildProgressTimeRow(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    Duration position,
+    Duration duration,
   ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    if (isPreloading) {
-      final placeholderDuration = Duration(seconds: durationSec);
+    final posSec = position.inSeconds.clamp(0, duration.inSeconds);
+    final positionStr = '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
+    final totalStr =
+        '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
+    final style = theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(positionStr, style: style),
+        Text(totalStr, style: style),
+      ],
+    );
+  }
+}
+
+/// Loads [file] into [player], then builds the progress/play UI when ready.
+class _VoicePlayerSection extends StatefulWidget {
+  final File file;
+  final AudioPlayer player;
+  final int durationSec;
+  final VoidCallback onReady;
+  final Future<void> Function() onDelete;
+
+  const _VoicePlayerSection({
+    required this.file,
+    required this.player,
+    required this.durationSec,
+    required this.onReady,
+    required this.onDelete,
+  });
+
+  @override
+  State<_VoicePlayerSection> createState() => _VoicePlayerSectionState();
+}
+
+class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
+  bool _ready = false;
+  StreamSubscription<ProcessingState>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFile();
+  }
+
+  Future<void> _loadFile() async {
+    try {
+      await widget.player.setFilePath(widget.file.path);
+      if (_player.processingState == ProcessingState.ready ||
+          _player.processingState == ProcessingState.completed) {
+        if (mounted) {
+          setState(() => _ready = true);
+          widget.onReady();
+          _sub = widget.player.processingStateStream.listen(_onProcessingState);
+        }
+        return;
+      }
+      _sub = widget.player.processingStateStream.listen((state) {
+        if (state == ProcessingState.ready || state == ProcessingState.completed) {
+          _sub?.cancel();
+          if (mounted) {
+            setState(() => _ready = true);
+            widget.onReady();
+            _sub = widget.player.processingStateStream.listen(_onProcessingState);
+          }
+        }
+      });
+      await widget.player.processingStateStream
+          .where((s) => s == ProcessingState.ready || s == ProcessingState.completed)
+          .first
+          .timeout(const Duration(seconds: 30));
+    } catch (_) {
+      if (mounted) {
+        setState(() => _ready = false);
+        widget.onReady();
+      }
+    }
+  }
+
+  AudioPlayer get _player => widget.player;
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void _onProcessingState(ProcessingState state) {
+    if (state != ProcessingState.completed) return;
+    _player.seek(Duration.zero);
+    _player.pause();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) {
+      final theme = Theme.of(context);
+      final colorScheme = theme.colorScheme;
+      final placeholderDuration = Duration(seconds: widget.durationSec);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildProgressTimeRow(theme, colorScheme, Duration.zero, placeholderDuration),
           const SizedBox(height: 4),
-          _buildProgressSliderPlaceholder(context),
+          Container(
+            height: 4,
+            margin: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(height: 24),
-          _buildPlaybackActions(context, colorScheme, isPreloading),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: Center(
+                  child: SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
+                  onPressed: widget.onDelete,
+                  iconSize: 28,
+                  tooltip: 'Delete',
+                ),
+              ),
+            ],
+          ),
         ],
       );
     }
-    final duration = _cachedDuration ?? _player.duration ?? Duration(seconds: durationSec);
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final duration = _player.duration ?? Duration(seconds: widget.durationSec);
+
     return StreamBuilder<Duration>(
       stream: _player.positionStream,
       builder: (context, snapshot) {
@@ -282,23 +430,45 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
           children: [
             _buildProgressTimeRow(theme, colorScheme, position, duration),
             const SizedBox(height: 4),
-            _buildProgressSlider(context, position, duration, false),
+            _buildSlider(context, position, duration, colorScheme),
             const SizedBox(height: 24),
-            _buildPlaybackActions(context, colorScheme, false),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: IconButton(
+                    icon: Icon(
+                      _player.playing ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                      color: colorScheme.primary,
+                    ),
+                    onPressed: () async {
+                      if (_player.playing) {
+                        await _player.pause();
+                      } else {
+                        await _player.play();
+                      }
+                      if (mounted) setState(() {});
+                    },
+                    iconSize: 44,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
+                    onPressed: widget.onDelete,
+                    iconSize: 28,
+                    tooltip: 'Delete',
+                  ),
+                ),
+              ],
+            ),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildProgressSliderPlaceholder(BuildContext context) {
-    return Container(
-      height: 4,
-      margin: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(2),
-      ),
     );
   }
 
@@ -322,11 +492,11 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     );
   }
 
-  Widget _buildProgressSlider(
+  Widget _buildSlider(
     BuildContext context,
     Duration position,
     Duration duration,
-    bool isPreloading,
+    ColorScheme colorScheme,
   ) {
     final totalMs = duration.inMilliseconds;
     final positionValue = totalMs > 0
@@ -342,53 +512,8 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
       child: Slider(
         value: positionValue,
         max: durationValue,
-        onChanged: isPreloading ? null : (v) => _player.seek(Duration(milliseconds: v.round())),
+        onChanged: (v) => _player.seek(Duration(milliseconds: v.round())),
       ),
-    );
-  }
-
-  Widget _buildPlaybackActions(
-    BuildContext context,
-    ColorScheme colorScheme,
-    bool isPreloading,
-  ) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        SizedBox(
-          width: 44,
-          height: 44,
-          child: isPreloading
-              ? Center(
-                  child: SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                )
-              : IconButton(
-                  icon: Icon(
-                    _player.playing ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
-                    color: colorScheme.primary,
-                  ),
-                  onPressed: _togglePlayPause,
-                  iconSize: 44,
-                  padding: EdgeInsets.zero,
-                ),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-            icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
-            onPressed: _onDelete,
-            iconSize: 28,
-            tooltip: 'Delete',
-          ),
-        ),
-      ],
     );
   }
 }
