@@ -3,11 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
 import 'package:noscall/contacts/services/contact_navigation_service.dart';
 import 'package:noscall/contacts/contact_navigation_extension.dart';
 import 'package:noscall/component/contact_list_tile.dart';
 import 'package:noscall/component/empty_search_state.dart';
+import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/call/start_call_helper.dart';
+import 'package:noscall/utils/toast.dart';
 
 class GroupContactsPage extends StatefulWidget {
   final int groupId;
@@ -279,6 +283,22 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
     );
   }
 
+  Future<void> _startVoiceCall(String pubKey) async {
+    if (Contacts.sharedInstance.inBlockList(pubKey)) {
+      AppToast.showError(context, 'Cannot call blocked user');
+      return;
+    }
+    await StartCallHelper.startCall(context, peerId: pubKey, callType: CallType.audio);
+  }
+
+  Future<void> _startVideoCall(String pubKey) async {
+    if (Contacts.sharedInstance.inBlockList(pubKey)) {
+      AppToast.showError(context, 'Cannot call blocked user');
+      return;
+    }
+    await StartCallHelper.startCall(context, peerId: pubKey, callType: CallType.video);
+  }
+
   Widget _buildContactCard(
       BuildContext context, UserDBISAR contact, ColorScheme colorScheme) {
     return ContactListTile(
@@ -289,6 +309,8 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
         AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey);
       },
       onLongPress: () => _removeContact(contact.pubKey, contact.displayName()),
+      onCallVoice: () => _startVoiceCall(contact.pubKey),
+      onCallVideo: () => _startVideoCall(contact.pubKey),
     );
   }
 }

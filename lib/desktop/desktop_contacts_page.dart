@@ -4,10 +4,11 @@ import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/call/call_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call/start_call_helper.dart';
-import 'package:noscall/utils/toast.dart';
 import 'package:noscall/component/contact_list_tile.dart';
 import 'package:noscall/component/empty_search_state.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
+import 'package:noscall/contacts/services/contact_group_service.dart';
+import 'package:noscall/contacts/models/contact_group_isar.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'desktop_page_wrapper.dart';
 
@@ -20,14 +21,19 @@ class DesktopContactsPage extends StatefulWidget {
 
 class _DesktopContactsPageState extends State<DesktopContactsPage> {
   final CallKitManager _callKitManager = CallKitManager.instance;
+  final ContactGroupService _groupService = ContactGroupService.sharedInstance;
   final TextEditingController _searchController = TextEditingController();
   final FavoriteContactsService _favService = FavoriteContactsService();
   String _searchQuery = '';
   bool _showFavoritesOnly = false;
+  List<ContactGroup> _groups = [];
+  int? _selectedGroupId;
+  Set<String>? _selectedGroupPubKeys;
 
   @override
   void initState() {
     super.initState();
+    _loadGroups();
     Contacts.sharedInstance.contactUpdatedCallBack = () {
       if (mounted) setState(() {});
     };
@@ -36,6 +42,28 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
     _callKitManager.activeController?.then((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _loadGroups() async {
+    final groups = await _groupService.getAllGroups();
+    if (mounted) setState(() => _groups = groups);
+  }
+
+  Future<void> _onGroupFilterChanged(int? groupId) async {
+    if (groupId == null) {
+      setState(() {
+        _selectedGroupId = null;
+        _selectedGroupPubKeys = null;
+      });
+      return;
+    }
+    final pubKeys = await _groupService.getGroupContactPubKeys(groupId);
+    if (mounted) {
+      setState(() {
+        _selectedGroupId = groupId;
+        _selectedGroupPubKeys = pubKeys.toSet();
+      });
+    }
   }
 
   @override
@@ -57,6 +85,9 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
     var list = contacts;
+    if (_selectedGroupPubKeys != null) {
+      list = list.where((c) => _selectedGroupPubKeys!.contains(c.pubKey)).toList();
+    }
     if (_showFavoritesOnly) {
       list = list.where((c) => _favService.isFavorite(c.pubKey)).toList();
     }
@@ -106,26 +137,33 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (hasContacts) _buildFavoriteFilterChips(theme, colorScheme),
+          if (hasContacts && _groups.isNotEmpty) _buildGroupFilterDropdown(theme, colorScheme),
           Expanded(
             child: !hasContacts
-                ? EmptySearchState(
+                ? const EmptySearchState(
                     title: 'No contacts yet',
                     subtitle: 'Add contacts to get started',
                     icon: Icons.people_outline,
                   )
                 : !hasResults
                     ? Center(
-                        child: EmptySearchState(
-                          title: _searchQuery.isNotEmpty
-                              ? 'No results found'
-                              : 'No favorite contacts',
-                          subtitle: _showFavoritesOnly && _searchQuery.isEmpty
-                              ? 'Add contacts to favorites from their profile'
-                              : 'Try a different search term',
-                          icon: _showFavoritesOnly && _searchQuery.isEmpty
-                              ? Icons.star_border
-                              : Icons.contacts_outlined,
-                        ),
+                        child: _selectedGroupId != null && _searchQuery.isEmpty
+                            ? const EmptySearchState(
+                                title: 'No contacts in this group',
+                                subtitle: 'Add contacts to the group from the group detail page',
+                                icon: Icons.people_outline,
+                              )
+                            : EmptySearchState(
+                                title: _searchQuery.isNotEmpty
+                                    ? 'No results found'
+                                    : 'No favorite contacts',
+                                subtitle: _showFavoritesOnly && _searchQuery.isEmpty
+                                    ? 'Add contacts to favorites from their profile'
+                                    : 'Try a different search term',
+                                icon: _showFavoritesOnly && _searchQuery.isEmpty
+                                    ? Icons.star_border
+                                    : Icons.contacts_outlined,
+                              ),
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -175,4 +213,35 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
     );
   }
 
+  Widget _buildGroupFilterDropdown(ThemeData theme, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      child: Row(
+        children: [
+          Text(
+            'Group: ',
+            style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          DropdownButton<int?>(
+            value: _selectedGroupId,
+            hint: const Text('All'),
+            underline: const SizedBox.shrink(),
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('All'),
+              ),
+              ..._groups.map(
+                (g) => DropdownMenuItem<int?>(
+                  value: g.id,
+                  child: Text(g.name),
+                ),
+              ),
+            ],
+            onChanged: _onGroupFilterChanged,
+          ),
+        ],
+      ),
+    );
+  }
 }

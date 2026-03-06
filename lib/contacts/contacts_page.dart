@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/call/call_manager.dart';
@@ -12,6 +11,8 @@ import 'package:noscall/component/empty_search_state.dart';
 import 'contact_navigation_extension.dart';
 import 'services/contact_navigation_service.dart';
 import 'services/favorite_contacts_service.dart';
+import 'services/contact_group_service.dart';
+import 'models/contact_group_isar.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -22,9 +23,13 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager.instance;
+  final ContactGroupService _groupService = ContactGroupService.sharedInstance;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _showFavoritesOnly = false;
+  List<ContactGroup> _groups = [];
+  int? _selectedGroupId;
+  Set<String>? _selectedGroupPubKeys;
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
@@ -38,7 +43,9 @@ class _ContactsPageState extends State<ContactsPage> {
     super.initState();
     // Clear group ID when on "All Contacts" page
     ContactNavigationService.sharedInstance.clearLastGroupId();
-    
+
+    _loadGroups();
+
     // Register callback to update UI when contacts change
     Contacts.sharedInstance.contactUpdatedCallBack = () {
       if (mounted) {
@@ -59,6 +66,28 @@ class _ContactsPageState extends State<ContactsPage> {
     });
   }
 
+  Future<void> _loadGroups() async {
+    final groups = await _groupService.getAllGroups();
+    if (mounted) setState(() => _groups = groups);
+  }
+
+  Future<void> _onGroupFilterChanged(int? groupId) async {
+    if (groupId == null) {
+      setState(() {
+        _selectedGroupId = null;
+        _selectedGroupPubKeys = null;
+      });
+      return;
+    }
+    final pubKeys = await _groupService.getGroupContactPubKeys(groupId);
+    if (mounted) {
+      setState(() {
+        _selectedGroupId = groupId;
+        _selectedGroupPubKeys = pubKeys.toSet();
+      });
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -75,6 +104,9 @@ class _ContactsPageState extends State<ContactsPage> {
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
     var list = contacts;
+    if (_selectedGroupPubKeys != null) {
+      list = list.where((c) => _selectedGroupPubKeys!.contains(c.pubKey)).toList();
+    }
     if (_showFavoritesOnly) {
       final fav = FavoriteContactsService();
       list = list.where((c) => fav.isFavorite(c.pubKey)).toList();
@@ -85,7 +117,7 @@ class _ContactsPageState extends State<ContactsPage> {
     return list.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final nickName = (contact.nickName ?? '').toLowerCase();
-      
+
       return name.contains(query) || nickName.contains(query);
     }).toList();
   }
@@ -146,13 +178,14 @@ class _ContactsPageState extends State<ContactsPage> {
           children: [
             _buildSearchBar(),
             if (hasContacts) _buildFavoriteFilterChips(),
+            if (hasContacts && _groups.isNotEmpty) _buildGroupFilterDropdown(),
             Expanded(
               child: !hasContacts
                   ? _buildEmptyContactsState(context)
                   : !hasSearchResults
                       ? (_searchQuery.isNotEmpty
                           ? _buildNoSearchResultsState(context)
-                          : _buildNoFavoritesState(context))
+                          : _buildNoFavoritesOrGroupState(context))
                       : _buildContactsList(context, filteredContacts),
             ),
           ],
@@ -226,6 +259,71 @@ class _ContactsPageState extends State<ContactsPage> {
       onSelectAll: () => setState(() => _showFavoritesOnly = false),
       onSelectFavorites: () => setState(() => _showFavoritesOnly = true),
     );
+  }
+
+  Widget _buildGroupFilterDropdown() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Text(
+            'Group: ',
+            style: theme.textTheme.bodyMedium?.copyWith(color: onSurfaceVariant),
+          ),
+          DropdownButton<int?>(
+            value: _selectedGroupId,
+            hint: const Text('All'),
+            underline: const SizedBox.shrink(),
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('All'),
+              ),
+              ..._groups.map(
+                (g) => DropdownMenuItem<int?>(
+                  value: g.id,
+                  child: Text(g.name),
+                ),
+              ),
+            ],
+            onChanged: _onGroupFilterChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoFavoritesOrGroupState(BuildContext context) {
+    if (_selectedGroupId != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No contacts in this group',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add contacts to the group from the group detail page',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    return _buildNoFavoritesState(context);
   }
 
   Widget _buildNoFavoritesState(BuildContext context) {
