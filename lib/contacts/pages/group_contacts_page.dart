@@ -9,6 +9,8 @@ import 'package:noscall/contacts/services/contact_navigation_service.dart';
 import 'package:noscall/contacts/contact_navigation_extension.dart';
 import 'package:noscall/component/contact_list_tile.dart';
 import 'package:noscall/component/empty_search_state.dart';
+import 'package:noscall/component/search_bar.dart';
+import 'package:noscall/utils/search_field_mixin.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/utils/toast.dart';
@@ -27,30 +29,23 @@ class GroupContactsPage extends StatefulWidget {
   State<GroupContactsPage> createState() => _GroupContactsPageState();
 }
 
-class _GroupContactsPageState extends State<GroupContactsPage> {
+class _GroupContactsPageState extends State<GroupContactsPage>
+    with SearchFieldMixin<GroupContactsPage> {
   final ContactGroupService _groupService = ContactGroupService.sharedInstance;
-  final TextEditingController _searchController = TextEditingController();
   List<String> _contactPubKeys = [];
   bool _isLoading = true;
-  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    // Save group ID when this page is opened
+    initSearchField();
     ContactNavigationService.sharedInstance.saveLastGroupId(widget.groupId);
-    
     _loadContacts();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
-    });
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    disposeSearchField();
     super.dispose();
   }
 
@@ -106,9 +101,9 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
   }
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
-    if (_searchQuery.isEmpty) return contacts;
+    if (searchQuery.isEmpty) return contacts;
 
-    final query = _searchQuery.toLowerCase();
+    final query = searchQuery.toLowerCase();
     return contacts.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final nickName = (contact.nickName ?? '').toLowerCase();
@@ -165,13 +160,13 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
           },
           child: Column(
             children: [
-              if (!_isLoading) _buildSearchBar(colorScheme),
+              if (!_isLoading) _buildSearchBar(),
               Expanded(
                 child: _isLoading
             ? const Center(child: CircularProgressIndicator())
                     : !hasContacts
                 ? _buildEmptyState(colorScheme)
-                        : !hasSearchResults && _searchQuery.isNotEmpty
+                        : !hasSearchResults && searchQuery.isNotEmpty
                             ? _buildNoSearchResultsState(colorScheme)
                             : _buildContactsList(colorScheme, filteredContacts),
               ),
@@ -213,55 +208,10 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
     );
   }
 
-  Widget _buildSearchBar(ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search contacts...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
-            ),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: colorScheme.primary,
-              width: 2,
-            ),
-          ),
-          filled: true,
-          fillColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.05),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-      ),
+  Widget _buildSearchBar() {
+    return SearchTextField(
+      controller: searchController,
+      hintText: 'Search contacts...',
     );
   }
 
@@ -303,7 +253,7 @@ class _GroupContactsPageState extends State<GroupContactsPage> {
       BuildContext context, UserDBISAR contact, ColorScheme colorScheme) {
     return ContactListTile(
       user: contact,
-      searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+      searchQuery: searchQuery.isEmpty ? null : searchQuery,
       showFavoriteStar: false,
       onTap: () {
         AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey);

@@ -8,6 +8,8 @@ import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/router.dart';
 import 'package:noscall/component/contact_list_tile.dart';
 import 'package:noscall/component/empty_search_state.dart';
+import 'package:noscall/component/search_bar.dart';
+import 'package:noscall/utils/search_field_mixin.dart';
 import 'contact_navigation_extension.dart';
 import 'services/contact_navigation_service.dart';
 import 'services/favorite_contacts_service.dart';
@@ -21,11 +23,10 @@ class ContactsPage extends StatefulWidget {
   State<ContactsPage> createState() => _ContactsPageState();
 }
 
-class _ContactsPageState extends State<ContactsPage> {
+class _ContactsPageState extends State<ContactsPage>
+    with SearchFieldMixin<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager.instance;
   final ContactGroupService _groupService = ContactGroupService.sharedInstance;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
   bool _showFavoritesOnly = false;
   List<ContactGroup> _groups = [];
   int? _selectedGroupId;
@@ -41,28 +42,20 @@ class _ContactsPageState extends State<ContactsPage> {
   @override
   void initState() {
     super.initState();
+    initSearchField();
     // Clear group ID when on "All Contacts" page
     ContactNavigationService.sharedInstance.clearLastGroupId();
-
     _loadGroups();
-
     // Register callback to update UI when contacts change
     Contacts.sharedInstance.contactUpdatedCallBack = () {
       if (mounted) {
         setState(() {});
       }
     };
-
     _callKitManager.activeController?.then((_) {
       if (mounted) {
         setState(() {});
       }
-    });
-
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
     });
   }
 
@@ -90,7 +83,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    disposeSearchField();
     super.dispose();
   }
 
@@ -111,9 +104,9 @@ class _ContactsPageState extends State<ContactsPage> {
       final fav = FavoriteContactsService();
       list = list.where((c) => fav.isFavorite(c.pubKey)).toList();
     }
-    if (_searchQuery.isEmpty) return list;
+    if (searchQuery.isEmpty) return list;
 
-    final query = _searchQuery.toLowerCase();
+    final query = searchQuery.toLowerCase();
     return list.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final nickName = (contact.nickName ?? '').toLowerCase();
@@ -137,8 +130,8 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   bool _isNameMatched(UserDBISAR user) {
-    if (_searchQuery.isEmpty) return false;
-    final query = _searchQuery.toLowerCase();
+    if (searchQuery.isEmpty) return false;
+    final query = searchQuery.toLowerCase();
     final name = (user.name ?? '').toLowerCase();
     return name.contains(query);
   }
@@ -183,7 +176,7 @@ class _ContactsPageState extends State<ContactsPage> {
               child: !hasContacts
                   ? _buildEmptyContactsState(context)
                   : !hasSearchResults
-                      ? (_searchQuery.isNotEmpty
+                      ? (searchQuery.isNotEmpty
                           ? _buildNoSearchResultsState(context)
                           : _buildNoFavoritesOrGroupState(context))
                       : _buildContactsList(context, filteredContacts),
@@ -356,12 +349,9 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Widget _buildSearchBar() {
-    return _ContactsSearchBar(
-      controller: _searchController,
-      hasQuery: _searchQuery.isNotEmpty,
-      surface: surface,
-      onSurfaceVariant: onSurfaceVariant,
-      primary: primary,
+    return SearchTextField(
+      controller: searchController,
+      hintText: 'Search contacts...',
     );
   }
 
@@ -382,74 +372,13 @@ class _ContactsPageState extends State<ContactsPage> {
   Widget _buildContactCard(BuildContext context, UserDBISAR contact) {
     return ContactListTile(
       user: contact,
-      searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
+      searchQuery: searchQuery.isEmpty ? null : searchQuery,
       onTap: () {
         AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey);
       },
       onCallVoice: () => _startVoiceCall(contact.pubKey, contact.displayName()),
       onCallVideo: () => _startVideoCall(contact.pubKey, contact.displayName()),
       showFavoriteStar: true,
-    );
-  }
-}
-
-/// Reusable search bar for contacts list.
-class _ContactsSearchBar extends StatelessWidget {
-  const _ContactsSearchBar({
-    required this.controller,
-    required this.hasQuery,
-    required this.surface,
-    required this.onSurfaceVariant,
-    required this.primary,
-  });
-
-  final TextEditingController controller;
-  final bool hasQuery;
-  final Color surface;
-  final Color onSurfaceVariant;
-  final Color primary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: surface,
-        border: Border(
-          bottom: BorderSide(
-            color: onSurfaceVariant.withValues(alpha: 0.1),
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          hintText: 'Search contacts...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: hasQuery
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () => controller.clear(),
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: onSurfaceVariant.withValues(alpha: 0.2)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: onSurfaceVariant.withValues(alpha: 0.2)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: primary, width: 2),
-          ),
-          filled: true,
-          fillColor: onSurfaceVariant.withValues(alpha: 0.05),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-      ),
     );
   }
 }
