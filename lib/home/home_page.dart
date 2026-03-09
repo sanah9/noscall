@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/call_history/widget/recent_calls_page.dart';
 import 'package:noscall/contacts/contact_navigator.dart';
 import 'package:noscall/setting/setting_page.dart';

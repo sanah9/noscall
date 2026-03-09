@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';

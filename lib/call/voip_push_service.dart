@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/auth/auth_service.dart';
-import 'call_manager.dart';
+import 'call_kit_manager.dart';
 import 'constant/call_type.dart';
 import 'push_token_service.dart';
 

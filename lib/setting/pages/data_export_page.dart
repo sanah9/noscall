@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';

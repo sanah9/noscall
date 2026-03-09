@@ -10,7 +10,7 @@ import 'package:noscall/utils/http_client.dart';
 import 'package:noscall/utils/router.dart';
 import 'package:noscall/utils/loading.dart';
 import 'package:noscall/auth/auth_service.dart';
-import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
 import 'package:noscall/contacts/services/contact_remark_service.dart';
 import 'package:noscall/core/ui/status_bar_style.dart';

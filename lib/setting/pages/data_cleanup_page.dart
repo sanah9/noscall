@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:noscall/call/call_manager.dart';
+import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/setting/services/data_cleanup_service.dart';
 import 'package:noscall/utils/toast.dart';
