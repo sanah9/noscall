@@ -11,21 +11,8 @@ import 'package:noscall/utils/toast.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/setting/widgets/setting_section_widgets.dart';
 import 'package:nostr_core_dart/nostr.dart';
-
-class _MenuItem {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-  final Color? textColor;
-
-  _MenuItem({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    this.textColor,
-  });
-}
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -223,208 +210,33 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   Widget _buildProfileContent(BuildContext context) {
-    return Scaffold(
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _buildProfileHeader(context),
-          _buildMenuSection(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileHeader(BuildContext context) {
-    const actionMargin = 8.0;
-    return ValueListenableBuilder(
-        valueListenable: userNotifier!,
-        builder: (context, user, _) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomLeft,
-                colors: [
-                  primary,
-                  primary.withValues(alpha: 0.8),
-                ],
-              ),
-            ),
-            child: SafeArea(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 24.0,
-                      horizontal: 40.0,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _buildProfileAvatar(context, user),
-                        const SizedBox(height: 16),
-                        _buildProfileInfo(context, user),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: actionMargin,
-                    left: actionMargin,
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.qr_code,
-                        color: onPrimary,
-                      ),
-                      onPressed: () => _showQrCodeDialog(context),
-                      tooltip: 'Show QR Code',
-                    ),
-                  ),
-                  Positioned(
-                    top: actionMargin,
-                    right: actionMargin,
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.edit,
-                        color: onPrimary,
-                      ),
-                      onPressed: () => _navigateToProfileSettings(context),
-                      tooltip: 'Edit Profile',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-    );
-  }
-
-  Widget _buildProfileAvatar(BuildContext context, UserDBISAR user) {
-    return Container(
-      width: 126,
-      height: 126,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white,
-          width: 3,
-        ),
-      ),
-      child: UserAvatar(
-        user: user,
-        size: 126,
-      ),
-    );
-  }
-
-  Widget _buildProfileInfo(BuildContext context, UserDBISAR user) {
-    return Column(
-      children: [
-        Text(
-          user.displayName(),
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: onPrimary,
-          ),
-        ),
-        // const SizedBox(height: 8),
-        // GestureDetector(
-        //   onTap: () {
-        //     final value = _user?.encodedPubkey ?? '';
-        //     if (value.isNotEmpty) {
-        //       Clipboard.setData(ClipboardData(text: value));
-        //       AppToast.showSuccess(context, 'pubkey copied to clipboard');
-        //     }
-        //   },
-        //   child: Text(
-        //     _user?.encodedPubkey ?? '',
-        //     style: theme.textTheme.bodyMedium?.copyWith(
-        //       color: colorScheme.onPrimary.withOpacity(0.8),
-        //     ),
-        //     textAlign: TextAlign.center,
-        //   ),
-        // ),
-      ],
-    );
-  }
-
-  String _networkStatusLabel() {
-    if (_connectivity.isEmpty) return 'Unknown';
-    final r = _connectivity.first;
-    switch (r) {
-      case ConnectivityResult.wifi:
-        return 'WiFi';
-      case ConnectivityResult.mobile:
-        return 'Mobile';
-      case ConnectivityResult.ethernet:
-        return 'Ethernet';
-      case ConnectivityResult.vpn:
-        return 'VPN';
-      case ConnectivityResult.none:
-        return 'No connection';
-      case ConnectivityResult.other:
-        return 'Other';
-      case ConnectivityResult.bluetooth:
-        return 'Bluetooth';
-    }
-  }
-
-  Widget _buildNetworkStatusTile(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isConnected = _connectivity.isNotEmpty &&
-        _connectivity.first != ConnectivityResult.none;
-    return ListTile(
-      leading: Icon(
-        isConnected ? Icons.wifi : Icons.wifi_off,
-        color: isConnected ? colorScheme.primary : colorScheme.onSurfaceVariant,
-      ),
-      title: Text(
-        'Network',
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      trailing: Text(
-        _networkStatusLabel(),
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuSection(BuildContext context) {
     final menuItems = [
-      _MenuItem(
+      SettingMenuItem(
         icon: Icons.security,
         title: 'Account & Security',
         onTap: () => context.push('/settings/account'),
       ),
-      _MenuItem(
+      SettingMenuItem(
         icon: Icons.cloud,
         title: 'Connection',
         onTap: () => context.push('/settings/connection'),
       ),
-      _MenuItem(
+      SettingMenuItem(
         icon: Icons.palette_outlined,
         title: 'Appearance & Notifications',
         onTap: () => context.push('/settings/appearance'),
       ),
-      _MenuItem(
+      SettingMenuItem(
         icon: Icons.storage,
         title: 'Data',
         onTap: () => context.push('/settings/data'),
       ),
-      _MenuItem(
+      SettingMenuItem(
         icon: Icons.info_outline,
         title: 'About & Debug',
         onTap: () => context.push('/settings/about'),
       ),
-      _MenuItem(
+      SettingMenuItem(
         icon: Icons.logout,
         title: 'Logout',
         onTap: _showLogoutDialog,
@@ -432,23 +244,24 @@ class _SettingPageState extends State<SettingPage> {
       ),
     ];
 
-    return ListView.builder(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: menuItems.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _buildNetworkStatusTile(context);
-        }
-        final item = menuItems[index - 1];
-        return _SettingMenuTile(
-          icon: item.icon,
-          title: item.title,
-          onTap: item.onTap,
-          textColor: item.textColor,
-        );
-      },
+    return Scaffold(
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          SettingProfileHeader(
+            userNotifier: userNotifier!,
+            theme: theme,
+            primary: primary,
+            onPrimary: onPrimary,
+            onShowQrCode: () => _showQrCodeDialog(context),
+            onEditProfile: () => _navigateToProfileSettings(context),
+          ),
+          SettingMenuSection(
+            connectivity: _connectivity,
+            menuItems: menuItems,
+          ),
+        ],
+      ),
     );
   }
 
@@ -609,48 +422,6 @@ class _SettingPageState extends State<SettingPage> {
           ],
         ),
       ),
-    );
-  }
-
-
-}
-
-/// One row in the settings menu list (icon, title, chevron).
-class _SettingMenuTile extends StatelessWidget {
-  const _SettingMenuTile({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    this.textColor,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-  final Color? textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: textColor ?? colorScheme.primary,
-      ),
-      title: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          color: textColor ?? colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: colorScheme.onSurfaceVariant,
-      ),
-      onTap: onTap,
     );
   }
 }
