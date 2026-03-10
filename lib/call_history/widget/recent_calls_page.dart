@@ -14,6 +14,7 @@ import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/component/empty_search_state.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/snackbar_helper.dart';
+import 'package:noscall/utils/search_field_mixin.dart';
 
 class RecentCallsPage extends StatefulWidget {
   const RecentCallsPage({super.key});
@@ -22,10 +23,9 @@ class RecentCallsPage extends StatefulWidget {
   State<RecentCallsPage> createState() => _RecentCallsPageState();
 }
 
-class _RecentCallsPageState extends State<RecentCallsPage> {
+class _RecentCallsPageState extends State<RecentCallsPage>
+    with SearchFieldMixin<RecentCallsPage> {
   late final CallHistoryManager _manager = CallKitManager.instance.callHistoryManager;
-
-  final TextEditingController _searchController = TextEditingController();
 
   final StreamController<bool> _showSearchController = StreamController<bool>.broadcast();
   Stream<bool> get _showSearchStream => _showSearchController.stream;
@@ -44,6 +44,9 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   @override
   void initState() {
     super.initState();
+    initSearchField(
+      onSearchQueryChanged: (q) => _searchTextController.add(q.trim()),
+    );
     _manager.initialize();
     _manager.loadUnreadMissedCount();
     _manager.persistUnreadCleared();
@@ -52,7 +55,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
   @override
   void dispose() {
     _manager.dispose();
-    _searchController.dispose();
+    disposeSearchField();
     _showSearchController.close();
     _searchTextController.close();
     super.dispose();
@@ -86,12 +89,11 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
         final showSearch = snapshot.data ?? false;
         if (showSearch) {
           return TextField(
-            controller: _searchController,
+            controller: searchController,
             decoration: const InputDecoration(
               hintText: 'Search calls...',
               border: InputBorder.none,
             ),
-            onChanged: _searchCallGroups,
             onSubmitted: (_) => _dismissKeyboard(),
             autofocus: true,
           );
@@ -392,7 +394,7 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
 
   void _closeSearch() {
     _showSearchController.add(false);
-    _searchController.clear();
+    searchController.clear();
     _searchTextController.add('');
     _dismissKeyboard();
   }
@@ -613,10 +615,6 @@ class _RecentCallsPageState extends State<RecentCallsPage> {
       group.peerPubkey,
       callHistory: group.callEntries.reversed.toList(),
     );
-  }
-
-  Future<void> _searchCallGroups(String query) async {
-    _searchTextController.add(query.trim());
   }
 
   void _dismissKeyboard() {

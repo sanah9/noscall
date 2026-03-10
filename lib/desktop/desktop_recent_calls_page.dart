@@ -9,6 +9,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/call_history/models/call_log_group.dart';
 import 'package:noscall/component/empty_search_state.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/utils/search_field_mixin.dart';
 import 'desktop_page_wrapper.dart';
 
 class DesktopRecentCallsPage extends StatefulWidget {
@@ -18,14 +19,17 @@ class DesktopRecentCallsPage extends StatefulWidget {
   State<DesktopRecentCallsPage> createState() => _DesktopRecentCallsPageState();
 }
 
-class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage> {
+class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage>
+    with SearchFieldMixin<DesktopRecentCallsPage> {
   late final CallHistoryManager _manager = CallKitManager.instance.callHistoryManager;
-  final TextEditingController _searchController = TextEditingController();
   final StreamController<String> _searchTextController = StreamController<String>.broadcast();
 
   @override
   void initState() {
     super.initState();
+    initSearchField(
+      onSearchQueryChanged: (q) => _searchTextController.add(q),
+    );
     _manager.initialize();
     _manager.loadUnreadMissedCount();
     _manager.persistUnreadCleared();
@@ -34,13 +38,9 @@ class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage> {
   @override
   void dispose() {
     _manager.dispose();
-    _searchController.dispose();
+    disposeSearchField();
     _searchTextController.close();
     super.dispose();
-  }
-
-  void _searchCallGroups(String query) {
-    _searchTextController.add(query);
   }
 
   List<CallLogGroup> _filterCallGroups(List<CallLogGroup> groups, String query) {
@@ -63,9 +63,8 @@ class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage> {
     return DesktopPageWrapper(
       title: 'Recent Calls',
       trailing: DesktopSearchBar(
-        controller: _searchController,
+        controller: searchController,
         hintText: 'Search...',
-        onChanged: _searchCallGroups,
       ),
       child: StreamBuilder<List<CallLogGroup>>(
         stream: _manager.dataChangeStream,

@@ -7,6 +7,7 @@ import 'package:noscall/core/account/account+profile.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/utils/search_field_mixin.dart';
 
 class AddContactPage extends StatefulWidget {
   const AddContactPage({super.key});
@@ -15,8 +16,8 @@ class AddContactPage extends StatefulWidget {
   State<AddContactPage> createState() => _AddContactPageState();
 }
 
-class _AddContactPageState extends State<AddContactPage> {
-  final TextEditingController _searchController = TextEditingController();
+class _AddContactPageState extends State<AddContactPage>
+    with SearchFieldMixin<AddContactPage> {
   final FocusNode _searchFocusNode = FocusNode();
   final List<UserDBISAR> _searchResults = [];
   final List<UserDBISAR> _followerSuggestions = [];
@@ -32,7 +33,7 @@ class _AddContactPageState extends State<AddContactPage> {
   Color get outline => theme.colorScheme.outline;
 
   bool get _isSearchMode {
-    final query = _searchController.text.trim();
+    final query = searchQuery.trim();
     if (_isSearching) return true;
     if (query.isEmpty) return false;
     if (_searchFocusNode.hasFocus) return true;
@@ -43,23 +44,17 @@ class _AddContactPageState extends State<AddContactPage> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_handleSearchTextChanged);
+    initSearchField();
     _searchFocusNode.addListener(_handleSearchFocusChanged);
     _loadFollowerSuggestions();
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_handleSearchTextChanged);
+    disposeSearchField();
     _searchFocusNode.removeListener(_handleSearchFocusChanged);
-    _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
-  }
-
-  void _handleSearchTextChanged() {
-    if (!mounted) return;
-    setState(() {});
   }
 
   void _handleSearchFocusChanged() {
@@ -208,7 +203,7 @@ class _AddContactPageState extends State<AddContactPage> {
 
   Widget _buildSearchTextField() {
     return TextField(
-      controller: _searchController,
+      controller: searchController,
       focusNode: _searchFocusNode,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
@@ -221,7 +216,7 @@ class _AddContactPageState extends State<AddContactPage> {
           Icons.search,
           color: onSurfaceVariant,
         ),
-        suffixIcon: _searchController.text.isNotEmpty
+        suffixIcon: searchQuery.isNotEmpty
             ? IconButton(
           icon: Icon(
             Icons.clear,
@@ -280,7 +275,7 @@ class _AddContactPageState extends State<AddContactPage> {
   Widget _buildSearchButton() {
     return ElevatedButton(
       onPressed:
-      _isSearching ? null : () => _searchUser(_searchController.text),
+      _isSearching ? null : () => _searchUser(searchQuery),
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
         foregroundColor: onPrimary,
@@ -558,7 +553,7 @@ class _AddContactPageState extends State<AddContactPage> {
 
   void _clearSearch() {
     setState(() {
-      _searchController.clear();
+      searchController.clear();
       _searchResults.clear();
     });
     _dismissKeyboard();
@@ -575,7 +570,7 @@ class _AddContactPageState extends State<AddContactPage> {
 
     if (result != null && result.isNotEmpty) {
       // Set the scanned text to the search controller
-      _searchController.text = result;
+      searchController.text = result;
 
       // Trigger search automatically
       _searchUser(result);

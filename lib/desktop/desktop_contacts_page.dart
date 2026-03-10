@@ -10,6 +10,7 @@ import 'package:noscall/contacts/services/favorite_contacts_service.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
 import 'package:noscall/contacts/models/contact_group_isar.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/utils/search_field_mixin.dart';
 import 'desktop_page_wrapper.dart';
 
 class DesktopContactsPage extends StatefulWidget {
@@ -19,12 +20,11 @@ class DesktopContactsPage extends StatefulWidget {
   State<DesktopContactsPage> createState() => _DesktopContactsPageState();
 }
 
-class _DesktopContactsPageState extends State<DesktopContactsPage> {
+class _DesktopContactsPageState extends State<DesktopContactsPage>
+    with SearchFieldMixin<DesktopContactsPage> {
   final CallKitManager _callKitManager = CallKitManager.instance;
   final ContactGroupService _groupService = ContactGroupService.sharedInstance;
-  final TextEditingController _searchController = TextEditingController();
   final FavoriteContactsService _favService = FavoriteContactsService();
-  String _searchQuery = '';
   bool _showFavoritesOnly = false;
   List<ContactGroup> _groups = [];
   int? _selectedGroupId;
@@ -33,6 +33,7 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
   @override
   void initState() {
     super.initState();
+    initSearchField();
     _loadGroups();
     Contacts.sharedInstance.contactUpdatedCallBack = () {
       if (mounted) setState(() {});
@@ -69,18 +70,12 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
   @override
   void dispose() {
     _favService.favoritePubkeysNotifier.removeListener(_onFavoritesChanged);
-    _searchController.dispose();
+    disposeSearchField();
     super.dispose();
   }
 
   void _onFavoritesChanged() {
     if (mounted) setState(() {});
-  }
-
-  void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query.toLowerCase();
-    });
   }
 
   List<UserDBISAR> _filterContacts(List<UserDBISAR> contacts) {
@@ -91,11 +86,12 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
     if (_showFavoritesOnly) {
       list = list.where((c) => _favService.isFavorite(c.pubKey)).toList();
     }
-    if (_searchQuery.isEmpty) return list;
+    final query = searchQuery.toLowerCase();
+    if (query.isEmpty) return list;
     return list.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final displayName = contact.displayName().toLowerCase();
-      return name.contains(_searchQuery) || displayName.contains(_searchQuery);
+      return name.contains(query) || displayName.contains(query);
     }).toList();
   }
 
@@ -129,9 +125,8 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
     return DesktopPageWrapper(
       title: 'Contacts',
       trailing: DesktopSearchBar(
-        controller: _searchController,
+        controller: searchController,
         hintText: 'Search...',
-        onChanged: _onSearchChanged,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -147,20 +142,20 @@ class _DesktopContactsPageState extends State<DesktopContactsPage> {
                   )
                 : !hasResults
                     ? Center(
-                        child: _selectedGroupId != null && _searchQuery.isEmpty
+                        child: _selectedGroupId != null && searchQuery.isEmpty
                             ? const EmptySearchState(
                                 title: 'No contacts in this group',
                                 subtitle: 'Add contacts to the group from the group detail page',
                                 icon: Icons.people_outline,
                               )
                             : EmptySearchState(
-                                title: _searchQuery.isNotEmpty
+                                title: searchQuery.isNotEmpty
                                     ? 'No results found'
                                     : 'No favorite contacts',
-                                subtitle: _showFavoritesOnly && _searchQuery.isEmpty
+                                subtitle: _showFavoritesOnly && searchQuery.isEmpty
                                     ? 'Add contacts to favorites from their profile'
                                     : 'Try a different search term',
-                                icon: _showFavoritesOnly && _searchQuery.isEmpty
+                                icon: _showFavoritesOnly && searchQuery.isEmpty
                                     ? Icons.star_border
                                     : Icons.contacts_outlined,
                               ),
