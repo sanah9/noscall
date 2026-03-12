@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCIceCandidate, RTCIceConnectionState;
 import 'package:nostr_core_dart/nostr.dart';
@@ -9,6 +8,9 @@ import 'package:uuid/uuid.dart';
 
 import 'package:noscall/core/core.dart';
 import 'callkeep_manager.dart';
+import 'call_connectivity_listener.dart';
+import 'call_duration_tracker.dart';
+import 'call_invite_timeout.dart';
 import 'constant/call_type.dart';
 import 'web_rtc_handler.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
@@ -59,7 +61,6 @@ class CallingController {
         isFrontCamera = ValueNotifier(isFrontCamera),
         isAccepting = ValueNotifier(false),
         isHangingUp = ValueNotifier(false),
-        connectedDuration = ValueNotifier(Duration.zero),
         sessionId = sessionId.isNotEmpty ? sessionId : user.pubKey;
 
   UserDBISAR user;
@@ -85,12 +86,11 @@ class CallingController {
   ValueNotifier<bool> isAccepting;
   ValueNotifier<bool> isHangingUp;
 
-  ValueNotifier<Duration> connectedDuration;
-  final connectedStopwatch = Stopwatch();
-  late Timer connectedTimer;
-  Timer? _inviteTimeoutTimer;
+  late final CallDurationTracker _durationTracker;
+  late final CallInviteTimeout _inviteTimeout;
+  late final CallConnectivityListener _connectivityListener;
 
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  ValueNotifier<Duration> get connectedDuration => _durationTracker.duration;
 
   Function(String offerId)? disposeCallback;
 
@@ -146,21 +146,37 @@ class CallingController {
       onIceConnectionStateCallback: controller.onIceConnectionStateHandler,
     );
 
-    controller.connectedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      controller.connectedDuration.value = controller.connectedStopwatch.elapsed;
-    });
+    controller._durationTracker = CallDurationTracker();
+    controller._inviteTimeout = CallInviteTimeout();
+    controller._connectivityListener = CallConnectivityListener();
 
     controller.callStartTime = DateTime.now();
 
-    controller._startConnectivityListener();
+    controller._connectivityListener.start(
+      () {
+        LogUtils.info(
+          className: 'CallingController',
+          funcName: 'create',
+          message: 'Network disconnected, hanging up call',
+        );
+        controller.hangup(CallEndReason.networkDisconnected);
+      },
+      onError: (error) {
+        LogUtils.error(
+          className: 'CallingController',
+          funcName: 'create',
+          message: 'Connectivity listener error: $error',
+        );
+      },
+    );
 
     return controller;
   }
 
   void _dispose() async {
-    _inviteTimeoutTimer?.cancel();
-    connectedTimer.cancel();
-    _connectivitySubscription?.cancel();
+    _inviteTimeout.dispose();
+    _durationTracker.dispose();
+    _connectivityListener.dispose();
     webRTCHandler.dispose();
     disposeCallback?.call(await offerId);
   }
@@ -169,9 +185,7 @@ class CallingController {
     if (!offerIdCmp.isCompleted) return;
 
     final callId = await offerId;
-    final duration = connectedStopwatch.isRunning
-        ? connectedStopwatch.elapsed
-        : connectedDuration.value;
+    final duration = _durationTracker.elapsed;
 
     CallDirection direction;
     CallStatus status;
@@ -260,11 +274,9 @@ extension CallingControllerUserActionEx on CallingController {
 
 extension CallingControllerSignalingEx on CallingController {
   Future<bool> invitePeer({Function? timeoutHandler}) async {
-    // Cancel any existing timeout timer
-    _inviteTimeoutTimer?.cancel();
+    _inviteTimeout.cancel();
 
-    // Create and save timeout timer reference
-    _inviteTimeoutTimer = Timer(const Duration(seconds: 60), () {
+    _inviteTimeout.start(const Duration(seconds: 60), () {
       if (!hasConnected.value && state.value != CallingState.ended) {
         timeoutHandler?.call();
         _recordCallHistory(CallEndReason.timeout.value);
@@ -273,7 +285,7 @@ extension CallingControllerSignalingEx on CallingController {
 
     var offerId = await _sendOffer();
     if (offerId == null || offerId.isEmpty) {
-      _inviteTimeoutTimer?.cancel();
+      _inviteTimeout.cancel();
       LogUtils.error(
         className: 'CallingController',
         funcName: 'invitePeer',
@@ -301,7 +313,7 @@ extension CallingControllerSignalingEx on CallingController {
       _ => reason,
     };
 
-    connectedStopwatch.stop();
+    _durationTracker.stop();
     await _recordCallHistory(finalReason.value);
     state.value = CallingState.ended;
 
@@ -674,40 +686,18 @@ extension CallingControllerNostrSignalingEx on CallingController {
   void signalingDisconnectCallbackHandler() async {
     LogUtils.info(
       className: 'CallingController',
-      funcName: 'signalingAnswerCallbackHandler',
+      funcName: 'signalingDisconnectCallbackHandler',
       message: '[receive disconnect]',
     );
     if (state.value == CallingState.ended) return;
 
-    connectedStopwatch.stop();
+    _durationTracker.stop();
     await _recordCallHistory(CallEndReason.disconnect.value);
     state.value = CallingState.ended;
 
     callKeepManager?.endCall(await callId);
     await webRTCHandler.close();
     _dispose();
-  }
-
-  void _startConnectivityListener() {
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-          (List<ConnectivityResult> results) {
-        if (results.every((result) => result == ConnectivityResult.none)) {
-          LogUtils.info(
-            className: 'CallingController',
-            funcName: '_startConnectivityListener',
-            message: 'Network disconnected, hanging up call',
-          );
-          hangup(CallEndReason.networkDisconnected);
-        }
-      },
-      onError: (error) {
-        LogUtils.error(
-          className: 'CallingController',
-          funcName: '_startConnectivityListener',
-          message: 'Connectivity listener error: $error',
-        );
-      },
-    );
   }
 }
 
@@ -731,7 +721,7 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
       case RTCIceConnectionState.RTCIceConnectionStateConnected:
         hasConnected.value = true;
         state.value = CallingState.connected;
-        connectedStopwatch.start();
+        _durationTracker.start();
         webRTCHandler.setSpeakerType(speakerType.value);
         break;
       case RTCIceConnectionState.RTCIceConnectionStateFailed:
