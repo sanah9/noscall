@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account+relay.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/setting/widgets/crud_entry_dialog.dart';
+import 'package:noscall/setting/widgets/crud_list_tile_card.dart';
 import 'package:noscall/utils/toast.dart';
 
 Color _connectedGreen(BuildContext context) {
@@ -24,8 +25,8 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
   List<String> _relays = [];
   List<String> _defaultRelays = [];
   bool _isLoading = false;
-  Map<String, bool> _testingRelays = {};
-  Map<String, bool> _testResults = {};
+  final Map<String, bool> _testingRelays = {};
+  final Map<String, bool> _testResults = {};
 
   @override
   void initState() {
@@ -115,35 +116,13 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
   }
 
   Future<void> _addRelay() async {
-    final TextEditingController controller = TextEditingController();
-    final result = await showDialog<String>(
+    final result = await showCrudEntryDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Relay'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Enter relay URL (e.g., wss://relay.example.com)',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final url = controller.text.trim();
-              if (url.isNotEmpty) {
-                Navigator.of(context).pop(url);
-              }
-            },
-            child: const Text('Test & Add'),
-          ),
-        ],
-      ),
+      title: 'Add Relay',
+      hintText: 'Enter relay URL (e.g., wss://relay.example.com)',
+      initialValue: '',
+      confirmLabel: 'Test & Add',
+      cancelLabel: 'Cancel',
     );
 
     if (result != null && result.isNotEmpty) {
@@ -205,36 +184,13 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
 
   Future<void> _editRelay(int index) async {
     final oldRelay = _relays[index];
-    final TextEditingController controller = TextEditingController(text: oldRelay);
-    
-    final result = await showDialog<String>(
+    final result = await showCrudEntryDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Relay'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Enter relay URL',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final url = controller.text.trim();
-              if (url.isNotEmpty) {
-                Navigator.of(context).pop(url);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      title: 'Edit Relay',
+      hintText: 'Enter relay URL',
+      initialValue: oldRelay,
+      confirmLabel: 'Save',
+      cancelLabel: 'Cancel',
     );
 
     if (result != null && result.isNotEmpty) {
@@ -538,131 +494,95 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: _relays.length,
-      itemBuilder: (context, index) => _buildRelayItem(
-        context,
-        theme,
-        colorScheme,
-        index,
-      ),
+      itemBuilder: (context, index) {
+        final relay = _relays[index];
+        final socket = Connect.sharedInstance.webSockets[relay];
+        final status = socket?.connectStatus ?? 3;
+        final isConnected = status == 1;
+        final isTesting = _testingRelays[relay] ?? false;
+        final testResult = _testResults[relay];
+        final statusText = _getStatusText(status, isTesting);
+        return _RelayListTile(
+          relay: relay,
+          statusText: statusText,
+          isConnected: isConnected,
+          isTesting: isTesting,
+          testResult: testResult,
+          onEdit: () => _editRelay(index),
+          onDelete: () => _deleteRelay(index),
+        );
+      },
     );
   }
 
-  Widget _buildRelayItem(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-    int index,
-  ) {
-    final relay = _relays[index];
-    final socket = Connect.sharedInstance.webSockets[relay];
-    final status = socket?.connectStatus ?? 3;
-    final isConnected = status == 1;
-    final isTesting = _testingRelays[relay] ?? false;
-    final testResult = _testResults[relay];
-    final statusText = _getStatusText(status, isTesting);
+  String _getStatusText(int status, bool isTesting) {
+    if (isTesting) return 'Testing connection...';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-          width: 1,
-        ),
+    switch (status) {
+      case 0:
+        return 'Connecting...';
+      case 1:
+        return 'Connected';
+      case 2:
+        return 'Closing...';
+      case 3:
+      default:
+        return 'Disconnected';
+    }
+  }
+}
+
+/// List tile for a single relay: status indicator, title, subtitle, edit/delete.
+class _RelayListTile extends StatelessWidget {
+  const _RelayListTile({
+    required this.relay,
+    required this.statusText,
+    required this.isConnected,
+    required this.isTesting,
+    this.testResult,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String relay;
+  final String statusText;
+  final bool isConnected;
+  final bool isTesting;
+  final bool? testResult;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return CrudListTileCard(
+      leading: _RelayStatusIndicator(
+        isConnected: isConnected,
+        isTesting: isTesting,
+        testResult: testResult,
       ),
-      color: colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        child: Row(
-          children: [
-            _buildStatusIndicator(
-              isConnected,
-              isTesting,
-              testResult,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    relay,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    statusText,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isConnected
-                          ? _connectedGreen(context)
-                          : colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            _buildActionButton(
-              icon: Icons.edit_outlined,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              iconColor: colorScheme.onSurfaceVariant,
-              onPressed: () => _editRelay(index),
-              tooltip: 'Edit',
-            ),
-            const SizedBox(width: 12),
-            _buildActionButton(
-              icon: Icons.delete_outlined,
-              backgroundColor: colorScheme.errorContainer,
-              iconColor: colorScheme.error,
-              onPressed: () => _deleteRelay(index),
-              tooltip: 'Delete',
-            ),
-          ],
-        ),
-      ),
+      title: relay,
+      subtitle: statusText,
+      subtitleColor: isConnected ? _connectedGreen(context) : null,
+      onEdit: onEdit,
+      onDelete: onDelete,
     );
   }
+}
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color backgroundColor,
-    required Color iconColor,
-    required VoidCallback onPressed,
-    String? tooltip,
-  }) {
-    return Material(
-      color: backgroundColor.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(20),
-        child: Tooltip(
-          message: tooltip ?? '',
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
-        ),
-      ),
-    );
-  }
+/// Status indicator: spinner when testing, circle when connected/disconnected/failed.
+class _RelayStatusIndicator extends StatelessWidget {
+  const _RelayStatusIndicator({
+    required this.isConnected,
+    required this.isTesting,
+    this.testResult,
+  });
 
-  Widget _buildStatusIndicator(
-    bool isConnected,
-    bool isTesting,
-    bool? testResult,
-  ) {
-    final context = this.context;
+  final bool isConnected;
+  final bool isTesting;
+  final bool? testResult;
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (isTesting) {
@@ -676,7 +596,6 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
       );
     }
 
-    // Circle with inner dot: green when connected, error when failed, outline when disconnected
     final bool showError = testResult == false;
     final Color tintColor = showError
         ? colorScheme.error
@@ -693,10 +612,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: tintColor,
-              width: 2,
-            ),
+            border: Border.all(color: tintColor, width: 2),
           ),
           child: Center(
             child: Container(
@@ -711,22 +627,6 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
         ),
       ),
     );
-  }
-
-  String _getStatusText(int status, bool isTesting) {
-    if (isTesting) return 'Testing connection...';
-    
-    switch (status) {
-      case 0:
-        return 'Connecting...';
-      case 1:
-        return 'Connected';
-      case 2:
-        return 'Closing...';
-      case 3:
-      default:
-        return 'Disconnected';
-    }
   }
 }
 

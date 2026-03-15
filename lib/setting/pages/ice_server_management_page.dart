@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/call/ice_server_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/setting/widgets/crud_entry_dialog.dart';
+import 'package:noscall/setting/widgets/crud_list_tile_card.dart';
 import 'package:noscall/utils/toast.dart';
 
 class IceServerManagementPage extends StatefulWidget {
@@ -131,49 +133,25 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
   }
 
   Future<void> _addServer() async {
-    final TextEditingController controller = TextEditingController();
-    final result = await showDialog<String>(
+    const examplesText = 'Examples:\n'
+        '• stun:stun.l.google.com:19302\n'
+        '• turn:username:password@turn.example.com:3478';
+    final theme = Theme.of(context);
+    final result = await showCrudEntryDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add ICE Server'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'Enter ICE server URL',
-                border: OutlineInputBorder(),
-                helperText: 'Format: stun:host:port or turn:user:pass@host:port',
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Examples:\n'
-              '• stun:stun.l.google.com:19302\n'
-              '• turn:username:password@turn.example.com:3478',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+      title: 'Add ICE Server',
+      hintText: 'Enter ICE server URL',
+      helperText: 'Format: stun:host:port or turn:user:pass@host:port',
+      trailing: Text(
+        examplesText,
+        style: TextStyle(
+          fontSize: 12,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final url = controller.text.trim();
-              if (url.isNotEmpty) {
-                Navigator.of(context).pop(url);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
+      initialValue: '',
+      confirmLabel: 'Add',
+      cancelLabel: 'Cancel',
     );
 
     if (result != null && result.isNotEmpty) {
@@ -207,43 +185,14 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
 
   Future<void> _editServer(int index) async {
     final oldServer = _iceServers[index];
-    final TextEditingController controller = TextEditingController(text: oldServer.url);
-
-    final result = await showDialog<String>(
+    final result = await showCrudEntryDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit ICE Server'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'Enter ICE server URL',
-                border: OutlineInputBorder(),
-                helperText: 'Format: stun:host:port or turn:user:pass@host:port',
-              ),
-              autofocus: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final url = controller.text.trim();
-              if (url.isNotEmpty) {
-                Navigator.of(context).pop(url);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      title: 'Edit ICE Server',
+      hintText: 'Enter ICE server URL',
+      helperText: 'Format: stun:host:port or turn:user:pass@host:port',
+      initialValue: oldServer.url,
+      confirmLabel: 'Save',
+      cancelLabel: 'Cancel',
     );
 
     if (result != null && result.isNotEmpty) {
@@ -553,126 +502,60 @@ class _IceServerManagementPageState extends State<IceServerManagementPage> {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: _iceServers.length,
-      itemBuilder: (context, index) => _buildServerItem(
-        context,
-        theme,
-        colorScheme,
-        index,
-      ),
+      itemBuilder: (context, index) {
+        final server = _iceServers[index];
+        return _IceServerListTile(
+          server: server,
+          displayUrl: _getServerDisplayUrl(server),
+          subtitle: server.isTurnAddress
+              ? '${_getServerType(server)} · ${server.username}'
+              : _getServerType(server),
+          onEdit: () => _editServer(index),
+          onDelete: () => _deleteServer(index),
+        );
+      },
     );
   }
+}
 
-  Widget _buildServerItem(
-    BuildContext context,
-    ThemeData theme,
-    ColorScheme colorScheme,
-    int index,
-  ) {
-    final server = _iceServers[index];
-    final serverType = _getServerType(server);
-    final displayUrl = _getServerDisplayUrl(server);
+/// List tile for a single ICE server: icon, display URL, type subtitle, edit/delete.
+class _IceServerListTile extends StatelessWidget {
+  const _IceServerListTile({
+    required this.server,
+    required this.displayUrl,
+    required this.subtitle,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
-          width: 1,
-        ),
+  final ICEServerModel server;
+  final String displayUrl;
+  final String subtitle;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final leading = Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+        shape: BoxShape.circle,
       ),
-      color: colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                server.isTurnAddress ? Icons.swap_horiz : Icons.dns,
-                size: 16,
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    displayUrl,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    server.isTurnAddress
-                        ? '$serverType · ${server.username}'
-                        : serverType,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            _buildActionButton(
-              icon: Icons.edit_outlined,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              iconColor: colorScheme.onSurfaceVariant,
-              onPressed: () => _editServer(index),
-              tooltip: 'Edit',
-            ),
-            const SizedBox(width: 12),
-            _buildActionButton(
-              icon: Icons.delete_outlined,
-              backgroundColor: colorScheme.errorContainer,
-              iconColor: colorScheme.error,
-              onPressed: () => _deleteServer(index),
-              tooltip: 'Delete',
-            ),
-          ],
-        ),
+      child: Icon(
+        server.isTurnAddress ? Icons.swap_horiz : Icons.dns,
+        size: 16,
+        color: colorScheme.onPrimaryContainer,
       ),
     );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color backgroundColor,
-    required Color iconColor,
-    required VoidCallback onPressed,
-    String? tooltip,
-  }) {
-    return Material(
-      color: backgroundColor.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(20),
-        child: Tooltip(
-          message: tooltip ?? '',
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Icon(icon, size: 20, color: iconColor),
-          ),
-        ),
-      ),
+    return CrudListTileCard(
+      leading: leading,
+      title: displayUrl,
+      subtitle: subtitle,
+      onEdit: onEdit,
+      onDelete: onDelete,
     );
   }
 }
