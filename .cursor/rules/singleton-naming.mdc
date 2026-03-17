@@ -1,0 +1,26 @@
+---
+description: Singleton accessor naming convention for Dart/Flutter
+globs: "**/*.dart"
+alwaysApply: false
+---
+
+# Singleton Naming
+
+## Convention for new code
+
+Use **one** consistent style for singleton/shared-instance accessors across the codebase:
+
+- **Recommended: `.instance`** — e.g. `CallKitManager.instance`, `VoiceCacheManager.instance`
+- **Alternative: `.shared`** — e.g. `ICEServerManager.shared`, `Connect.sharedInstance` (if standardizing on `.shared`, prefer the shorter name)
+
+Do **not** introduce new mix of `.instance`, `.shared`, and `.sharedInstance` in new code.
+
+## Legacy code
+
+Existing code may still use `.sharedInstance`, `.shared`, or `.instance`. When you **touch a file** that uses a different style, consider aligning it to the chosen convention for that module or file. No need to do a one-time global rename—opportunistic updates reduce regression risk.
+
+## Reference (current codebase mix, for context)
+
+- `.instance`: `CallKitManager.instance`, `VoiceCacheManager.instance`
+- `.shared`: `ICEServerManager.shared`
+- `.sharedInstance`: `Connect.sharedInstance`, `Account.sharedInstance`, `Contacts.sharedInstance`, `Relays.sharedInstance`, `ThreadPoolManager.sharedInstance`
