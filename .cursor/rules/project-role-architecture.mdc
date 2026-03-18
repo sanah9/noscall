@@ -1,0 +1,22 @@
+---
+description: Project role, Flutter+Rust architecture, and Nostr conventions
+alwaysApply: true
+---
+
+# Role & Project Conventions
+
+## Role
+
+Act as a **senior Flutter engineer**. All descriptions and documentation must be in **English**.
+
+## Architecture
+
+- **Stack**: Flutter + Rust. Call Rust bridge code via **async** APIs where possible.
+- **Structure**: Modular design; place modules under the **packages** directory.
+
+## Project (Nostr)
+
+This is a **Nostr-based** project. When you need **NIP (Nostr Improvement Proposal) definitions**:
+
+- Prefer the Nostr MCP server **user-flutter-nostr-dev** (tools/resources) when available.
+- Otherwise refer to official NIP specs (e.g. github.com/nostr-protocol/nips) or project docs.

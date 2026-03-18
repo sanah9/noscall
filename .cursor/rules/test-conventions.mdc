@@ -1,0 +1,9 @@
+---
+description: Unit test requirement for every service
+alwaysApply: true
+---
+
+# Test Conventions
+
+- **Every service** must have **unit tests**.
+- When adding or changing a service, add or update the corresponding unit tests in the test suite.

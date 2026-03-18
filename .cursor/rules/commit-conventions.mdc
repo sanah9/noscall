@@ -1,0 +1,18 @@
+---
+description: Git commit message conventions (conventional commits)
+alwaysApply: true
+---
+
+# Commit Conventions
+
+Use **conventional commit** prefixes for all commits:
+
+| Prefix      | Use for                          |
+|------------|-----------------------------------|
+| `feat`     | New feature                       |
+| `fix`      | Bug fix                           |
+| `refactor` | Code refactor (no behavior change)|
+| `doc`      | Documentation only                |
+| `test`     | Adding or updating tests          |
+
+Example: `feat: add NIP-04 encrypted DM support`
