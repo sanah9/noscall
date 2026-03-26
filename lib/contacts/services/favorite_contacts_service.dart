@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:noscall/core/common/storage/preferences_store.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 class FavoriteContactsService {
   FavoriteContactsService._internal();
@@ -8,6 +9,7 @@ class FavoriteContactsService {
   static final FavoriteContactsService _instance = FavoriteContactsService._internal();
 
   static const String _keyFavorites = 'noscall_favorite_contact_pubkeys';
+  final PreferencesStore _prefs = PreferencesStore.shared;
 
   final ValueNotifier<Set<String>> favoritePubkeysNotifier =
       ValueNotifier<Set<String>>({});
@@ -17,8 +19,7 @@ class FavoriteContactsService {
   bool isFavorite(String pubkey) => favoritePubkeys.contains(pubkey);
 
   Future<void> initialize() async {
-    final prefs = await SharedPreferences.getInstance();
-    final json = prefs.getString(_keyFavorites);
+    final json = await _prefs.getString(_keyFavorites);
     if (json == null || json.isEmpty) {
       favoritePubkeysNotifier.value = {};
       return;
@@ -27,17 +28,19 @@ class FavoriteContactsService {
       final list = jsonDecode(json) as List<dynamic>?;
       favoritePubkeysNotifier.value =
           (list ?? []).map((e) => e.toString()).toSet();
-    } catch (_) {
+    } catch (e, stack) {
+      LogUtils.e(() => 'FavoriteContactsService.initialize failed: $e, $stack');
       favoritePubkeysNotifier.value = {};
     }
   }
 
   Future<void> _save(Set<String> set) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyFavorites, jsonEncode(set.toList()));
+    final ok = await _prefs.setString(_keyFavorites, jsonEncode(set.toList()));
+    if (ok) {
       favoritePubkeysNotifier.value = Set.from(set);
-    } catch (_) {}
+    } else {
+      LogUtils.w(() => 'FavoriteContactsService._save failed');
+    }
   }
 
   Future<void> addFavorite(String pubkey) async {

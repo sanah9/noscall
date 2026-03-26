@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:noscall/core/common/storage/preferences_store.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 /// Theme mode options
 enum ThemeModeOption {
@@ -29,6 +30,7 @@ class ThemeService {
 
   static const String _themeModeKey = 'noscall_theme_mode';
   static const String _seedColorKey = 'noscall_seed_color';
+  final PreferencesStore _prefs = PreferencesStore.shared;
 
   final ValueNotifier<ThemeModeOption> themeModeNotifier =
       ValueNotifier<ThemeModeOption>(ThemeModeOption.system);
@@ -42,7 +44,8 @@ class ThemeService {
       themeModeNotifier.value = savedMode;
       final savedColor = await getSeedColorValue();
       seedColorValueNotifier.value = savedColor;
-    } catch (e) {
+    } catch (e, stack) {
+      LogUtils.e(() => 'ThemeService.initialize failed: $e, $stack');
       themeModeNotifier.value = ThemeModeOption.system;
       seedColorValueNotifier.value = kDefaultSeedColorValue;
     }
@@ -51,8 +54,7 @@ class ThemeService {
   /// Get the saved theme mode preference
   Future<ThemeModeOption> getThemeMode() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final modeString = prefs.getString(_themeModeKey);
+      final modeString = await _prefs.getString(_themeModeKey);
       if (modeString == null) {
         return ThemeModeOption.system;
       }
@@ -60,40 +62,36 @@ class ThemeService {
         (mode) => mode.toString() == modeString,
         orElse: () => ThemeModeOption.system,
       );
-    } catch (e) {
+    } catch (e, stack) {
+      LogUtils.e(() => 'ThemeService.getThemeMode failed: $e, $stack');
       return ThemeModeOption.system;
     }
   }
 
   /// Set and save the theme mode preference
   Future<void> setThemeMode(ThemeModeOption mode) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_themeModeKey, mode.toString());
+    final ok = await _prefs.setString(_themeModeKey, mode.toString());
+    if (ok) {
       themeModeNotifier.value = mode;
-    } catch (e) {
-      // Silently fail - theme preference is not critical
+    } else {
+      LogUtils.w(() => 'ThemeService.setThemeMode failed to persist');
     }
   }
 
   /// Get saved seed color value (ARGB int)
   Future<int> getSeedColorValue() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final v = prefs.getInt(_seedColorKey);
-      return v ?? kDefaultSeedColorValue;
-    } catch (e) {
-      return kDefaultSeedColorValue;
-    }
+    final v = await _prefs.getInt(_seedColorKey);
+    return v ?? kDefaultSeedColorValue;
   }
 
   /// Set and save seed color (ARGB int)
   Future<void> setSeedColorValue(int value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_seedColorKey, value);
+    final ok = await _prefs.setInt(_seedColorKey, value);
+    if (ok) {
       seedColorValueNotifier.value = value;
-    } catch (e) {}
+    } else {
+      LogUtils.w(() => 'ThemeService.setSeedColorValue failed to persist');
+    }
   }
 
   /// Convert ThemeModeOption to Flutter's ThemeMode

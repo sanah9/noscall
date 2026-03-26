@@ -89,11 +89,19 @@ class CallKeepManager {
     });
 
     _callKeep.on<CallKeepDidActivateAudioSession>((_) {
-      NativeMethodChannel.audioSessionDidActivate();
+      unawaited(
+        NativeMethodChannel.audioSessionDidActivate().catchError((Object e, StackTrace stack) {
+          LogUtils.e(() => 'CallKeepManager: audioSessionDidActivate failed: $e, $stack');
+        }),
+      );
     });
 
     _callKeep.on<CallKeepDidDeactivateAudioSession>((_) {
-      NativeMethodChannel.audioSessionDidDeactivate();
+      unawaited(
+        NativeMethodChannel.audioSessionDidDeactivate().catchError((Object e, StackTrace stack) {
+          LogUtils.e(() => 'CallKeepManager: audioSessionDidDeactivate failed: $e, $stack');
+        }),
+      );
     });
   }
 

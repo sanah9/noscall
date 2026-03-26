@@ -73,7 +73,7 @@ class WebRTCHandler {
     await prepareMedia();
     prepareForSdpSemantics();
     prepareCallback();
-    NativeMethodChannel.useManualAudio();
+    await NativeMethodChannel.useManualAudio();
   }
 
   Future preparePeerConnection() async {

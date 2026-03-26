@@ -1,5 +1,5 @@
 import 'package:noscall/core/common/utils/log_utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:noscall/core/common/storage/preferences_store.dart';
 
 /// Service for managing VoIP push notification tokens
 /// 
@@ -15,6 +15,7 @@ class PushTokenService {
 
   // Key for storing the last uploaded token (only for change detection)
   static const String _lastUploadedTokenKey = 'noscall_voip_last_uploaded_token';
+  final PreferencesStore _prefs = PreferencesStore.shared;
 
   /// Upload VoIP push token to server
   /// 
@@ -36,7 +37,8 @@ class PushTokenService {
     }
 
     try {
-      LogUtils.i(() => 'PushTokenService: Uploading VoIP token: ${token.substring(0, 20)}...');
+      final previewLength = token.length < 20 ? token.length : 20;
+      LogUtils.i(() => 'PushTokenService: Uploading VoIP token: ${token.substring(0, previewLength)}...');
 
       // TODO: Implement VoIP token upload to server
       // 
@@ -95,12 +97,11 @@ class PushTokenService {
   /// According to Apple's best practices, we only persist the "last uploaded token"
   /// for change detection, not for storage purposes. The server is the source of truth.
   Future<void> _markTokenAsUploaded(String token) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_lastUploadedTokenKey, token);
+    final ok = await _prefs.setString(_lastUploadedTokenKey, token);
+    if (ok) {
       LogUtils.v(() => 'PushTokenService: Token marked as uploaded (for change detection)');
-    } catch (e) {
-      LogUtils.e(() => 'PushTokenService: Failed to mark token as uploaded: $e');
+    } else {
+      LogUtils.e(() => 'PushTokenService: Failed to mark token as uploaded');
     }
   }
 
@@ -109,13 +110,7 @@ class PushTokenService {
   /// This is NOT for retrieving the token for use.
   /// It's only used to detect if the token has changed since last upload.
   Future<String?> getLastUploadedToken() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_lastUploadedTokenKey);
-    } catch (e) {
-      LogUtils.e(() => 'PushTokenService: Failed to get last uploaded token: $e');
-      return null;
-    }
+    return _prefs.getString(_lastUploadedTokenKey);
   }
 
   /// Check if token needs to be uploaded (token changed)
@@ -142,12 +137,11 @@ class PushTokenService {
   /// 
   /// This ensures that token is re-uploaded for the next user session.
   Future<void> clearVoIPToken() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_lastUploadedTokenKey);
+    final ok = await _prefs.remove(_lastUploadedTokenKey);
+    if (ok) {
       LogUtils.i(() => 'PushTokenService: VoIP token data cleared');
-    } catch (e) {
-      LogUtils.e(() => 'PushTokenService: Failed to clear VoIP token data: $e');
+    } else {
+      LogUtils.e(() => 'PushTokenService: Failed to clear VoIP token data');
     }
   }
 }

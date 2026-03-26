@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:noscall/core/common/storage/preferences_store.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 /// Text scale factor for accessibility. null = use system default.
 class AccessibilityService {
@@ -9,6 +10,7 @@ class AccessibilityService {
       AccessibilityService._internal();
 
   static const String _keyTextScale = 'noscall_text_scale_factor';
+  final PreferencesStore _prefs = PreferencesStore.shared;
 
   final ValueNotifier<double?> textScaleFactorNotifier =
       ValueNotifier<double?>(null);
@@ -16,27 +18,18 @@ class AccessibilityService {
   double? get textScaleFactor => textScaleFactorNotifier.value;
 
   Future<void> initialize() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final v = prefs.getDouble(_keyTextScale);
-      textScaleFactorNotifier.value = v;
-    } catch (e) {
-      if (kDebugMode) {
-        print('AccessibilityService init error: $e');
-      }
-    }
+    textScaleFactorNotifier.value = await _prefs.getDouble(_keyTextScale);
   }
 
   Future<void> setTextScaleFactor(double? value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (value == null) {
-        await prefs.remove(_keyTextScale);
-      } else {
-        await prefs.setDouble(_keyTextScale, value);
-      }
+    final ok = value == null
+        ? await _prefs.remove(_keyTextScale)
+        : await _prefs.setDouble(_keyTextScale, value);
+    if (ok) {
       textScaleFactorNotifier.value = value;
-    } catch (_) {}
+    } else {
+      LogUtils.w(() => 'AccessibilityService.setTextScaleFactor failed');
+    }
   }
 
   void dispose() {
