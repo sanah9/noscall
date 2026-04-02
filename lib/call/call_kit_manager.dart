@@ -101,7 +101,7 @@ class CallKitManager with WidgetsBindingObserver {
 
   Future<void> initRTC() async {
     try {
-      // Initialize CallKeep
+      // System call UI integration remains mobile-only for now.
       if (Platform.isIOS) {
         _callKeepManager = CallKeepManager();
       }
@@ -120,6 +120,8 @@ class CallKitManager with WidgetsBindingObserver {
       if (Platform.isIOS) {
         _voipPushService = VoIPPushService();
         await _voipPushService?.initialize(this);
+      } else if (Platform.isWindows) {
+        LogUtils.i(() => 'CallKitManager: Windows desktop uses in-app call UI only');
       }
 
       // Initialize PiP manager

@@ -24,7 +24,13 @@ class CallKeepManager {
   bool get isVideoEnabled => _isVideoEnabled;
   Stream<Map<String, dynamic>> get callEventStream => _callEventController.stream;
 
+  bool get _isSupportedPlatform => Platform.isIOS || Platform.isAndroid;
+
   Future<void> initialize() async {
+    if (!_isSupportedPlatform) {
+      LogUtils.i(() => 'CallKeepManager: System call UI is not supported on ${Platform.operatingSystem}');
+      return;
+    }
     try {
       await _callKeep.setup(
         options: {
@@ -106,6 +112,10 @@ class CallKeepManager {
   }
 
   Future<void> displayIncomingCall(String callId, String callerName, {bool hasVideo = false}) async {
+    if (!_isSupportedPlatform) {
+      LogUtils.i(() => 'CallKeepManager: Skipping incoming call UI on ${Platform.operatingSystem}');
+      return;
+    }
     try {
       _currentCallId = callId;
       _currentCallerName = callerName;
@@ -125,6 +135,10 @@ class CallKeepManager {
   }
 
   Future<void> startCall(String callId, String calleeName, {bool hasVideo = false}) async {
+    if (!_isSupportedPlatform) {
+      LogUtils.i(() => 'CallKeepManager: Skipping outgoing system call UI on ${Platform.operatingSystem}');
+      return;
+    }
     try {
       _currentCallId = callId;
       _currentCallerName = calleeName;
@@ -145,6 +159,9 @@ class CallKeepManager {
   }
 
   Future<void> endCall(String callId) async {
+    if (!_isSupportedPlatform) {
+      return;
+    }
     try {
       await _callKeep.endCall(callId);
       LogUtils.i(() => 'callkepp: Call ended: $callId');
@@ -156,6 +173,9 @@ class CallKeepManager {
   }
 
   Future<void> answerCall(String callId) async {
+    if (!_isSupportedPlatform) {
+      return;
+    }
     try {
       await _callKeep.answerIncomingCall(callId);
       LogUtils.i(() => 'CallKeepManager: Call answered: $callId');
@@ -166,6 +186,9 @@ class CallKeepManager {
   }
 
   Future<void> rejectCall(String callId) async {
+    if (!_isSupportedPlatform) {
+      return;
+    }
     try {
       await _callKeep.endCall(callId);
       LogUtils.i(() => 'CallKeepManager: Call rejected: $callId');
@@ -177,6 +200,9 @@ class CallKeepManager {
   }
 
   Future<void> setMutedCall(String callId, bool shouldMute) async {
+    if (!_isSupportedPlatform) {
+      return;
+    }
     await _callKeep.setMutedCall(uuid: callId, shouldMute: shouldMute);
   }
 
