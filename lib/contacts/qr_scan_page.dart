@@ -1,7 +1,11 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/utils/snackbar_helper.dart';
 
 class QRScanPage extends StatefulWidget {
   const QRScanPage({super.key});
@@ -11,22 +15,35 @@ class QRScanPage extends StatefulWidget {
 }
 
 class _QRScanPageState extends State<QRScanPage> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
-    facing: CameraFacing.back,
-  );
+  MobileScannerController? _controller;
+  final TextEditingController _manualController = TextEditingController();
 
   bool _hasScanned = false;
 
   late ThemeData theme;
-  ColorScheme get colorScheme => theme.colorScheme;
-  Color get surface => theme.colorScheme.surface;
   Color get onSurface => theme.colorScheme.onSurface;
-  Color get primary => theme.colorScheme.primary;
+
+  /// [mobile_scanner] only registers iOS, Android, and macOS native targets.
+  bool get _supportsMobileScanner {
+    if (kIsWeb) return false;
+    return Platform.isIOS || Platform.isAndroid || Platform.isMacOS;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (_supportsMobileScanner) {
+      _controller = MobileScannerController(
+        detectionSpeed: DetectionSpeed.noDuplicates,
+        facing: CameraFacing.back,
+      );
+    }
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
+    _manualController.dispose();
     super.dispose();
   }
 
@@ -35,39 +52,94 @@ class _QRScanPageState extends State<QRScanPage> {
     theme = Theme.of(context);
     return Scaffold(
       appBar: _buildAppBar(context),
-      extendBodyBehindAppBar: true,
-      body: _buildScannerView(context),
+      extendBodyBehindAppBar: _supportsMobileScanner,
+      body: _supportsMobileScanner
+          ? _buildScannerView(context)
+          : _buildManualEntry(context),
     );
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    if (_supportsMobileScanner) {
+      return AppBar(
+        title: const Text('Scan QR Code'),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
+        ),
+      );
+    }
     return AppBar(
-      title: const Text('Scan QR Code'),
+      title: const Text('Enter QR / npub'),
       centerTitle: true,
-      backgroundColor: Colors.transparent,
-      foregroundColor: Colors.white,
-      elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () =>
-            AppNavigatorScope.requireOf(context).pop(context),
+        onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
       ),
     );
   }
 
+  Widget _buildManualEntry(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Camera scanning is not available on this platform. Paste an nprofile, npub, or other scanned text below.',
+              style: theme.textTheme.bodyMedium?.copyWith(color: onSurface),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _manualController,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'nprofile1… or npub1…',
+              ),
+              minLines: 2,
+              maxLines: 4,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submitManual(context),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => _submitManual(context),
+              child: const Text('Use text'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _submitManual(BuildContext context) {
+    final trimmed = _manualController.text.trim();
+    if (trimmed.isEmpty) {
+      AppSnackBar.warning(context, 'Please enter a value.');
+      return;
+    }
+    context.pop<String>(trimmed);
+  }
+
   Widget _buildScannerView(BuildContext context) {
+    final controller = _controller;
+    if (controller == null) {
+      return const SizedBox.shrink();
+    }
     return Stack(
       children: [
-        // Camera scanner
         MobileScanner(
-          controller: _controller,
+          controller: controller,
           onDetect: _onQRCodeDetected,
         ),
-        // Overlay with scanning frame
         Positioned.fill(
           child: _buildOverlay(context),
         ),
-        // Instructions
         Positioned(
           bottom: 50,
           left: 0,
@@ -110,12 +182,11 @@ class _QRScanPageState extends State<QRScanPage> {
     if (barcodes.isEmpty) return;
 
     final barcode = barcodes.first;
-    if (barcode.rawValue == null) return;
+    final raw = barcode.rawValue;
+    if (raw == null || raw.isEmpty) return;
 
     _hasScanned = true;
-
-    // Return the scanned value to previous page
-    AppNavigatorScope.requireOf(context).pop(context);
+    context.pop<String>(raw);
   }
 }
 
@@ -147,7 +218,7 @@ class _ScannerOverlayPainter extends CustomPainter {
           center: Offset(size.width / 2, size.height / 2),
           width: scanArea,
           height: scanArea,
-        ))
+        )),
       );
 
     final cutout = Path.combine(
@@ -158,7 +229,6 @@ class _ScannerOverlayPainter extends CustomPainter {
 
     canvas.drawPath(cutout, paint);
 
-    // Draw corner indicators
     final cornerPaint = Paint()
       ..color = cornerColor
       ..style = PaintingStyle.stroke
@@ -170,7 +240,6 @@ class _ScannerOverlayPainter extends CustomPainter {
       (size.height - scanArea) / 2,
     );
 
-    // Top-left corner
     canvas.drawLine(
       topLeft,
       Offset(topLeft.dx + cornerLength, topLeft.dy),
@@ -182,7 +251,6 @@ class _ScannerOverlayPainter extends CustomPainter {
       cornerPaint,
     );
 
-    // Top-right corner
     final topRight = Offset(
       (size.width + scanArea) / 2,
       (size.height - scanArea) / 2,
@@ -198,7 +266,6 @@ class _ScannerOverlayPainter extends CustomPainter {
       cornerPaint,
     );
 
-    // Bottom-left corner
     final bottomLeft = Offset(
       (size.width - scanArea) / 2,
       (size.height + scanArea) / 2,
@@ -214,7 +281,6 @@ class _ScannerOverlayPainter extends CustomPainter {
       cornerPaint,
     );
 
-    // Bottom-right corner
     final bottomRight = Offset(
       (size.width + scanArea) / 2,
       (size.height + scanArea) / 2,

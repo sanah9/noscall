@@ -120,8 +120,9 @@ class CallKitManager with WidgetsBindingObserver {
       if (Platform.isIOS) {
         _voipPushService = VoIPPushService();
         await _voipPushService?.initialize(this);
-      } else if (Platform.isWindows) {
-        LogUtils.i(() => 'CallKitManager: Windows desktop uses in-app call UI only');
+      } else if (Platform.isWindows || Platform.isLinux) {
+        LogUtils.i(() =>
+            'CallKitManager: ${Platform.isLinux ? 'Linux' : 'Windows'} desktop uses in-app call UI only');
       }
 
       // Initialize PiP manager

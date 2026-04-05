@@ -185,9 +185,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   }
 
   Future<void> _pickFromGallery() async {
+    // Android needs storage; iOS needs photos; desktop file pickers do not use these.
     final ok = Platform.isIOS
         ? await _ensurePermission(Permission.photos)
-        : await _ensurePermission(Permission.storage);
+        : Platform.isAndroid
+            ? await _ensurePermission(Permission.storage)
+            : true;
     if (!ok) return;
     try {
       final XFile? image = await _imagePicker.pickImage(
