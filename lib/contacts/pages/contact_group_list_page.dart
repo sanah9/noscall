@@ -129,7 +129,12 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
 
     // Existing group (id > 0): persist rename
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx < 0 || name.isEmpty || name == _groups[idx].name) return;
+    if (idx < 0) return;
+    if (name.isEmpty) {
+      controller.text = _groups[idx].name;
+      return;
+    }
+    if (name == _groups[idx].name) return;
     try {
       await _groupService.updateGroupName(groupId, name);
       if (!mounted) return;
@@ -144,10 +149,12 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
 
   void preCheckGroupsData() {
     bool isChanged = false;
+    // Only drop unsaved draft rows (negative id). Never drop persisted groups
+    // with empty text here — [Done] already reverts empty names for saved groups.
     _groups.removeWhere((g) {
-      final isInvalid = g.name.trim().isEmpty;
-      if (isInvalid) isChanged = true;
-      return isInvalid;
+      final isDraftEmpty = g.id < 0 && g.name.trim().isEmpty;
+      if (isDraftEmpty) isChanged = true;
+      return isDraftEmpty;
     });
     if (isChanged) {
       setState(() {});
@@ -201,7 +208,13 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
                     // Sync editing controller text back to group.name before save
                     for (final g in _groups) {
                       final c = _editingControllers[g.id];
-                      if (c != null) g.name = c.text.trim();
+                      if (c == null) continue;
+                      final trimmed = c.text.trim();
+                      if (g.id > 0 && trimmed.isEmpty) {
+                        c.text = g.name;
+                      } else {
+                        g.name = trimmed;
+                      }
                     }
                     preCheckGroupsData();
                     await _syncToDatabase();
@@ -219,9 +232,8 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
                       });
                     }
                   } catch (e) {
-                    if (mounted) {
-                      AppSnackBar.error(context, 'Failed to sync to database: $e');
-                    }
+                    if (!context.mounted) return;
+                    AppSnackBar.error(context, 'Failed to sync to database: $e');
                   }
                 },
               )
@@ -291,7 +303,7 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 200),
       child: _groups.isEmpty
-          ? const SizedBox.shrink()
+          ? _buildEmptyGroupsPlaceholder()
           : _buildSectionContainer(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,6 +337,41 @@ class _ContactGroupListPageState extends State<ContactGroupListPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildEmptyGroupsPlaceholder() {
+    return _buildSectionContainer(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: Column(
+          children: [
+            Icon(
+              Icons.folder_open_outlined,
+              size: 48,
+              color: onSurfaceVariant.withValues(alpha: 0.65),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No custom groups yet',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap + above to create a group, then add contacts from the group page.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

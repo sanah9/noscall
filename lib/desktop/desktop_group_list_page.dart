@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:noscall/contacts/models/contact_group_isar.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
+import 'package:noscall/utils/snackbar_helper.dart';
 import 'desktop_contacts_page.dart';
 import 'desktop_page_wrapper.dart';
 import 'package:noscall/contacts/pages/group_contacts_page.dart';
@@ -62,6 +63,51 @@ class _DesktopGroupListPageState extends State<DesktopGroupListPage> {
     });
   }
 
+  Future<void> _promptCreateGroup() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('New group'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Group name',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (_) => Navigator.of(context).pop(controller.text.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (!mounted || name == null) return;
+    if (name.isEmpty) {
+      AppSnackBar.warning(context, 'Enter a name to create a group.');
+      return;
+    }
+    try {
+      await _groupService.createGroup(name: name);
+      if (mounted) await _loadGroups();
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.error(context, 'Failed to create group: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -70,6 +116,11 @@ class _DesktopGroupListPageState extends State<DesktopGroupListPage> {
 
     return DesktopPageWrapper(
       title: 'Groups',
+      trailing: IconButton(
+        icon: const Icon(Icons.add),
+        tooltip: 'New group',
+        onPressed: _promptCreateGroup,
+      ),
       child: _isLoading
           ? Center(
               child: CircularProgressIndicator(color: colorScheme.primary),
@@ -87,7 +138,9 @@ class _DesktopGroupListPageState extends State<DesktopGroupListPage> {
                   subtitle: '$allContactsCount contacts',
                   onTap: _openAllContacts,
                 ),
-                if (_groups.isNotEmpty) ...[
+                if (_groups.isEmpty)
+                  _DesktopEmptyGroupsHint(colorScheme: colorScheme, theme: theme)
+                else ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
                     child: Text(
@@ -122,6 +175,62 @@ class _DesktopGroupListPageState extends State<DesktopGroupListPage> {
                 ],
               ],
             ),
+    );
+  }
+}
+
+class _DesktopEmptyGroupsHint extends StatelessWidget {
+  const _DesktopEmptyGroupsHint({
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withValues(alpha: 0.28),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            children: [
+              Icon(
+                Icons.folder_open_outlined,
+                size: 44,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No custom groups yet',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Use the + button above to create a group, then open it to add contacts.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

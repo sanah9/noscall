@@ -121,13 +121,16 @@ class _GroupContactsPageState extends State<GroupContactsPage>
         .map((pubKey) => Contacts.sharedInstance.allContacts[pubKey])
         .whereType<UserDBISAR>()
         .toList();
+    final orphanMemberCount = _contactPubKeys.length - contacts.length;
     final filteredContacts = _filterContacts(contacts);
     final hasContacts = contacts.isNotEmpty;
     final hasSearchResults = filteredContacts.isNotEmpty;
+    final hasOrphansOnly =
+        !_isLoading && contacts.isEmpty && _contactPubKeys.isNotEmpty;
 
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           context.popContactPage(_contactPubKeys.length);
         }
@@ -163,12 +166,19 @@ class _GroupContactsPageState extends State<GroupContactsPage>
               if (!_isLoading) _buildSearchBar(),
               Expanded(
                 child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-                    : !hasContacts
-                ? _buildEmptyState(colorScheme)
-                        : !hasSearchResults && searchQuery.isNotEmpty
-                            ? _buildNoSearchResultsState(colorScheme)
-                            : _buildContactsList(colorScheme, filteredContacts),
+                    ? const Center(child: CircularProgressIndicator())
+                    : hasOrphansOnly
+                        ? _buildOrphanOnlyState(theme, colorScheme)
+                        : !hasContacts
+                            ? _buildEmptyState(theme, colorScheme)
+                            : !hasSearchResults && searchQuery.isNotEmpty
+                                ? _buildNoSearchResultsState(colorScheme)
+                                : _buildContactsList(
+                                    theme,
+                                    colorScheme,
+                                    filteredContacts,
+                                    orphanMemberCount,
+                                  ),
               ),
             ],
           ),
@@ -177,33 +187,77 @@ class _GroupContactsPageState extends State<GroupContactsPage>
     );
   }
 
-  Widget _buildEmptyState(ColorScheme colorScheme) {
+  Widget _buildEmptyState(ThemeData theme, ColorScheme colorScheme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.people_outline,
-            size: 64,
-            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No contacts in this group',
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.onSurfaceVariant,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tap the top right to add contacts',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+            const SizedBox(height: 16),
+            Text(
+              'No contacts in this group',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Add people from your address book to call them from here.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _addContacts,
+              icon: const Icon(Icons.person_add_outlined),
+              label: const Text('Add contacts'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrphanOnlyState(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_off_outlined,
+              size: 64,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No matching contacts',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Everyone in this group is missing from your address book. '
+              'They may have been removed, or data is still syncing.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -219,15 +273,43 @@ class _GroupContactsPageState extends State<GroupContactsPage>
     return const EmptySearchState();
   }
 
-  Widget _buildContactsList(ColorScheme colorScheme, List<UserDBISAR> contacts) {
+  Widget _buildContactsList(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    List<UserDBISAR> contacts,
+    int orphanMemberCount,
+  ) {
     if (contacts.isEmpty) {
-      return _buildEmptyState(colorScheme);
+      return _buildEmptyState(theme, colorScheme);
     }
 
     return ListView.builder(
-      itemCount: contacts.length,
+      padding: EdgeInsets.zero,
+      itemCount: contacts.length + (orphanMemberCount > 0 ? 1 : 0),
       itemBuilder: (context, index) {
-        final contact = contacts[index];
+        if (orphanMemberCount > 0 && index == 0) {
+          return Material(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            child: ListTile(
+              dense: true,
+              leading: Icon(
+                Icons.info_outline,
+                color: colorScheme.primary,
+                size: 22,
+              ),
+              title: Text(
+                orphanMemberCount == 1
+                    ? '1 member is not in your address book and is hidden.'
+                    : '$orphanMemberCount members are not in your address book and are hidden.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          );
+        }
+        final contactIndex = orphanMemberCount > 0 ? index - 1 : index;
+        final contact = contacts[contactIndex];
         return _buildContactCard(context, contact, colorScheme);
       },
     );
