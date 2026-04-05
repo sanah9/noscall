@@ -6,7 +6,13 @@ import 'services/contact_navigation_service.dart';
 import 'services/contact_group_service.dart';
 
 class ContactNavigator extends StatefulWidget {
-  const ContactNavigator({super.key});
+  const ContactNavigator({
+    super.key,
+    this.favoritesOnlyRoot = false,
+  });
+
+  /// When true, shows a single [ContactsPage] with favorites filter (mobile Favorites tab).
+  final bool favoritesOnlyRoot;
 
   @override
   State<ContactNavigator> createState() => _ContactNavigatorState();
@@ -23,6 +29,18 @@ class _ContactNavigatorState extends State<ContactNavigator> {
   }
 
   Future<void> _initializePages() async {
+    if (widget.favoritesOnlyRoot) {
+      _pages = [
+        const MaterialPage(
+          child: ContactsPage(
+            initialShowFavoritesOnly: true,
+            favoritesOnlyNavEntry: true,
+          ),
+        ),
+      ];
+      return;
+    }
+
     final navService = ContactNavigationService.sharedInstance;
     final groupId = await navService.getLastGroupId();
     _pages = [

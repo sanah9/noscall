@@ -17,7 +17,17 @@ import 'services/contact_group_service.dart';
 import 'models/contact_group_isar.dart';
 
 class ContactsPage extends StatefulWidget {
-  const ContactsPage({super.key});
+  const ContactsPage({
+    super.key,
+    this.initialShowFavoritesOnly = false,
+    this.favoritesOnlyNavEntry = false,
+  });
+
+  /// When true, favorites filter starts selected (All / Favorites chips).
+  final bool initialShowFavoritesOnly;
+
+  /// True when this page is the root of the dedicated Favorites tab (mobile shell).
+  final bool favoritesOnlyNavEntry;
 
   @override
   State<ContactsPage> createState() => _ContactsPageState();
@@ -27,7 +37,8 @@ class _ContactsPageState extends State<ContactsPage>
     with SearchFieldMixin<ContactsPage> {
   final CallKitManager _callKitManager = CallKitManager.instance;
   final ContactGroupService _groupService = ContactGroupService.sharedInstance;
-  bool _showFavoritesOnly = false;
+  final FavoriteContactsService _favService = FavoriteContactsService();
+  late bool _showFavoritesOnly;
   List<ContactGroup> _groups = [];
   int? _selectedGroupId;
   Set<String>? _selectedGroupPubKeys;
@@ -42,6 +53,7 @@ class _ContactsPageState extends State<ContactsPage>
   @override
   void initState() {
     super.initState();
+    _showFavoritesOnly = widget.initialShowFavoritesOnly;
     initSearchField();
     // Clear group ID when on "All Contacts" page
     ContactNavigationService.sharedInstance.clearLastGroupId();
@@ -57,6 +69,11 @@ class _ContactsPageState extends State<ContactsPage>
         setState(() {});
       }
     });
+    _favService.favoritePubkeysNotifier.addListener(_onFavoritesChanged);
+  }
+
+  void _onFavoritesChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadGroups() async {
@@ -83,6 +100,7 @@ class _ContactsPageState extends State<ContactsPage>
 
   @override
   void dispose() {
+    _favService.favoritePubkeysNotifier.removeListener(_onFavoritesChanged);
     disposeSearchField();
     super.dispose();
   }
@@ -101,8 +119,7 @@ class _ContactsPageState extends State<ContactsPage>
       list = list.where((c) => _selectedGroupPubKeys!.contains(c.pubKey)).toList();
     }
     if (_showFavoritesOnly) {
-      final fav = FavoriteContactsService();
-      list = list.where((c) => fav.isFavorite(c.pubKey)).toList();
+      list = list.where((c) => _favService.isFavorite(c.pubKey)).toList();
     }
     if (searchQuery.isEmpty) return list;
 
@@ -117,11 +134,10 @@ class _ContactsPageState extends State<ContactsPage>
 
   /// Sort contacts: favorites first, then by display name.
   List<UserDBISAR> _sortContactsWithFavoritesFirst(List<UserDBISAR> contacts) {
-    final fav = FavoriteContactsService();
     return List<UserDBISAR>.from(contacts)
       ..sort((a, b) {
-        final aFav = fav.isFavorite(a.pubKey);
-        final bFav = fav.isFavorite(b.pubKey);
+        final aFav = _favService.isFavorite(a.pubKey);
+        final bFav = _favService.isFavorite(b.pubKey);
         if (aFav != bFav) return aFav ? -1 : 1;
         return _getDisplayNameWithRemark(a)
             .toLowerCase()
@@ -188,19 +204,22 @@ class _ContactsPageState extends State<ContactsPage>
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final canPopInner = Navigator.of(context).canPop();
     return AppBar(
-      title: const Text('Contacts'),
+      title: Text(widget.favoritesOnlyNavEntry ? 'Favorites' : 'Contacts'),
       centerTitle: true,
       backgroundColor: surface,
       foregroundColor: onSurface,
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () {
-          // Pop back to group list page - same API as global router
-          context.popContactPage();
-        },
-      ),
+      automaticallyImplyLeading: canPopInner,
+      leading: canPopInner
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () {
+                context.popContactPage();
+              },
+            )
+          : null,
       actions: [
         IconButton(
           padding: const EdgeInsets.only(right: 12),
