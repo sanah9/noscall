@@ -1,5 +1,8 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
+import 'package:noscall/core/call/messages/messages.dart';
+import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
 
 /// Result of a cleanup operation.
@@ -25,9 +28,10 @@ class DataCleanupService {
   Future<DataCleanupResult> clearCache() async {
     try {
       await DefaultCacheManager().emptyCache();
+      await VoiceCacheManager.instance.clearAllCache();
       return const DataCleanupResult(
         success: true,
-        message: 'Cache cleared.',
+        message: 'Image and voice cache cleared.',
       );
     } catch (e) {
       return DataCleanupResult(
@@ -45,13 +49,23 @@ class DataCleanupService {
   }) async {
     try {
       final before = DateTime.now().subtract(Duration(days: days));
-      final deleted = await callHistoryManager.deleteCallHistoryOlderThan(before);
+      final deleted =
+          await callHistoryManager.deleteCallHistoryOlderThan(before);
       await EventCache.sharedInstance.loadAllEventsFromDB();
+      final cutoffSeconds = before.millisecondsSinceEpoch ~/ 1000;
+      final voiceResult = await Messages.loadMessagesFromDB(
+        messageTypes: const [MessageType.voice],
+        until: cutoffSeconds,
+      );
+      final oldVoiceMessages =
+          (voiceResult['messages'] as List<MessageDBISAR>?) ?? const [];
+      await VoiceCacheManager.instance
+          .deleteCacheForMessages(oldVoiceMessages.map((m) => m.messageId));
       return DataCleanupResult(
         success: true,
         message: deleted > 0
-            ? 'Cleared $deleted call record(s) and expired event cache.'
-            : 'No old call records; expired event cache cleaned.',
+            ? 'Cleared $deleted call record(s), expired event cache, and old voice cache.'
+            : 'No old call records; expired event cache and old voice cache cleaned.',
         entriesDeleted: deleted,
       );
     } catch (e) {

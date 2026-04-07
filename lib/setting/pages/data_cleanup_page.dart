@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/setting/services/data_cleanup_service.dart';
@@ -66,17 +65,17 @@ class _DataCleanupPageState extends State<DataCleanupPage> {
         title: const Text('Data cleanup'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [
-          _SectionHeader(
+          const _SectionHeader(
             icon: Icons.folder_off,
             title: 'Clear cache',
-            subtitle: 'Clears image cache (e.g. avatars). Does not delete call history or settings.',
+            subtitle:
+                'Clears image cache (e.g. avatars) and voice audio cache. Does not delete call history or settings.',
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -97,10 +96,11 @@ class _DataCleanupPageState extends State<DataCleanupPage> {
             ),
           ),
           const SizedBox(height: 32),
-          _SectionHeader(
+          const _SectionHeader(
             icon: Icons.history_edu,
             title: 'Clear old data',
-            subtitle: 'Deletes call history older than the selected period and cleans expired event cache.',
+            subtitle:
+                'Deletes call history older than the selected period, cleans expired event cache, and removes old voice audio cache.',
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(

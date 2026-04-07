@@ -1,4 +1,5 @@
 import 'core.dart';
+import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 
 /// Chat core manager responsible for initializing and managing chat functionality components
 ///
@@ -11,8 +12,8 @@ class ChatCoreManager {
   /// Initialize chat core functionality with configuration
   Future<void> initChatCoreWithConfig(ChatCoreInitConfig config) async {
     try {
-
       await EventCache.sharedInstance.loadAllEventsFromDB();
+      VoiceCacheManager.instance.ensureInitialized();
       // Initialize relay service
       await Relays.sharedInstance.init();
       // Initialize core components with configuration
@@ -28,16 +29,17 @@ class ChatCoreManager {
   Future<void> _initCoreComponentsWithConfig(ChatCoreInitConfig config) async {
     // Initialize core components in parallel for better performance
     await Future.wait([
-      Future(() => Contacts.sharedInstance.init(callBack: config.contactUpdatedCallBack)),
+      Future(() => Contacts.sharedInstance
+          .init(callBack: config.contactUpdatedCallBack)),
     ]);
   }
 
   List<int> myProfileKinds() {
-    return  [0, 3, 10000, 10002, 10050, 30000];
+    return [0, 3, 10000, 10002, 10050, 30000];
   }
 
   List<int> userProfileKinds() {
-    return  [0, 10002, 10050, 30008];
+    return [0, 10002, 10050, 30008];
   }
 
   bool isAcceptedEventKind(int kind) {

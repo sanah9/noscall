@@ -10,24 +10,31 @@ import '../messages/model/messageDB_isar.dart';
 import 'contacts.dart';
 
 extension Calling on Contacts {
-  Future<OKEvent> sendDisconnect(String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(offerId, friendPubkey, SignalingState.disconnect, content);
+  Future<OKEvent> sendDisconnect(
+      String offerId, String friendPubkey, String content) async {
+    return await _sendSignaling(
+        offerId, friendPubkey, SignalingState.disconnect, content);
   }
 
   Future<OKEvent> sendOffer(String friendPubkey, String content) async {
-    return await _sendSignaling('', friendPubkey, SignalingState.offer, content);
+    return await _sendSignaling(
+        '', friendPubkey, SignalingState.offer, content);
   }
 
-  Future<OKEvent> sendAnswer(String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(offerId, friendPubkey, SignalingState.answer, content);
+  Future<OKEvent> sendAnswer(
+      String offerId, String friendPubkey, String content) async {
+    return await _sendSignaling(
+        offerId, friendPubkey, SignalingState.answer, content);
   }
 
-  Future<OKEvent> sendCandidate(String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(offerId, friendPubkey, SignalingState.candidate, content);
+  Future<OKEvent> sendCandidate(
+      String offerId, String friendPubkey, String content) async {
+    return await _sendSignaling(
+        offerId, friendPubkey, SignalingState.candidate, content);
   }
 
-  Future<OKEvent> _sendSignaling(
-      String offerId, String toPubkey, SignalingState state, String content) async {
+  Future<OKEvent> _sendSignaling(String offerId, String toPubkey,
+      SignalingState state, String content) async {
     Completer<OKEvent> completer = Completer<OKEvent>();
     Event? event;
     String? reason;
@@ -46,15 +53,16 @@ extension Calling on Contacts {
         offerId = event.id;
         break;
       case SignalingState.answer:
-        event = await Nip100.answer(toPubkey, content, offerId, pubkey, privkey);
+        event =
+            await Nip100.answer(toPubkey, content, offerId, pubkey, privkey);
         break;
       case SignalingState.candidate:
-        event = await Nip100.candidate(toPubkey, content, offerId, pubkey, privkey);
+        event =
+            await Nip100.candidate(toPubkey, content, offerId, pubkey, privkey);
         break;
-      default:
-        throw Exception('error state');
     }
-    Signaling signaling = Signaling(event.pubkey, toPubkey, content, state, offerId);
+    Signaling signaling =
+        Signaling(event.pubkey, toPubkey, content, state, offerId);
     if (state != SignalingState.candidate) {
       await handleSignalingEvent(event, signaling, reason);
     }
@@ -65,8 +73,9 @@ extension Calling on Contacts {
         kind: kind,
         createAt: currentUnixTimestampSeconds());
     if (encodeEvent != null) {
-      Connect.sharedInstance.sendEvent(relayKinds: [RelayKind.general], encodeEvent,
-          sendCallBack: (ok, relay) async {
+      Connect.sharedInstance.sendEvent(
+          relayKinds: [RelayKind.general],
+          encodeEvent, sendCallBack: (ok, relay) async {
         if (!completer.isCompleted) {
           completer.complete(OKEvent(event!.id, ok.status, ok.message));
         }
@@ -88,11 +97,13 @@ extension Calling on Contacts {
     }
     bool result = await handleSignalingEvent(event, signaling, reason);
     if (result) {
-      onCallStateChange?.call(event.pubkey, signaling.state, signaling.content, signaling.offerId);
+      onCallStateChange?.call(
+          event.pubkey, signaling.state, signaling.content, signaling.offerId);
     }
   }
 
-  Future<bool> handleSignalingEvent(Event event, Signaling signaling, String? reason) async {
+  Future<bool> handleSignalingEvent(
+      Event event, Signaling signaling, String? reason) async {
     /// receive offer
     int eventTime = event.createdAt * 1000;
     if (signaling.state == SignalingState.offer) {
@@ -145,8 +156,14 @@ extension Calling on Contacts {
           break;
       }
       CallMessage? callMessage = callMessages[signaling.offerId];
-      callMessage ??= CallMessage(signaling.offerId ?? event.id, signaling.sender,
-          signaling.receiver, state, eventTime, eventTime, '');
+      callMessage ??= CallMessage(
+          signaling.offerId ?? event.id,
+          signaling.sender,
+          signaling.receiver,
+          state,
+          eventTime,
+          eventTime,
+          '');
       callMessage.end = eventTime;
       callMessage.state = state;
       callMessages[callMessage.callId] = callMessage;
@@ -174,16 +191,24 @@ extension Calling on Contacts {
 
   /// Sends an encrypted DM (kind 4, NIP4) wrapped in NIP17 (kind 1059).
   /// Returns the inner event id on success, null on failure.
-  Future<String?> sendEncryptedDM(String toPubkey, String plainContent) async {
+  Future<String?> sendEncryptedDM(
+    String toPubkey,
+    String plainContent, {
+    String? replyToMessageId,
+  }) async {
     final encrypted =
         await Account.sharedInstance.encryptNip04(plainContent, toPubkey);
     final now = currentUnixTimestampSeconds();
+    final tags = <List<String>>[
+      ['p', toPubkey]
+    ];
+    if (replyToMessageId != null && replyToMessageId.isNotEmpty) {
+      tags.add(['e', replyToMessageId, '', 'reply']);
+    }
     final eventMap = <String, dynamic>{
       'kind': 4,
       'content': encrypted,
-      'tags': [
-        ['p', toPubkey]
-      ],
+      'tags': tags,
       'created_at': now,
       'pubkey': pubkey,
     };

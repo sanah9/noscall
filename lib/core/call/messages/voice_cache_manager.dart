@@ -16,6 +16,8 @@ class VoiceCacheManager {
   static final VoiceCacheManager instance = VoiceCacheManager._();
 
   static const String _cacheKey = 'voice_cache';
+  static const Duration _stalePeriod = Duration(days: 14);
+  static const int _maxCacheObjects = 300;
 
   static FileService _createVoiceFileService() {
     final ioClient = HttpClient()
@@ -27,8 +29,14 @@ class VoiceCacheManager {
 
   /// Dedicated cache manager for voice files (lazy so unit tests that only validate input don't need path_provider/sqflite).
   CacheManager? _cacheManagerStore;
-  CacheManager get _cacheManager =>
-      _cacheManagerStore ??= CacheManager(Config(_cacheKey, fileService: _createVoiceFileService()));
+  CacheManager get _cacheManager => _cacheManagerStore ??= CacheManager(
+        Config(
+          _cacheKey,
+          stalePeriod: _stalePeriod,
+          maxNrOfCacheObjects: _maxCacheObjects,
+          fileService: _createVoiceFileService(),
+        ),
+      );
 
   /// Test-only: override cache manager. Set in tests, null in production.
   BaseCacheManager? _testCacheManager;
@@ -45,6 +53,11 @@ class VoiceCacheManager {
 
   BaseCacheManager get _manager => _testCacheManager ?? _cacheManager;
 
+  /// Ensures the cache manager is initialized so stale/max-object cleanup can run by package policy.
+  void ensureInitialized() {
+    _cacheManager;
+  }
+
   /// Returns the cached file for [msg], or downloads and caches it.
   /// Same [messageId] shares one download (flutter_cache_manager deduplicates by key).
   Future<File> getOrDownload(MessageDBISAR msg) async {
@@ -59,17 +72,20 @@ class VoiceCacheManager {
         MessageDBISAR.parseVoiceContent(msg.content);
     final url = payload?['url'] as String?;
     if (url == null || url.isEmpty) {
-      debugPrint('[VoiceCacheManager.getOrDownload] error: no url messageId=$messageId');
+      debugPrint(
+          '[VoiceCacheManager.getOrDownload] error: no url messageId=$messageId');
       return Future.error(StateError('Voice message has no url'));
     }
 
     try {
       final file = await _manager.getSingleFile(url, key: messageId);
       final size = await file.length();
-      debugPrint('[VoiceCacheManager.getOrDownload] done messageId=$messageId path=${file.path} size=$size');
+      debugPrint(
+          '[VoiceCacheManager.getOrDownload] done messageId=$messageId path=${file.path} size=$size');
       return file;
     } catch (e, st) {
-      debugPrint('[VoiceCacheManager.getOrDownload] error messageId=$messageId e=$e');
+      debugPrint(
+          '[VoiceCacheManager.getOrDownload] error messageId=$messageId e=$e');
       debugPrint('[VoiceCacheManager.getOrDownload] stackTrace=$st');
       rethrow;
     }
@@ -98,5 +114,18 @@ class VoiceCacheManager {
   Future<void> deleteCacheForMessage(String messageId) async {
     if (messageId.isEmpty) return;
     await _manager.removeFile(messageId);
+  }
+
+  /// Removes cache for a list of message IDs.
+  Future<void> deleteCacheForMessages(Iterable<String> messageIds) async {
+    for (final id in messageIds) {
+      if (id.isEmpty) continue;
+      await _manager.removeFile(id);
+    }
+  }
+
+  /// Clears all cached voice files.
+  Future<void> clearAllCache() async {
+    await _manager.emptyCache();
   }
 }

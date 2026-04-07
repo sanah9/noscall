@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
@@ -20,10 +21,12 @@ const int _maxFileSizeBytes = 5 * 1024 * 1024;
 
 class SendVoiceMessagePage extends StatefulWidget {
   final String receiverPubkey;
+  final String? replyToMessageId;
 
   const SendVoiceMessagePage({
     super.key,
     required this.receiverPubkey,
+    this.replyToMessageId,
   });
 
   @override
@@ -97,8 +100,10 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
     }
 
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+    final path =
+        '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path);
     setState(() {
       _isRecording = true;
       _recordSeconds = 0;
@@ -129,6 +134,17 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
     setState(() => _isRecording = false);
     if (path == null || path.isEmpty || !mounted) return;
     await _uploadAndSend(path);
+  }
+
+  List<int> _generateWaveformPeaks(int durationSeconds) {
+    const count = 32;
+    final seed = DateTime.now().millisecondsSinceEpoch ^ durationSeconds;
+    return List<int>.generate(count, (index) {
+      final t = (index + 1) / count;
+      final wave = (math.sin(t * math.pi * 2) + 1) * 0.5;
+      final mixed = (wave * 0.65 + (((seed + index * 13) % 100) / 100) * 0.35);
+      return (8 + mixed * 84).round().clamp(4, 96);
+    });
   }
 
   Future<void> _uploadAndSend(String path) async {
@@ -170,14 +186,20 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
       return;
     }
 
+    final waveformPeaks = _generateWaveformPeaks(durationSeconds);
     final content = {
       'contentType': 'voice',
       'url': url,
       'durationSeconds': durationSeconds,
       'mimeType': 'audio/mp4',
+      'waveformPeaks': waveformPeaks,
     };
     final plainContent = jsonEncode(content);
-    final eventId = await Contacts.sharedInstance.sendEncryptedDM(widget.receiverPubkey, plainContent);
+    final eventId = await Contacts.sharedInstance.sendEncryptedDM(
+      widget.receiverPubkey,
+      plainContent,
+      replyToMessageId: widget.replyToMessageId,
+    );
 
     if (!mounted) return;
     setState(() => _isSending = false);
@@ -194,18 +216,26 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
     );
 
     final myPubkey = Account.sharedInstance.currentPubkey;
+    final tags = <List<String>>[
+      ['p', widget.receiverPubkey]
+    ];
+    if (widget.replyToMessageId != null &&
+        widget.replyToMessageId!.isNotEmpty) {
+      tags.add(['e', widget.replyToMessageId!, '', 'reply']);
+    }
     final message = MessageDBISAR(
       messageId: eventId,
       sender: myPubkey,
       receiver: widget.receiverPubkey,
       kind: 4,
-      tags: '[]',
+      tags: jsonEncode(tags),
       content: plainContent,
       decryptContent: plainContent,
       type: 'voice',
       createTime: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       status: 1,
       plaintEvent: '',
+      replyId: widget.replyToMessageId ?? '',
     );
     await Messages.saveMessageToDB(message);
     Contacts.sharedInstance.privateChatMessageCallBack?.call(message);
@@ -239,50 +269,54 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-              if (!_hasPermission) ...[
-                Icon(Icons.mic_off, size: 64, color: colorScheme.error),
-                const SizedBox(height: 16),
-                Text(
-                  'Microphone access is required',
-                  style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onSurface),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _showOpenSettingsDialog,
-                  child: const Text('Open settings'),
-                ),
-              ] else if (_isSending)
-                const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Sending...'),
-                  ],
-                )
-              else ...[
-                Icon(
-                  _isRecording ? Icons.stop_circle : Icons.mic,
-                  size: 80,
-                  color: _isRecording ? colorScheme.error : colorScheme.primary,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  _isRecording
-                      ? 'Tap to stop · ${_recordSeconds.clamp(0, _maxDurationSeconds)}s'
-                      : 'Tap to start recording (max $_maxDurationSeconds s)',
-                  style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                FilledButton.icon(
-                  onPressed: _toggleRecording,
-                  icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                  label: Text(_isRecording ? 'Stop & send' : 'Start recording'),
-                ),
+                if (!_hasPermission) ...[
+                  Icon(Icons.mic_off, size: 64, color: colorScheme.error),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Microphone access is required',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(color: colorScheme.onSurface),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: _showOpenSettingsDialog,
+                    child: const Text('Open settings'),
+                  ),
+                ] else if (_isSending)
+                  const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Sending...'),
+                    ],
+                  )
+                else ...[
+                  Icon(
+                    _isRecording ? Icons.stop_circle : Icons.mic,
+                    size: 80,
+                    color:
+                        _isRecording ? colorScheme.error : colorScheme.primary,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    _isRecording
+                        ? 'Tap to stop · ${_recordSeconds.clamp(0, _maxDurationSeconds)}s'
+                        : 'Tap to start recording (max $_maxDurationSeconds s)',
+                    style: theme.textTheme.bodyLarge
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton.icon(
+                    onPressed: _toggleRecording,
+                    icon: Icon(_isRecording ? Icons.stop : Icons.mic),
+                    label:
+                        Text(_isRecording ? 'Stop & send' : 'Start recording'),
+                  ),
+                ],
               ],
-            ],
             ),
           ),
         ),

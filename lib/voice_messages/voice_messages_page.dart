@@ -7,6 +7,7 @@ import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
+import 'package:noscall/voice_messages/widgets/voice_waveform_bar.dart';
 import 'package:noscall/utils/snackbar_helper.dart';
 
 class VoiceMessagesPage extends StatefulWidget {
@@ -21,17 +22,22 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
+  Map<String, int> _replyCounts = {};
+  Map<String, MessageDBISAR> _replyTargets = {};
   static const int _pageSize = 50;
   final ScrollController _scrollController = ScrollController();
 
   void _onNewMessage(MessageDBISAR message) {
-    if (message.type != MessageDBISAR.messageTypeToString(MessageType.voice)) return;
+    if (message.type != MessageDBISAR.messageTypeToString(MessageType.voice)) {
+      return;
+    }
     if (!mounted) return;
     if (_messages.any((m) => m.messageId == message.messageId)) return;
     final isIncoming = message.receiver == Account.sharedInstance.currentPubkey;
     setState(() {
       _messages.insert(0, message.withGrowableLevels());
     });
+    _loadThreadMeta();
     if (isIncoming) {
       VoiceUnreadManager.instance.addUnread(message.messageId);
     }
@@ -49,13 +55,16 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
       );
       if (!mounted) return;
       final list = (result['messages'] as List<MessageDBISAR>?) ?? [];
-      final lastTime = list.isEmpty ? 0 : list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
+      final lastTime = list.isEmpty
+          ? 0
+          : list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
       if (!mounted) return;
       setState(() {
         _messages = list;
         _hasMore = list.length >= _pageSize;
       });
       _oldestCreateTime = lastTime;
+      await _loadThreadMeta();
     } catch (e, st) {
       if (mounted) {
         setState(() => _messages = []);
@@ -84,13 +93,15 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
         setState(() => _hasMore = false);
         return;
       }
-      final newOldest = list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
+      final newOldest =
+          list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
       if (!mounted) return;
       setState(() {
         _messages.addAll(list);
         _hasMore = list.length >= _pageSize;
       });
       _oldestCreateTime = newOldest;
+      await _loadThreadMeta();
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -101,6 +112,28 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
     if (!mounted) return;
     setState(() {
       _messages.removeWhere((m) => ids.contains(m.messageId));
+    });
+    _loadThreadMeta();
+  }
+
+  Future<void> _loadThreadMeta() async {
+    final parentIds = _messages.map((m) => m.messageId).toList();
+    final counts = await Messages.countRepliesForParentIds(parentIds);
+    final replyIds = _messages
+        .map((m) => m.replyId)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    Map<String, MessageDBISAR> targets = {};
+    if (replyIds.isNotEmpty) {
+      final targetMessages =
+          await Messages.sharedInstance.loadMessageDBFromDBWithMsgIds(replyIds);
+      targets = {for (final m in targetMessages) m.messageId: m};
+    }
+    if (!mounted) return;
+    setState(() {
+      _replyCounts = counts;
+      _replyTargets = targets;
     });
   }
 
@@ -173,11 +206,14 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.mic_none, size: 64, color: onSurfaceVariant.withValues(alpha: 0.5)),
+                      Icon(Icons.mic_none,
+                          size: 64,
+                          color: onSurfaceVariant.withValues(alpha: 0.5)),
                       const SizedBox(height: 16),
                       Text(
                         'No voice messages yet',
-                        style: theme.textTheme.bodyLarge?.copyWith(color: onSurfaceVariant),
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(color: onSurfaceVariant),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -194,18 +230,29 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _messages.length + (_hasMore && _loadingMore ? 1 : 0),
+                    itemCount:
+                        _messages.length + (_hasMore && _loadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index >= _messages.length) {
                         return const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
+                          child: Center(
+                              child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2))),
                         );
                       }
                       final msg = _messages[index];
                       return _VoiceMessageListItem(
                         message: msg,
+                        replyCount: _replyCounts[msg.messageId] ?? 0,
+                        replyTarget: msg.replyId.isEmpty
+                            ? null
+                            : _replyTargets[msg.replyId],
                         onTap: () async {
+                          final nav = AppNavigatorScope.requireOf(context);
                           final myPubkey = Account.sharedInstance.currentPubkey;
                           final isIncoming = msg.receiver == myPubkey;
                           if (isIncoming && !msg.read) {
@@ -214,10 +261,11 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                             setState(() {
                               _messages[index] = msg.copyWith(read: true);
                             });
-                            await VoiceUnreadManager.instance.removeUnread(msg.messageId);
+                            await VoiceUnreadManager.instance
+                                .removeUnread(msg.messageId);
                           }
-                          AppNavigatorScope.requireOf(context)
-                              .pushVoiceMessageDetail(context, msg);
+                          if (!mounted) return;
+                          nav.pushVoiceMessageDetail(context, msg);
                         },
                       );
                     },
@@ -229,10 +277,14 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
 
 class _VoiceMessageListItem extends StatelessWidget {
   final MessageDBISAR message;
+  final int replyCount;
+  final MessageDBISAR? replyTarget;
   final VoidCallback onTap;
 
   const _VoiceMessageListItem({
     required this.message,
+    required this.replyCount,
+    this.replyTarget,
     required this.onTap,
   });
 
@@ -241,12 +293,14 @@ class _VoiceMessageListItem extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final myPubkey = Account.sharedInstance.currentPubkey;
-    final otherPubkey = message.sender == myPubkey ? message.receiver : message.sender;
+    final otherPubkey =
+        message.sender == myPubkey ? message.receiver : message.sender;
     final userNotifier = Account.sharedInstance.getUserNotifier(otherPubkey);
 
     return ValueListenableBuilder<UserDBISAR>(
       valueListenable: userNotifier,
-      builder: (context, user, _) => _buildContent(context, theme, colorScheme, user),
+      builder: (context, user, _) =>
+          _buildContent(context, theme, colorScheme, user),
     );
   }
 
@@ -258,11 +312,19 @@ class _VoiceMessageListItem extends StatelessWidget {
   ) {
     final myPubkey = Account.sharedInstance.currentPubkey;
     final isIncoming = message.receiver == myPubkey;
-    final isUnread = isIncoming && VoiceUnreadManager.instance.isUnread(message.messageId);
-    final voicePayload = MessageDBISAR.parseVoiceContent(message.decryptContent) ??
-        MessageDBISAR.parseVoiceContent(message.content);
-    final durationSec = (voicePayload?['durationSeconds'] as num?)?.toInt() ?? 0;
-    final durationStr = '${durationSec ~/ 60}:${(durationSec % 60).toString().padLeft(2, '0')}';
+    final isUnread =
+        isIncoming && VoiceUnreadManager.instance.isUnread(message.messageId);
+    final voicePayload =
+        MessageDBISAR.parseVoiceContent(message.decryptContent) ??
+            MessageDBISAR.parseVoiceContent(message.content);
+    final durationSec =
+        (voicePayload?['durationSeconds'] as num?)?.toInt() ?? 0;
+    final peaks = ((voicePayload?['waveformPeaks'] as List?) ?? const [])
+        .map((e) => (e as num?)?.toInt() ?? 0)
+        .where((v) => v > 0)
+        .toList();
+    final durationStr =
+        '${durationSec ~/ 60}:${(durationSec % 60).toString().padLeft(2, '0')}';
 
     final date = DateTime.fromMillisecondsSinceEpoch(message.createTime * 1000);
     final timeStr = _formatMessageTime(date);
@@ -284,7 +346,8 @@ class _VoiceMessageListItem extends StatelessWidget {
                     Text(
                       user.displayName(),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: isUnread ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            isUnread ? FontWeight.w700 : FontWeight.w500,
                         color: colorScheme.onSurface,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -295,13 +358,17 @@ class _VoiceMessageListItem extends StatelessWidget {
                         Icon(
                           Icons.mic,
                           size: 14,
-                          color: isUnread ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                          color: isUnread
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           durationStr,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: isUnread ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                            color: isUnread
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -310,11 +377,25 @@ class _VoiceMessageListItem extends StatelessWidget {
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isUnread
                                 ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                                : colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.8),
                           ),
                         ),
                       ],
                     ),
+                    if (peaks.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      VoiceWaveformBar(
+                        peaks: peaks,
+                        progress: 0,
+                        height: 14,
+                        maxBars: 20,
+                      ),
+                    ],
+                    if (message.replyId.isNotEmpty || replyCount > 0) ...[
+                      const SizedBox(height: 8),
+                      _buildThreadMeta(theme, colorScheme),
+                    ],
                   ],
                 ),
               ),
@@ -331,7 +412,8 @@ class _VoiceMessageListItem extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                    Icon(Icons.chevron_right,
+                        color: colorScheme.onSurfaceVariant),
                   ],
                 )
               else
@@ -343,9 +425,45 @@ class _VoiceMessageListItem extends StatelessWidget {
     );
   }
 
+  Widget _buildThreadMeta(ThemeData theme, ColorScheme colorScheme) {
+    final textStyle = theme.textTheme.bodySmall
+        ?.copyWith(color: colorScheme.onSurfaceVariant);
+    final targetPreview = replyTarget == null
+        ? 'Reply target unavailable'
+        : MessageDBISAR.getContent(
+            MessageDBISAR.stringtoMessageType(replyTarget!.type),
+            replyTarget!.decryptContent,
+            null,
+          );
+    if (message.replyId.isNotEmpty && replyCount > 0) {
+      return Text(
+        'Replying to: $targetPreview · $replyCount repl${replyCount == 1 ? 'y' : 'ies'}',
+        style: textStyle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    if (message.replyId.isNotEmpty) {
+      return Text(
+        'Replying to: $targetPreview',
+        style: textStyle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    return Text(
+      '$replyCount repl${replyCount == 1 ? 'y' : 'ies'}',
+      style: textStyle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   static String _formatMessageTime(DateTime date) {
     final now = DateTime.now();
-    if (date.year == now.year && date.month == now.month && date.day == now.day) {
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     if (date.year == now.year) {

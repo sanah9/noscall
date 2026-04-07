@@ -63,12 +63,16 @@ class Messages {
     return message?.withGrowableLevels();
   }
 
-  Future<List<MessageDBISAR>> loadMessageDBFromDBWithMsgIds(List<String> messageIds) async {
-    List<MessageDBISAR> cacheMsg = loadMessagesFromCache(messageIds: messageIds);
+  Future<List<MessageDBISAR>> loadMessageDBFromDBWithMsgIds(
+      List<String> messageIds) async {
+    List<MessageDBISAR> cacheMsg =
+        loadMessagesFromCache(messageIds: messageIds);
     List<MessageDBISAR> dbMsg = [];
     if (cacheMsg.length != messageIds.length) {
       final isar = DBISAR.sharedInstance.isar;
-      var queryBuilder = isar.messageDBISARs.where().anyOf(messageIds, (q, messageId) => q.messageIdEqualTo(messageId));
+      var queryBuilder = isar.messageDBISARs
+          .where()
+          .anyOf(messageIds, (q, messageId) => q.messageIdEqualTo(messageId));
       dbMsg = await queryBuilder.findAll();
     }
     return [...cacheMsg, ...dbMsg].map((e) => e.withGrowableLevels()).toList();
@@ -87,7 +91,9 @@ class Messages {
     List<MessageDBISAR> result = [];
     for (MessageDBISAR message in buffers[MessageDBISAR]?.toList() ?? []) {
       bool query = true;
-      if (messageIds != null && messageIds.isNotEmpty && !messageIds.contains(message.messageId)) {
+      if (messageIds != null &&
+          messageIds.isNotEmpty &&
+          !messageIds.contains(message.messageId)) {
         query = false;
       }
       if (query && receiver != null) {
@@ -103,10 +109,13 @@ class Messages {
         query = message.sessionId == sessionId;
       }
       if (query && messageTypes.isNotEmpty) {
-        query = messageTypes.any((messageType) => message.type == MessageDBISAR.messageTypeToString(messageType));
+        query = messageTypes.any((messageType) =>
+            message.type == MessageDBISAR.messageTypeToString(messageType));
       }
       if (query && hasPreviewData != null) {
-        query = hasPreviewData ? message.previewData != null : message.previewData == null;
+        query = hasPreviewData
+            ? message.previewData != null
+            : message.previewData == null;
       }
       if (query && until != null) {
         query = message.createTime < until;
@@ -137,7 +146,9 @@ class Messages {
         whereBuilder.messageIdIsNotEmpty();
 
     qb = qb
-        .optional(receiver != null, (q) => q.group((qq) => qq
+        .optional(
+            receiver != null,
+            (q) => q.group((qq) => qq
                 .group((qq) => qq
                     .senderEqualTo(receiver!)
                     .receiverEqualTo(Account.sharedInstance.currentPubkey)
@@ -149,16 +160,22 @@ class Messages {
                     .sessionIdIsEmpty())))
         .optional(sessionId != null, (q) => q.sessionIdEqualTo(sessionId!))
         .optional(groupId != null, (q) => q.groupIdEqualTo(groupId!))
-        .optional(messageTypes.isNotEmpty, (q) => q.anyOf(messageTypes,
-            (qq, mt) => qq.typeEqualTo(MessageDBISAR.messageTypeToString(mt))))
-        .optional(decryptContentLike != null,
-            (q) => q.decryptContentContains(decryptContentLike!, caseSensitive: false))
-        .optional(hasPreviewData != null, (q) =>
-            hasPreviewData! ? q.previewDataIsNotNull() : q.previewDataIsNull())
+        .optional(
+            messageTypes.isNotEmpty,
+            (q) => q.anyOf(
+                messageTypes,
+                (qq, mt) =>
+                    qq.typeEqualTo(MessageDBISAR.messageTypeToString(mt))))
+        .optional(
+            decryptContentLike != null,
+            (q) =>
+                q.decryptContentContains(decryptContentLike!, caseSensitive: false))
+        .optional(hasPreviewData != null, (q) => hasPreviewData! ? q.previewDataIsNotNull() : q.previewDataIsNull())
         .optional(until != null, (q) => q.createTimeLessThan(until!))
         .optional(since != null, (q) => q.createTimeGreaterThan(since!));
 
-    final sortedBuilder = since != null ? qb.sortByCreateTime() : qb.sortByCreateTimeDesc();
+    final sortedBuilder =
+        since != null ? qb.sortByCreateTime() : qb.sortByCreateTimeDesc();
 
     var messages = await sortedBuilder.findAll();
     if (limit != null && messages.length > limit) {
@@ -167,22 +184,23 @@ class Messages {
 
     int theLastTime = 0;
     List<MessageDBISAR> result = loadMessagesFromCache(
-      receiver: receiver,
-      groupId: groupId,
-      sessionId: sessionId,
-      messageTypes: messageTypes,
-      until: until,
-      hasPreviewData: hasPreviewData
-    );
+        receiver: receiver,
+        groupId: groupId,
+        sessionId: sessionId,
+        messageTypes: messageTypes,
+        until: until,
+        hasPreviewData: hasPreviewData);
     for (var message in messages) {
       message = message.withGrowableLevels();
-      theLastTime = message.createTime > theLastTime ? message.createTime : theLastTime;
+      theLastTime =
+          message.createTime > theLastTime ? message.createTime : theLastTime;
       result.add(message);
     }
     return {'theLastTime': theLastTime, 'messages': result};
   }
 
-  static Future<Map> searchPrivateMessagesFromDB(String? chatId, String orignalSearchTxt) async {
+  static Future<Map> searchPrivateMessagesFromDB(
+      String? chatId, String orignalSearchTxt) async {
     final isar = DBISAR.sharedInstance.isar;
     List<MessageDBISAR> messages;
     if (chatId == null) {
@@ -211,7 +229,8 @@ class Messages {
     }
     int theLastTime = 0;
     for (var message in messages) {
-      theLastTime = message.createTime > theLastTime ? message.createTime : theLastTime;
+      theLastTime =
+          message.createTime > theLastTime ? message.createTime : theLastTime;
     }
     return {'theLastTime': theLastTime, 'messages': messages};
   }
@@ -220,7 +239,76 @@ class Messages {
     await DBISAR.sharedInstance.saveToDB(message);
   }
 
-  static deleteMessagesFromDB({List<String>? messageIds, bool notify = true}) async {
+  /// Loads replies by [parentMessageId] ordered by createTime desc.
+  static Future<List<MessageDBISAR>> loadReplies(
+    String parentMessageId, {
+    int? limit,
+  }) async {
+    if (parentMessageId.isEmpty) return [];
+    final cache = loadMessagesFromCache()
+        .where((m) => m.replyId == parentMessageId)
+        .map((m) => m.withGrowableLevels())
+        .toList();
+    final isar = DBISAR.sharedInstance.isar;
+    final db = await isar.messageDBISARs
+        .filter()
+        .replyIdEqualTo(parentMessageId)
+        .sortByCreateTimeDesc()
+        .findAll();
+    final mergedById = <String, MessageDBISAR>{};
+    for (final m in [...cache, ...db]) {
+      mergedById[m.messageId] = m.withGrowableLevels();
+    }
+    final merged = mergedById.values.toList()
+      ..sort((a, b) => b.createTime.compareTo(a.createTime));
+    if (limit != null && merged.length > limit) {
+      return merged.take(limit).toList();
+    }
+    return merged;
+  }
+
+  /// Counts replies for a parent message.
+  static Future<int> countReplies(String parentMessageId) async {
+    if (parentMessageId.isEmpty) return 0;
+    final counts = await countRepliesForParentIds([parentMessageId]);
+    return counts[parentMessageId] ?? 0;
+  }
+
+  /// Batch count replies for [parentMessageIds].
+  static Future<Map<String, int>> countRepliesForParentIds(
+      List<String> parentMessageIds) async {
+    final validIds =
+        parentMessageIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (validIds.isEmpty) return {};
+
+    final result = <String, Set<String>>{
+      for (final id in validIds) id: <String>{},
+    };
+
+    for (final m in loadMessagesFromCache()) {
+      if (result.containsKey(m.replyId)) {
+        result[m.replyId]!.add(m.messageId);
+      }
+    }
+
+    final isar = DBISAR.sharedInstance.isar;
+    final dbReplies = await isar.messageDBISARs
+        .filter()
+        .anyOf(validIds, (q, id) => q.replyIdEqualTo(id))
+        .findAll();
+    for (final m in dbReplies) {
+      if (result.containsKey(m.replyId)) {
+        result[m.replyId]!.add(m.messageId);
+      }
+    }
+
+    return {
+      for (final entry in result.entries) entry.key: entry.value.length,
+    };
+  }
+
+  static deleteMessagesFromDB(
+      {List<String>? messageIds, bool notify = true}) async {
     if (messageIds != null) {
       for (final id in messageIds) {
         VoiceCacheManager.instance.deleteCacheForMessage(id).ignore();
@@ -245,6 +333,16 @@ class Messages {
   static deleteGroupMessagesFromDB(String? groupId) async {
     if (groupId != null) {
       final isar = DBISAR.sharedInstance.isar;
+      final voiceMessageIds = await isar.messageDBISARs
+          .filter()
+          .groupIdEqualTo(groupId)
+          .and()
+          .typeEqualTo(MessageDBISAR.messageTypeToString(MessageType.voice))
+          .messageIdProperty()
+          .findAll();
+      for (final id in voiceMessageIds) {
+        VoiceCacheManager.instance.deleteCacheForMessage(id).ignore();
+      }
       await isar.writeTxn(() async {
         isar.messageDBISARs.filter().groupIdEqualTo(groupId).deleteAll();
       });
@@ -253,6 +351,18 @@ class Messages {
 
   static deleteSingleChatMessagesFromDB(String sender, String receiver) async {
     final isar = DBISAR.sharedInstance.isar;
+    final voiceMessageIds = await isar.messageDBISARs
+        .filter()
+        .senderEqualTo(sender)
+        .receiverEqualTo(receiver)
+        .chatTypeEqualTo(0)
+        .and()
+        .typeEqualTo(MessageDBISAR.messageTypeToString(MessageType.voice))
+        .messageIdProperty()
+        .findAll();
+    for (final id in voiceMessageIds) {
+      VoiceCacheManager.instance.deleteCacheForMessage(id).ignore();
+    }
     await isar.writeTxn(() async {
       isar.messageDBISARs
           .filter()
@@ -267,7 +377,8 @@ class Messages {
     return Nip27.decodeProfileMention(content);
   }
 
-  static String encodeProfileMention(List<ProfileMention> mentions, String content) {
+  static String encodeProfileMention(
+      List<ProfileMention> mentions, String content) {
     return Nip27.encodeProfileMention(mentions, content);
   }
 }

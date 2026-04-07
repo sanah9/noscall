@@ -10,6 +10,7 @@ import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
+import 'package:noscall/voice_messages/widgets/voice_waveform_bar.dart';
 
 class VoiceMessageDetailPage extends StatefulWidget {
   final MessageDBISAR message;
@@ -25,6 +26,7 @@ class VoiceMessageDetailPage extends StatefulWidget {
 
 class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
   late Future<File> _fileFuture;
+  late Future<_VoiceThreadPreview> _threadPreviewFuture;
   final AudioPlayer _player = AudioPlayer();
   StreamSubscription<ProcessingState>? _processingStateSubscription;
 
@@ -48,6 +50,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     super.initState();
     _markAsReadIfIncoming();
     _fileFuture = VoiceCacheManager.instance.getOrDownload(widget.message);
+    _threadPreviewFuture = _loadThreadPreview();
   }
 
   @override
@@ -72,14 +75,17 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            child: Text('Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    await VoiceCacheManager.instance.deleteCacheForMessage(widget.message.messageId);
-    await Messages.deleteMessagesFromDB(messageIds: [widget.message.messageId], notify: true);
+    await VoiceCacheManager.instance
+        .deleteCacheForMessage(widget.message.messageId);
+    await Messages.deleteMessagesFromDB(
+        messageIds: [widget.message.messageId], notify: true);
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -103,6 +109,22 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
               const SizedBox(height: 24),
               _buildMessageTimeSection(context, timeStr),
               const SizedBox(height: 32),
+              FutureBuilder<_VoiceThreadPreview>(
+                future: _threadPreviewFuture,
+                builder: (context, snapshot) {
+                  final preview = snapshot.data;
+                  if (preview == null ||
+                      (preview.parent == null &&
+                          preview.replyCount == 0 &&
+                          preview.recentReplies.isEmpty)) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: _buildThreadPreviewSection(context, preview),
+                  );
+                },
+              ),
               FutureBuilder<File>(
                 future: _fileFuture,
                 builder: (context, snapshot) {
@@ -116,6 +138,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
                     file: snapshot.data!,
                     player: _player,
                     durationSec: durationSec,
+                    waveformPeaks: _waveformPeaks(msg),
                     onReady: () => setState(() {}),
                     onDelete: _onDelete,
                   );
@@ -137,6 +160,18 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     final payload = MessageDBISAR.parseVoiceContent(msg.decryptContent) ??
         MessageDBISAR.parseVoiceContent(msg.content);
     return (payload?['durationSeconds'] as num?)?.toInt() ?? 0;
+  }
+
+  List<int> _waveformPeaks(MessageDBISAR msg) {
+    final payload = MessageDBISAR.parseVoiceContent(msg.decryptContent) ??
+        MessageDBISAR.parseVoiceContent(msg.content);
+    final raw = payload?['waveformPeaks'] as List?;
+    final peaks = (raw ?? const [])
+        .map((e) => (e as num?)?.toInt() ?? 0)
+        .where((v) => v > 0)
+        .toList();
+    if (peaks.isNotEmpty) return peaks;
+    return List<int>.filled(24, 24);
   }
 
   static String _formatMessageTime(int createTimeSeconds) {
@@ -161,14 +196,14 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
       actions: [
         IconButton(
           icon: const Icon(Icons.videocam_outlined),
-          onPressed: () =>
-              StartCallHelper.startCall(context, peerId: otherPubkey, callType: CallType.video),
+          onPressed: () => StartCallHelper.startCall(context,
+              peerId: otherPubkey, callType: CallType.video),
           tooltip: 'Video',
         ),
         IconButton(
           icon: const Icon(Icons.call_outlined),
-          onPressed: () =>
-              StartCallHelper.startCall(context, peerId: otherPubkey, callType: CallType.audio),
+          onPressed: () => StartCallHelper.startCall(context,
+              peerId: otherPubkey, callType: CallType.audio),
           tooltip: 'Voice',
         ),
       ],
@@ -179,7 +214,8 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     final theme = Theme.of(context);
     return Text(
       timeStr,
-      style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
+      style: theme.textTheme.titleMedium
+          ?.copyWith(color: theme.colorScheme.onSurface),
       textAlign: TextAlign.center,
     );
   }
@@ -191,7 +227,8 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildProgressTimeRow(theme, colorScheme, Duration.zero, placeholderDuration),
+        _buildProgressTimeRow(
+            theme, colorScheme, Duration.zero, placeholderDuration),
         const SizedBox(height: 4),
         _buildProgressSliderPlaceholder(context),
         const SizedBox(height: 24),
@@ -211,7 +248,8 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     );
   }
 
-  Widget _buildPlaybackActionsPlaceholder(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildPlaybackActionsPlaceholder(
+      BuildContext context, ColorScheme colorScheme) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -252,7 +290,8 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
         const SizedBox(height: 16),
         Text(
           'Playback failed',
-          style: theme.textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+          style: theme.textTheme.bodyLarge
+              ?.copyWith(color: colorScheme.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
@@ -272,16 +311,85 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     Duration duration,
   ) {
     final posSec = position.inSeconds.clamp(0, duration.inSeconds);
-    final positionStr = '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
+    final positionStr =
+        '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
     final totalStr =
         '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
-    final style = theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
+    final style = theme.textTheme.bodySmall
+        ?.copyWith(color: colorScheme.onSurfaceVariant);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(positionStr, style: style),
         Text(totalStr, style: style),
       ],
+    );
+  }
+
+  Future<_VoiceThreadPreview> _loadThreadPreview() async {
+    final msg = widget.message;
+    MessageDBISAR? parent;
+    if (msg.replyId.isNotEmpty) {
+      parent = await Messages.sharedInstance.loadMessageDBFromDB(msg.replyId);
+    }
+    final replyCount = await Messages.countReplies(msg.messageId);
+    final recentReplies = await Messages.loadReplies(msg.messageId, limit: 2);
+    return _VoiceThreadPreview(
+      parent: parent,
+      replyCount: replyCount,
+      recentReplies: recentReplies,
+    );
+  }
+
+  Widget _buildThreadPreviewSection(
+      BuildContext context, _VoiceThreadPreview preview) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textStyle = theme.textTheme.bodySmall
+        ?.copyWith(color: colorScheme.onSurfaceVariant);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (preview.parent != null)
+            Text(
+              'Replying to: ${MessageDBISAR.getContent(MessageDBISAR.stringtoMessageType(preview.parent!.type), preview.parent!.decryptContent, null)}',
+              style: textStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          if (preview.replyCount > 0)
+            Padding(
+              padding: EdgeInsets.only(top: preview.parent == null ? 0 : 6),
+              child: Text(
+                '${preview.replyCount} repl${preview.replyCount == 1 ? 'y' : 'ies'} in this thread',
+                style: textStyle,
+              ),
+            ),
+          if (preview.recentReplies.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final reply in preview.recentReplies)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  MessageDBISAR.getContent(
+                    MessageDBISAR.stringtoMessageType(reply.type),
+                    reply.decryptContent,
+                    null,
+                  ),
+                  style: textStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -291,6 +399,7 @@ class _VoicePlayerSection extends StatefulWidget {
   final File file;
   final AudioPlayer player;
   final int durationSec;
+  final List<int> waveformPeaks;
   final VoidCallback onReady;
   final Future<void> Function() onDelete;
 
@@ -298,6 +407,7 @@ class _VoicePlayerSection extends StatefulWidget {
     required this.file,
     required this.player,
     required this.durationSec,
+    required this.waveformPeaks,
     required this.onReady,
     required this.onDelete,
   });
@@ -329,17 +439,20 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
         return;
       }
       _sub = widget.player.processingStateStream.listen((state) {
-        if (state == ProcessingState.ready || state == ProcessingState.completed) {
+        if (state == ProcessingState.ready ||
+            state == ProcessingState.completed) {
           _sub?.cancel();
           if (mounted) {
             setState(() => _ready = true);
             widget.onReady();
-            _sub = widget.player.processingStateStream.listen(_onProcessingState);
+            _sub =
+                widget.player.processingStateStream.listen(_onProcessingState);
           }
         }
       });
       await widget.player.processingStateStream
-          .where((s) => s == ProcessingState.ready || s == ProcessingState.completed)
+          .where((s) =>
+              s == ProcessingState.ready || s == ProcessingState.completed)
           .first
           .timeout(const Duration(seconds: 30));
     } catch (_) {
@@ -374,7 +487,8 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildProgressTimeRow(theme, colorScheme, Duration.zero, placeholderDuration),
+          _buildProgressTimeRow(
+              theme, colorScheme, Duration.zero, placeholderDuration),
           const SizedBox(height: 4),
           Container(
             height: 4,
@@ -430,7 +544,17 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
           children: [
             _buildProgressTimeRow(theme, colorScheme, position, duration),
             const SizedBox(height: 4),
-            _buildSlider(context, position, duration, colorScheme),
+            VoiceWaveformBar(
+              peaks: widget.waveformPeaks,
+              progress: duration.inMilliseconds <= 0
+                  ? 0
+                  : (position.inMilliseconds / duration.inMilliseconds)
+                      .clamp(0.0, 1.0),
+              height: 28,
+              maxBars: 40,
+            ),
+            const SizedBox(height: 8),
+            _buildSlider(context, position, duration),
             const SizedBox(height: 24),
             Stack(
               alignment: Alignment.center,
@@ -440,7 +564,9 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
                   height: 44,
                   child: IconButton(
                     icon: Icon(
-                      _player.playing ? CupertinoIcons.pause_fill : CupertinoIcons.play_fill,
+                      _player.playing
+                          ? CupertinoIcons.pause_fill
+                          : CupertinoIcons.play_fill,
                       color: colorScheme.primary,
                     ),
                     onPressed: () async {
@@ -458,7 +584,8 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: IconButton(
-                    icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
+                    icon:
+                        Icon(CupertinoIcons.delete, color: colorScheme.primary),
                     onPressed: widget.onDelete,
                     iconSize: 28,
                     tooltip: 'Delete',
@@ -479,10 +606,12 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
     Duration duration,
   ) {
     final posSec = position.inSeconds.clamp(0, duration.inSeconds);
-    final positionStr = '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
+    final positionStr =
+        '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
     final totalStr =
         '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
-    final style = theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
+    final style = theme.textTheme.bodySmall
+        ?.copyWith(color: colorScheme.onSurfaceVariant);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -496,7 +625,6 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
     BuildContext context,
     Duration position,
     Duration duration,
-    ColorScheme colorScheme,
   ) {
     final totalMs = duration.inMilliseconds;
     final positionValue = totalMs > 0
@@ -516,4 +644,16 @@ class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
       ),
     );
   }
+}
+
+class _VoiceThreadPreview {
+  final MessageDBISAR? parent;
+  final int replyCount;
+  final List<MessageDBISAR> recentReplies;
+
+  const _VoiceThreadPreview({
+    required this.parent,
+    required this.replyCount,
+    required this.recentReplies,
+  });
 }

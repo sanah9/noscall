@@ -12,6 +12,7 @@ import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 /// without needing path_provider/sqflite.
 class FakeVoiceCacheManager implements BaseCacheManager {
   final List<String> removeFileCalls = [];
+  int emptyCacheCalls = 0;
 
   @override
   Future<void> removeFile(String key) async {
@@ -19,18 +20,22 @@ class FakeVoiceCacheManager implements BaseCacheManager {
   }
 
   @override
-  Future<void> emptyCache() async {}
+  Future<void> emptyCache() async {
+    emptyCacheCalls++;
+  }
 
   @override
   Future<void> dispose() async {}
 
   @override
-  Future<File> getSingleFile(String url, {String? key, Map<String, String>? headers}) async {
+  Future<File> getSingleFile(String url,
+      {String? key, Map<String, String>? headers}) async {
     throw UnimplementedError();
   }
 
   @override
-  Future<FileInfo?> getFileFromCache(String key, {bool ignoreMemCache = false}) async {
+  Future<FileInfo?> getFileFromCache(String key,
+      {bool ignoreMemCache = false}) async {
     throw UnimplementedError();
   }
 
@@ -41,7 +46,9 @@ class FakeVoiceCacheManager implements BaseCacheManager {
 
   @override
   Future<FileInfo> downloadFile(String url,
-      {String? key, Map<String, String>? authHeaders, bool force = false}) async {
+      {String? key,
+      Map<String, String>? authHeaders,
+      bool force = false}) async {
     throw UnimplementedError();
   }
 
@@ -53,18 +60,25 @@ class FakeVoiceCacheManager implements BaseCacheManager {
 
   @override
   Future<File> putFile(String url, Uint8List fileBytes,
-      {String? key, String? eTag, Duration? maxAge, String fileExtension = 'file'}) async {
+      {String? key,
+      String? eTag,
+      Duration? maxAge,
+      String fileExtension = 'file'}) async {
     throw UnimplementedError();
   }
 
   @override
   Future<File> putFileStream(String url, Stream<List<int>> source,
-      {String? key, String? eTag, Duration? maxAge, String fileExtension = 'file'}) async {
+      {String? key,
+      String? eTag,
+      Duration? maxAge,
+      String fileExtension = 'file'}) async {
     throw UnimplementedError();
   }
 
   @override
-  Stream<FileInfo> getFile(String url, {String? key, Map<String, String>? headers}) {
+  Stream<FileInfo> getFile(String url,
+      {String? key, Map<String, String>? headers}) {
     throw UnimplementedError();
   }
 }
@@ -178,7 +192,9 @@ void main() {
       expect(await file.exists(), isTrue);
       expect(await file.length(), 3);
       expect(await file.readAsBytes(), [10, 20, 30]);
-    }, skip: 'Requires path_provider + sqflite; run on device or integration test');
+    },
+        skip:
+            'Requires path_provider + sqflite; run on device or integration test');
 
     test('no-op when messageId is empty', () async {
       final source = io.File('${tempDir.path}/empty_id.m4a');
@@ -223,7 +239,9 @@ void main() {
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_delete');
       expect(await file.exists(), isFalse);
-    }, skip: 'Requires path_provider + sqflite; run on device or integration test');
+    },
+        skip:
+            'Requires path_provider + sqflite; run on device or integration test');
 
     test('calls removeFile on underlying manager', () async {
       final fake = FakeVoiceCacheManager();
@@ -246,6 +264,27 @@ void main() {
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_never_cached');
 
       expect(fake.removeFileCalls, ['ev_never_cached']);
+    });
+  });
+
+  group('VoiceCacheManager cache maintenance', () {
+    test('deleteCacheForMessages removes each non-empty key', () async {
+      final fake = FakeVoiceCacheManager();
+      VoiceCacheManager.setTestOverrides(cacheManager: fake);
+
+      await VoiceCacheManager.instance
+          .deleteCacheForMessages(['ev_a', '', 'ev_b']);
+
+      expect(fake.removeFileCalls, ['ev_a', 'ev_b']);
+    });
+
+    test('clearAllCache calls emptyCache on underlying manager', () async {
+      final fake = FakeVoiceCacheManager();
+      VoiceCacheManager.setTestOverrides(cacheManager: fake);
+
+      await VoiceCacheManager.instance.clearAllCache();
+
+      expect(fake.emptyCacheCalls, 1);
     });
   });
 }

@@ -51,7 +51,8 @@ class MessageDBISAR {
   String plaintEvent;
 
   /// add type
-  int? chatType; // 0 private chat 1 group chat 2 channel chat 3 secret chat 4 relay group chat 5 ble channel chat 6 ble private chat
+  int?
+      chatType; // 0 private chat 1 group chat 2 channel chat 3 secret chat 4 relay group chat 5 ble channel chat 6 ble private chat
   String? subType; // subtype of template/system type
 
   /// add previewData
@@ -195,12 +196,13 @@ class MessageDBISAR {
   }
 
   static Future<Map<String, dynamic>> decodeContent(String content) async {
-    var result =
-        await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeContentInIsolate(content));
+    var result = await ThreadPoolManager.sharedInstance
+        .runOtherTask(() => _decodeContentInIsolate(content));
     return result;
   }
 
-  static Future<Map<String, dynamic>> _decodeContentInIsolate(String content) async {
+  static Future<Map<String, dynamic>> _decodeContentInIsolate(
+      String content) async {
     content = content.trim();
     try {
       Map<String, dynamic> map = jsonDecode(content) as Map<String, dynamic>;
@@ -218,7 +220,10 @@ class MessageDBISAR {
       }
       return {'contentType': 'text', 'content': content};
     } catch (e) {
-      return {'contentType': messageTypeToString(MessageType.unknown), 'content': content};
+      return {
+        'contentType': messageTypeToString(MessageType.unknown),
+        'content': content
+      };
     }
   }
 
@@ -243,7 +248,8 @@ class MessageDBISAR {
   static String? getSubContent(MessageType type, String content) {
     switch (type) {
       case MessageType.call:
-        return jsonEncode({'contentType': messageTypeToString(type), 'content': content});
+        return jsonEncode(
+            {'contentType': messageTypeToString(type), 'content': content});
       case MessageType.voice:
         return content;
       default:
@@ -258,6 +264,13 @@ class MessageDBISAR {
     try {
       final map = jsonDecode(jsonContent) as Map<String, dynamic>;
       if (map['contentType'] == 'voice' || map['url'] != null) {
+        final peaks = map['waveformPeaks'];
+        if (peaks is List) {
+          map['waveformPeaks'] = peaks
+              .map((e) => (e as num?)?.toInt() ?? 0)
+              .where((v) => v > 0)
+              .toList();
+        }
         return map;
       }
       return null;
@@ -277,15 +290,19 @@ class MessageDBISAR {
     return 'encryptedFile';
   }
 
-  static Future<MessageDBISAR?> fromPrivateMessage(Event event, String receiver, String privkey,
+  static Future<MessageDBISAR?> fromPrivateMessage(
+      Event event, String receiver, String privkey,
       {int chatType = 0}) async {
     EDMessage? message;
     if (event.kind == 44) {
-      message = await Contacts.sharedInstance.decodeNip44Event(event, receiver, privkey);
+      message = await Contacts.sharedInstance
+          .decodeNip44Event(event, receiver, privkey);
     } else if (event.kind == 4) {
-      message = await Contacts.sharedInstance.decodeNip4Event(event, receiver, privkey);
+      message = await Contacts.sharedInstance
+          .decodeNip4Event(event, receiver, privkey);
     } else if (event.kind == 14 || event.kind == 15) {
-      message = await Contacts.sharedInstance.decodeKind14Event(event, receiver);
+      message =
+          await Contacts.sharedInstance.decodeKind14Event(event, receiver);
     }
     if (message == null) return null;
     MessageDBISAR messageDB = MessageDBISAR(
@@ -300,7 +317,8 @@ class MessageDBISAR {
         replyId: message.replyId,
         plaintEvent: jsonEncode(event),
         chatType: chatType,
-        expiration: message.expiration == null ? null : int.parse(message.expiration!),
+        expiration:
+            message.expiration == null ? null : int.parse(message.expiration!),
         decryptAlgo: message.algorithm,
         decryptNonce: message.nonce,
         decryptSecret: message.secret);
@@ -317,7 +335,8 @@ class MessageDBISAR {
   }
 
   static String? getNostrScheme(String content) {
-    const regexNostr = r'((nostr:)?(npub|note|nprofile|nevent|nrelay|naddr)[0-9a-zA-Z]+)';
+    const regexNostr =
+        r'((nostr:)?(npub|note|nprofile|nevent|nrelay|naddr)[0-9a-zA-Z]+)';
     final urlRegexp = RegExp(regexNostr);
     final match = urlRegexp.firstMatch(content);
     return match?.group(0);
@@ -346,7 +365,8 @@ MessageDBISAR _messageInfoFromMap(Map<String, dynamic> map) {
     previewData: map['previewData']?.toString(),
     expiration: map['expiration'],
     decryptSecret: map['decryptSecret']?.toString(),
-    reactionEventIds: UserDBISAR.decodeStringList(map['reactionEventIds'].toString()),
+    reactionEventIds:
+        UserDBISAR.decodeStringList(map['reactionEventIds'].toString()),
     zapEventIds: UserDBISAR.decodeStringList(map['zapEventIds'].toString()),
   );
 }
