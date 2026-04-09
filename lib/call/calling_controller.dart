@@ -70,6 +70,7 @@ class CallingController {
   String sessionId;
 
   Set<RTCIceCandidate> localCandidateSet = {};
+  final Set<String> _sentCandidateKeys = {};
   Completer<String> offerIdCmp = Completer<String>();
   Future<String> get offerId => offerIdCmp.future;
 
@@ -202,6 +203,7 @@ class CallingController {
     } else {
       switch (callEndReason) {
         case CallEndReason.reject:
+        case CallEndReason.busy:
           status = CallStatus.declined;
           break;
         case CallEndReason.iceConnectionFailed:
@@ -301,7 +303,11 @@ extension CallingControllerSignalingEx on CallingController {
     return true;
   }
 
-  Future hangup(CallEndReason reason, [bool shouldInvokeCallKeep = true]) async {
+  Future hangup(
+    CallEndReason reason, [
+    bool shouldInvokeCallKeep = true,
+    bool shouldSendSignal = true,
+  ]) async {
     if (state.value == CallingState.ended) return;
     if (isHangingUp.value) return;
 
@@ -329,13 +335,15 @@ extension CallingControllerSignalingEx on CallingController {
           break;
       }
     }
-    _sendDisconnect(finalReason).catchError((error) {
-      LogUtils.error(
-        className: 'CallingController',
-        funcName: 'hangup',
-        message: 'Failed to send disconnect message: $error',
-      );
-    });
+    if (shouldSendSignal) {
+      _sendDisconnect(finalReason).catchError((error) {
+        LogUtils.error(
+          className: 'CallingController',
+          funcName: 'hangup',
+          message: 'Failed to send disconnect message: $error',
+        );
+      });
+    }
 
     await webRTCHandler.close();
     _dispose();
@@ -433,6 +441,9 @@ extension CallingControllerNostrSignalingEx on CallingController {
   }
 
   Future _sendCandidate(RTCIceCandidate candidate) async {
+    final candidateKey = _candidateKey(candidate);
+    if (_sentCandidateKeys.contains(candidateKey)) return;
+
     final meta = jsonEncode({
       'candidate': candidate.candidate,
       'sdpMid': candidate.sdpMid,
@@ -452,6 +463,9 @@ extension CallingControllerNostrSignalingEx on CallingController {
       peerId,
       meta,
     );
+    if (okEvent.status) {
+      _sentCandidateKeys.add(candidateKey);
+    }
 
     LogUtils.info(
       className: 'CallingController',
@@ -467,6 +481,10 @@ extension CallingControllerNostrSignalingEx on CallingController {
       reason: reason,
       reject: reason == CallEndReason.reject,
     );
+  }
+
+  String _candidateKey(RTCIceCandidate candidate) {
+    return '${candidate.candidate}|${candidate.sdpMid}|${candidate.sdpMLineIndex}';
   }
 
   static Future sendDisconnect({
@@ -615,6 +633,17 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
       funcName: 'onIceCandidateHandler',
       message: 'candidate: ${candidate.candidate}',
     );
+
+    if (!offerIdCmp.isCompleted || state.value == CallingState.ended) {
+      return;
+    }
+    _sendCandidate(candidate).catchError((error) {
+      LogUtils.error(
+        className: 'CallingController',
+        funcName: 'onIceCandidateHandler',
+        message: 'Failed to trickle candidate: $error',
+      );
+    });
   }
 
   void onIceConnectionStateHandler(RTCIceConnectionState connectionState) async {

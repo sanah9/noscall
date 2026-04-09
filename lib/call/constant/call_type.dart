@@ -51,6 +51,7 @@ enum CallActionType {
 enum CallEndReason {
   hangup('hangUp'),
   reject('reject'),
+  busy('busy'),
   timeout('timeout'),
   disconnect('disconnect'),
   networkDisconnected('network disconnected'),

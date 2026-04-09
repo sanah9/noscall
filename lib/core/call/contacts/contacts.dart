@@ -13,6 +13,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/call_event_policy.dart';
 import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/core/call/contacts/contacts+calling.dart';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
@@ -55,6 +56,7 @@ class Contacts {
   Map<String, CallMessage> callMessages = {};
   int maxLimit = 2048;
   int offset2 = 24 * 60 * 60 * 3;
+  static const int callEventStaleSeconds = 60;
 
   /// callbacks
   ContactUpdatedCallBack? contactUpdatedCallBack;
@@ -322,9 +324,6 @@ class Contacts {
             ChatCoreManager().isAcceptedEventKind(innerEvent.kind)) {
           updateFriendMessageTime(innerEvent.createdAt, relay);
           switch (innerEvent.kind) {
-            case 25050:
-              handleCallEvent(innerEvent, relay);
-              break;
             case 4:
             case 44:
               final messageDB = await MessageDBISAR.fromPrivateMessage(
@@ -345,7 +344,20 @@ class Contacts {
       }
       if (event.kind == 21059) {
         Event? innerEvent = await decodeNipAcWrapEvent(event);
-        if (innerEvent == null || EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
+        if (innerEvent == null) {
+          LogUtils.v(() => 'Drop call event: unwrap failed, outer=${event.id}');
+          return;
+        }
+        if (EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
+          LogUtils.v(() => 'Drop call event: duplicate inner=${innerEvent.id}');
+          return;
+        }
+        if (_isCallEventStale(innerEvent)) {
+          LogUtils.v(() => 'Drop call event: stale inner=${innerEvent.id}, createdAt=${innerEvent.createdAt}');
+          return;
+        }
+        if (!_isFollowedCaller(innerEvent.pubkey)) {
+          LogUtils.v(() => 'Drop call event: not-followed caller=${innerEvent.pubkey}');
           return;
         }
         EventCache.sharedInstance.receiveEvent(innerEvent, relay);
@@ -409,5 +421,21 @@ class Contacts {
     if (offlinePrivateMessageFinish[relay] == true) {
       Relays.sharedInstance.syncRelaysToDB(r: relay);
     }
+  }
+
+  bool _isCallEventStale(Event event) {
+    return CallEventPolicy.isStale(
+      event,
+      nowSeconds: currentUnixTimestampSeconds(),
+      staleAfterSeconds: callEventStaleSeconds,
+    );
+  }
+
+  bool _isFollowedCaller(String callerPubkey) {
+    return CallEventPolicy.isFollowedCaller(
+      callerPubkey: callerPubkey,
+      myPubkey: pubkey,
+      followedPubkeys: allContacts.keys.toSet(),
+    );
   }
 }

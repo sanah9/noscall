@@ -35,6 +35,7 @@ class CallKitManager with WidgetsBindingObserver {
 
   CallingController? waitingShowController;
   Set<String> disconnectOfferId = {};
+  final Map<String, List<String>> _globalCandidateBuffer = {};
 
   StreamSubscription? deviceChangeSubscription;
   ValueNotifier<bool> isBluetoothHeadsetConnected = ValueNotifier(false);
@@ -249,6 +250,15 @@ class CallKitManager with WidgetsBindingObserver {
     String data = '',
     CallType? mediaType,
   }) async {
+    final myPubkey = ChatCore.Account.sharedInstance.currentPubkey;
+    if (friend == myPubkey) {
+      await _handleSelfEchoEvent(
+        state: state,
+        offerId: offerId,
+      );
+      return;
+    }
+
     if (disconnectOfferId.contains(offerId)) {
       LogUtils.i(() => 'offerId($offerId) has been disconnected');
       return;
@@ -266,9 +276,11 @@ class CallKitManager with WidgetsBindingObserver {
           CallingControllerNostrSignalingEx.sendDisconnect(
             callId: offerId,
             peerId: friend,
-            reason: CallEndReason.reject,
+            reason: CallEndReason.busy,
             reject: true,
           );
+        } else if (state == SignalingState.candidate) {
+          _bufferGlobalCandidate(offerId, data);
         }
       } else {
         activeController.signalingCallbackHandler(
@@ -276,6 +288,14 @@ class CallKitManager with WidgetsBindingObserver {
           content: data,
         );
       }
+      return;
+    }
+    if (state == SignalingState.candidate) {
+      _bufferGlobalCandidate(offerId, data);
+      return;
+    }
+    if (state == SignalingState.disconnect) {
+      disconnectOfferId.add(offerId);
       return;
     }
     if (state == SignalingState.offer) {
@@ -300,6 +320,7 @@ class CallKitManager with WidgetsBindingObserver {
         nostrState: state,
         content: data,
       );
+      _flushGlobalCandidates(offerId, controller);
 
       controller.callId.then((callId) async {
         await _callKeepManager?.displayIncomingCall(
@@ -309,6 +330,45 @@ class CallKitManager with WidgetsBindingObserver {
         );
       });
     }
+  }
+
+  Future<void> _handleSelfEchoEvent({
+    required SignalingState state,
+    required String offerId,
+  }) async {
+    if (state == SignalingState.offer) {
+      LogUtils.v(() => 'Ignore self offer echo: $offerId');
+      return;
+    }
+    final activeController = await activeControllerCmp?.future;
+    if (activeController == null) return;
+    if (await activeController.offerId != offerId) return;
+
+    if (state == SignalingState.answer || state == SignalingState.disconnect) {
+      disconnectOfferId.add(offerId);
+      await activeController.hangup(CallEndReason.disconnect, false, false);
+      LogUtils.i(() => 'Handled self echo event, ended local call: state=$state callId=$offerId');
+    }
+  }
+
+  void _bufferGlobalCandidate(String callId, String content) {
+    if (content.isEmpty) return;
+    final queue = _globalCandidateBuffer.putIfAbsent(callId, () => <String>[]);
+    if (!queue.contains(content)) {
+      queue.add(content);
+    }
+  }
+
+  void _flushGlobalCandidates(String callId, CallingController controller) {
+    final queue = _globalCandidateBuffer.remove(callId);
+    if (queue == null || queue.isEmpty) return;
+    for (final candidateJson in queue) {
+      controller.signalingCallbackHandler(
+        nostrState: SignalingState.candidate,
+        content: candidateJson,
+      );
+    }
+    LogUtils.i(() => 'Flushed buffered ICE candidates: ${queue.length}, callId=$callId');
   }
 
   Future<CallingController> openCallModule({
