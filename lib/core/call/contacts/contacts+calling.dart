@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:nostr_core_dart/nostr.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 
 import '../../account/account.dart';
 import '../../common/network/connect.dart';
@@ -153,7 +154,13 @@ extension Calling on Contacts {
   }
 
   Future<void> handleCallEvent(Event event, String relay) async {
-    final signaling = NipAcProtocol.decodeInner(event, pubkey);
+    NipAcSignaling signaling;
+    try {
+      signaling = NipAcProtocol.decodeInner(event, pubkey);
+    } catch (e) {
+      LogUtils.w(() => 'Drop non NIP-AC signaling event: kind=${event.kind}, id=${event.id}, error=$e');
+      return;
+    }
     String? reason;
     if (signaling.state == SignalingState.disconnect) {
       reason = signaling.content;

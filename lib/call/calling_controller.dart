@@ -132,7 +132,8 @@ class CallingController {
 
     if (offerId.isNotEmpty) {
       controller.offerIdCmp.complete(offerId);
-      controller.callIdCmp.complete(const Uuid().v5(Namespace.url.value, offerId));
+      // In NIP-AC P0, offerId parameter already carries call-id.
+      controller.callIdCmp.complete(offerId);
     }
 
     controller.webRTCHandler = await WebRTCHandler.create(
