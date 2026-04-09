@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nostr_core_dart/nostr.dart';
+import 'package:noscall/core/call/nip_ac_protocol.dart';
 
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
@@ -156,6 +157,36 @@ extension IsolateEvent on Contacts {
           await ThreadPoolManager.sharedInstance.runOtherTask(() => _encodeNip17InIsolate(map));
     }
 
+    if (message != null) {
+      return Event.fromJson(message, verify: false);
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> _decodeNipAcWrapInIsolate(
+      Map<String, dynamic> params) async {
+    final privkey = params['privkey'] ?? '';
+    final pubkey = params['pubkey'] ?? '';
+    final event = await Event.fromJson(params['event'], verify: false);
+    final innerEvent = await NipAcProtocol.unwrap(event, pubkey, privkey);
+    return innerEvent.toJson();
+  }
+
+  Future<Event?> decodeNipAcWrapEvent(Event event) async {
+    final map = <String, dynamic>{
+      'event': event.toJson(),
+      'privkey': privkey,
+      'pubkey': pubkey,
+    };
+
+    var message;
+    final signerApplication = SignerHelper.getSignerApplication(privkey);
+    if (signerApplication == SignerApplication.remoteSigner) {
+      message = await _decodeNipAcWrapInIsolate(map);
+    } else {
+      message = await ThreadPoolManager.sharedInstance
+          .runOtherTask(() => _decodeNipAcWrapInIsolate(map));
+    }
     if (message != null) {
       return Event.fromJson(message, verify: false);
     }

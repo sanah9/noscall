@@ -61,7 +61,7 @@ class Contacts {
   PrivateChatMessageCallBack? privateChatMessageCallBack;
   Map<String, bool> offlinePrivateMessageFinish = {};
 
-  void Function(String friend, SignalingState state, String data, String? offerId)?
+  void Function(String friend, SignalingState state, String data, String? callId, String? callType)?
       onCallStateChange;
 
   /// Called when an incoming call was missed (disconnect before answer, e.g. timeout/cancel).
@@ -273,7 +273,7 @@ class Contacts {
 
         /// all messages, contacts & unknown contacts
         Filter f1 = Filter(
-            kinds: [4, 1059],
+            kinds: [4, 1059, 21059],
             p: [pubkey],
             since: friendMessageUntil > offset2 ? (friendMessageUntil - offset2 + 1) : 1,
             limit: maxLimit);
@@ -286,7 +286,7 @@ class Contacts {
 
       /// all messages, contacts & unknown contacts
       Filter f1 = Filter(
-          kinds: [4, 1059],
+          kinds: [4, 1059, 21059],
           p: [pubkey],
           since: friendMessageUntil > offset2 ? (friendMessageUntil - offset2 + 1) : 1,
           limit: maxLimit);
@@ -341,6 +341,17 @@ class Contacts {
               LogUtils.v(() => 'contacts unhandled message ${innerEvent.toJson()}');
               break;
           }
+        }
+      }
+      if (event.kind == 21059) {
+        Event? innerEvent = await decodeNipAcWrapEvent(event);
+        if (innerEvent == null || EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
+          return;
+        }
+        EventCache.sharedInstance.receiveEvent(innerEvent, relay);
+        if (!inBlockList(innerEvent.pubkey) && innerEvent.kind >= 25050 && innerEvent.kind <= 25054) {
+          updateFriendMessageTime(innerEvent.createdAt, relay);
+          handleCallEvent(innerEvent, relay);
         }
       }
     }, eoseCallBack: (requestId, ok, relay, unCompletedRelays) {

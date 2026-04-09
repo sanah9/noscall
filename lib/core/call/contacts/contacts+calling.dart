@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
+import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 import '../../account/account.dart';
@@ -10,108 +11,169 @@ import '../messages/model/messageDB_isar.dart';
 import 'contacts.dart';
 
 extension Calling on Contacts {
-  Future<OKEvent> sendDisconnect(
-      String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(
-        offerId, friendPubkey, SignalingState.disconnect, content);
+  Future<OKEvent> sendHangup(String callId, String friendPubkey, String reason) async {
+    return _sendSignaling(
+      callId: callId,
+      toPubkey: friendPubkey,
+      state: SignalingState.disconnect,
+      content: reason,
+      reject: false,
+    );
   }
 
-  Future<OKEvent> sendOffer(String friendPubkey, String content) async {
-    return await _sendSignaling(
-        '', friendPubkey, SignalingState.offer, content);
+  Future<OKEvent> sendReject(String callId, String friendPubkey, String reason) async {
+    return _sendSignaling(
+      callId: callId,
+      toPubkey: friendPubkey,
+      state: SignalingState.disconnect,
+      content: reason,
+      reject: true,
+    );
   }
 
-  Future<OKEvent> sendAnswer(
-      String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(
-        offerId, friendPubkey, SignalingState.answer, content);
+  Future<OKEvent> sendOffer(
+    String friendPubkey,
+    String callId,
+    String callType,
+    String sdp,
+  ) async {
+    return _sendSignaling(
+      callId: callId,
+      toPubkey: friendPubkey,
+      state: SignalingState.offer,
+      content: sdp,
+      callType: callType,
+    );
   }
 
-  Future<OKEvent> sendCandidate(
-      String offerId, String friendPubkey, String content) async {
-    return await _sendSignaling(
-        offerId, friendPubkey, SignalingState.candidate, content);
+  Future<OKEvent> sendAnswer(String callId, String friendPubkey, String sdp) async {
+    return _sendSignaling(
+      callId: callId,
+      toPubkey: friendPubkey,
+      state: SignalingState.answer,
+      content: sdp,
+    );
   }
 
-  Future<OKEvent> _sendSignaling(String offerId, String toPubkey,
-      SignalingState state, String content) async {
-    Completer<OKEvent> completer = Completer<OKEvent>();
-    Event? event;
+  Future<OKEvent> sendCandidate(String callId, String friendPubkey, String content) async {
+    return _sendSignaling(
+      callId: callId,
+      toPubkey: friendPubkey,
+      state: SignalingState.candidate,
+      content: content,
+    );
+  }
+
+  Future<OKEvent> _sendSignaling({
+    required String callId,
+    required String toPubkey,
+    required SignalingState state,
+    required String content,
+    String? callType,
+    bool reject = false,
+  }) async {
+    final completer = Completer<OKEvent>();
+    late final Event innerEvent;
     String? reason;
-    int kind = 25051;
     switch (state) {
       case SignalingState.disconnect:
-        event = await Nip100.close(toPubkey, content, offerId, pubkey, privkey);
-        try {
-          Map map = jsonDecode(content);
-          reason = map['reason'];
-        } catch (_) {}
+        reason = content;
+        if (reject) {
+          innerEvent = await NipAcProtocol.createReject(
+            toPubkey: toPubkey,
+            callId: callId,
+            reason: content,
+            pubkey: pubkey,
+            privkey: privkey,
+          );
+        } else {
+          innerEvent = await NipAcProtocol.createHangup(
+            toPubkey: toPubkey,
+            callId: callId,
+            reason: content,
+            pubkey: pubkey,
+            privkey: privkey,
+          );
+        }
         break;
       case SignalingState.offer:
-        kind = 25050;
-        event = await Nip100.offer(toPubkey, content, pubkey, privkey);
-        offerId = event.id;
+        innerEvent = await NipAcProtocol.createOffer(
+          toPubkey: toPubkey,
+          callId: callId,
+          callType: callType ?? 'audio',
+          sdp: content,
+          pubkey: pubkey,
+          privkey: privkey,
+        );
         break;
       case SignalingState.answer:
-        event =
-            await Nip100.answer(toPubkey, content, offerId, pubkey, privkey);
+        innerEvent = await NipAcProtocol.createAnswer(
+          toPubkey: toPubkey,
+          callId: callId,
+          sdp: content,
+          pubkey: pubkey,
+          privkey: privkey,
+        );
         break;
       case SignalingState.candidate:
-        event =
-            await Nip100.candidate(toPubkey, content, offerId, pubkey, privkey);
+        innerEvent = await NipAcProtocol.createCandidate(
+          toPubkey: toPubkey,
+          callId: callId,
+          candidateJson: content,
+          pubkey: pubkey,
+          privkey: privkey,
+        );
         break;
     }
-    Signaling signaling =
-        Signaling(event.pubkey, toPubkey, content, state, offerId);
+    final signaling = NipAcSignaling(
+      sender: innerEvent.pubkey,
+      receiver: toPubkey,
+      content: content,
+      callId: callId,
+      kind: switch (state) {
+        SignalingState.offer => NipAcKind.offer,
+        SignalingState.answer => NipAcKind.answer,
+        SignalingState.candidate => NipAcKind.candidate,
+        _ => reject ? NipAcKind.reject : NipAcKind.hangup,
+      },
+      callType: callType,
+    );
     if (state != SignalingState.candidate) {
-      await handleSignalingEvent(event, signaling, reason);
+      await handleSignalingEvent(innerEvent, signaling, reason);
     }
 
-    /// 60s timeout for calling event
-    Event? encodeEvent = await encodeNip17Event(event, toPubkey,
-        expiration: currentUnixTimestampSeconds() + 60,
-        kind: kind,
-        createAt: currentUnixTimestampSeconds());
-    if (encodeEvent != null) {
-      Connect.sharedInstance.sendEvent(
-          relayKinds: [RelayKind.general],
-          encodeEvent, sendCallBack: (ok, relay) async {
+    final wrapped = await NipAcProtocol.wrap(innerEvent, toPubkey);
+    Connect.sharedInstance.sendEvent(relayKinds: [RelayKind.general], wrapped,
+          sendCallBack: (ok, relay) async {
         if (!completer.isCompleted) {
-          completer.complete(OKEvent(event!.id, ok.status, ok.message));
+          completer.complete(OKEvent(innerEvent.id, ok.status, ok.message));
         }
       });
-    } else {
-      completer.complete(OKEvent(event.id, false, 'encode nip17 event fail'));
-    }
     return completer.future;
   }
 
   Future<void> handleCallEvent(Event event, String relay) async {
-    Signaling signaling = Nip100.decode(event, pubkey);
+    final signaling = NipAcProtocol.decodeInner(event, pubkey);
     String? reason;
     if (signaling.state == SignalingState.disconnect) {
-      try {
-        Map map = jsonDecode(signaling.content);
-        reason = map['reason'];
-      } catch (_) {}
+      reason = signaling.content;
     }
     bool result = await handleSignalingEvent(event, signaling, reason);
     if (result) {
-      onCallStateChange?.call(
-          event.pubkey, signaling.state, signaling.content, signaling.offerId);
+      onCallStateChange
+          ?.call(event.pubkey, signaling.state, signaling.content, signaling.callId, signaling.callType);
     }
   }
 
-  Future<bool> handleSignalingEvent(
-      Event event, Signaling signaling, String? reason) async {
+  Future<bool> handleSignalingEvent(Event event, NipAcSignaling signaling, String? reason) async {
     /// receive offer
     int eventTime = event.createdAt * 1000;
     if (signaling.state == SignalingState.offer) {
-      CallMessage? callMessage = callMessages[event.id];
-      Map map = jsonDecode(signaling.content);
+      CallMessage? callMessage = callMessages[signaling.callId];
+      final media = signaling.callType ?? 'audio';
       if (callMessage != null) {
         /// outdated request
-        callMessage.media = map['media'];
+        callMessage.media = media;
         callMessage.start = eventTime;
         MessageDBISAR callMessageDB = callMessageToDB(callMessage);
         await Messages.saveMessageToDB(callMessageDB);
@@ -119,20 +181,20 @@ extension Calling on Contacts {
         return false;
       } else {
         callMessage = CallMessage(
-            event.id,
+            signaling.callId,
             signaling.sender,
             signaling.receiver,
             callMessage?.state ?? CallMessageState.offer,
             eventTime,
             callMessage?.end ?? eventTime,
-            map['media']);
-        callMessages[event.id] = callMessage;
+            media);
+        callMessages[signaling.callId] = callMessage;
       }
     }
 
     /// receive answer
     else if (signaling.state == SignalingState.answer) {
-      CallMessage? callMessage = callMessages[event.id];
+      CallMessage? callMessage = callMessages[signaling.callId];
       if (callMessage != null) {
         callMessage.start = eventTime;
       }
@@ -143,27 +205,23 @@ extension Calling on Contacts {
       CallMessageState state = CallMessageState.disconnect;
       switch (reason) {
         case 'hangUp':
+        case 'hangup':
           state = CallMessageState.cancel;
-          break;
-        case 'timeout':
-          state = CallMessageState.timeout;
           break;
         case 'reject':
           state = CallMessageState.reject;
           break;
+        case 'busy':
         case 'inCalling':
           state = CallMessageState.inCalling;
           break;
+        case 'timeout':
+          state = CallMessageState.timeout;
+          break;
       }
-      CallMessage? callMessage = callMessages[signaling.offerId];
-      callMessage ??= CallMessage(
-          signaling.offerId ?? event.id,
-          signaling.sender,
-          signaling.receiver,
-          state,
-          eventTime,
-          eventTime,
-          '');
+      CallMessage? callMessage = callMessages[signaling.callId];
+      callMessage ??= CallMessage(signaling.callId, signaling.sender,
+          signaling.receiver, state, eventTime, eventTime, '');
       callMessage.end = eventTime;
       callMessage.state = state;
       callMessages[callMessage.callId] = callMessage;
@@ -250,7 +308,7 @@ extension Calling on Contacts {
         sender: callMessage.sender,
         receiver: callMessage.receiver,
         content: content,
-        kind: 25050,
+        kind: 25053,
         type: 'call',
         decryptContent: jsonEncode({
           'state': callMessage.state.toString(),

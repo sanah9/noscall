@@ -283,19 +283,20 @@ extension CallingControllerSignalingEx on CallingController {
       }
     });
 
-    var offerId = await _sendOffer();
-    if (offerId == null || offerId.isEmpty) {
+    final generatedCallId = const Uuid().v4();
+    offerIdCmp.complete(generatedCallId);
+    callIdCmp.complete(generatedCallId);
+
+    final sent = await _sendOffer(generatedCallId);
+    if (!sent) {
       _inviteTimeout.cancel();
       LogUtils.error(
         className: 'CallingController',
         funcName: 'invitePeer',
-        message: 'Error offerId: $offerId',
+        message: 'Error sending offer with callId: $generatedCallId',
       );
       return false;
     }
-
-    offerIdCmp.complete(offerId);
-    callIdCmp.complete(const Uuid().v5(Namespace.url.value, offerId));
     return true;
   }
 
@@ -327,7 +328,7 @@ extension CallingControllerSignalingEx on CallingController {
           break;
       }
     }
-    _sendDisconnect(finalReason.value).catchError((error) {
+    _sendDisconnect(finalReason).catchError((error) {
       LogUtils.error(
         className: 'CallingController',
         funcName: 'hangup',
@@ -356,26 +357,21 @@ extension CallingControllerSignalingEx on CallingController {
 }
 
 extension CallingControllerNostrSignalingEx on CallingController {
-  Future<String?> _sendOffer() async {
+  Future<bool> _sendOffer(String callId) async {
     try {
       final description = await webRTCHandler.createOffer();
-      Map map = {
-        'description': {
-          'sdp': description.sdp,
-          'type': description.type,
-        },
-        'session_id': sessionId,
-        'media': callType.value,
-      };
-      String jsonOfOfferContent = jsonEncode(map);
-
       LogUtils.info(
           className: 'CallingController',
           funcName: '_sendOffer',
           message: '[send offer] sdp.length: ${description.sdp?.length}, type: ${description.type}'
       );
 
-      OKEvent okEvent = await Contacts.sharedInstance.sendOffer(peerId, jsonOfOfferContent);
+      OKEvent okEvent = await Contacts.sharedInstance.sendOffer(
+        peerId,
+        callId,
+        callType.value,
+        description.sdp ?? '',
+      );
 
       LogUtils.info(
         className: 'CallingController',
@@ -383,28 +379,20 @@ extension CallingControllerNostrSignalingEx on CallingController {
         message: '[send offer] okEvent id:${okEvent.eventId}, status: ${okEvent.status}, message: ${okEvent.message}',
       );
 
-      return okEvent.eventId;
+      return okEvent.status;
     } catch (e, stack) {
       LogUtils.error(
         className: 'CallingController',
         funcName: '_sendOffer',
         message: '$e, $stack',
       );
-      return null;
+      return false;
     }
   }
 
   Future<void> _sendAnswer() async {
     try {
       final description = await webRTCHandler.createAnswer();
-      Map map = {
-        'description': {
-          'sdp': description.sdp,
-          'type': description.type,
-        },
-        'session_id': sessionId,
-      };
-
       final offerId = await this.offerId;
 
       LogUtils.info(
@@ -413,7 +401,11 @@ extension CallingControllerNostrSignalingEx on CallingController {
         message: '[send answer] sessionId: $sessionId, offerId: $offerId, peerId: $peerId, sdp.length: ${description.sdp?.length}, type: ${description.type}',
       );
 
-      final okEvent = await Contacts.sharedInstance.sendAnswer(offerId, peerId, jsonEncode(map));
+      final okEvent = await Contacts.sharedInstance.sendAnswer(
+        offerId,
+        peerId,
+        description.sdp ?? '',
+      );
 
       LogUtils.info(
           className: 'CallingController',
@@ -441,12 +433,9 @@ extension CallingControllerNostrSignalingEx on CallingController {
 
   Future _sendCandidate(RTCIceCandidate candidate) async {
     final meta = jsonEncode({
-      'candidate': {
-        'candidate': candidate.candidate,
-        'sdpMid': candidate.sdpMid,
-        'sdpMLineIndex': candidate.sdpMLineIndex,
-      },
-      'session_id': sessionId
+      'candidate': candidate.candidate,
+      'sdpMid': candidate.sdpMid,
+      'sdpMLineIndex': candidate.sdpMLineIndex,
     });
 
     final offerId = await this.offerId;
@@ -470,33 +459,30 @@ extension CallingControllerNostrSignalingEx on CallingController {
     );
   }
 
-  Future _sendDisconnect(String reason) async {
+  Future _sendDisconnect(CallEndReason reason) async {
     CallingControllerNostrSignalingEx.sendDisconnect(
-      sessionId: sessionId,
-      offerId: await offerId,
+      callId: await offerId,
       peerId: peerId,
       reason: reason,
+      reject: reason == CallEndReason.reject,
     );
   }
 
   static Future sendDisconnect({
-    required String sessionId,
-    required String offerId,
+    required String callId,
     required String peerId,
-    required String reason,
+    required CallEndReason reason,
+    bool reject = false,
   }) async {
-    Map map = {
-      'session_id': sessionId,
-      'reason': reason,
-    };
-
     LogUtils.info(
       className: 'CallingController',
       funcName: 'sendDisconnect',
-      message: '[send disconnect] sessionId: $sessionId, offerId: $offerId, peerId: $peerId, reason: $reason',
+      message: '[send disconnect] callId: $callId, peerId: $peerId, reason: ${reason.value}, reject: $reject',
     );
 
-    final okEvent = await Contacts.sharedInstance.sendDisconnect(offerId, peerId, jsonEncode(map));
+    final okEvent = reject
+        ? await Contacts.sharedInstance.sendReject(callId, peerId, reason.value)
+        : await Contacts.sharedInstance.sendHangup(callId, peerId, reason.value);
 
     LogUtils.info(
       className: 'CallingController',
@@ -509,65 +495,32 @@ extension CallingControllerNostrSignalingEx on CallingController {
     required SignalingState nostrState,
     required String content,
   }) async {
-    Map meta = {};
-    try {
-      meta = jsonDecode(content);
-    } catch (e, stack) {
-      _logSignalingError('JSON decode failed', '$e, $stack');
-    }
-
-    if (meta.isEmpty) return;
-
     switch (nostrState) {
       case SignalingState.offer:
-        final sessionId = _validateStringField(meta, 'session_id', required: true);
-        if (sessionId == null) return;
-
-        final description = _validateDescription(meta);
-        if (description == null) return;
-
-        final remoteSdp = description['sdp'] as String?;
-        final remoteType = description['type'] as String?;
-        if (!_validateSdpFields(remoteSdp, remoteType, sessionId: sessionId)) {
-          return;
-        }
-
         signalingOfferCallbackHandler(
-          sessionId: sessionId,
-          remoteSdp: remoteSdp!,
-          remoteType: remoteType!,
+          remoteSdp: content,
+          remoteType: 'offer',
         );
         break;
       case SignalingState.answer:
-        final description = _validateDescription(meta);
-        if (description == null) return;
-
-        final remoteSdp = description['sdp'] as String?;
-        final remoteType = description['type'] as String?;
-        if (!_validateSdpFields(remoteSdp, remoteType)) {
-          return;
-        }
-
         signalingAnswerCallbackHandler(
-          remoteSdp: remoteSdp!,
-          remoteType: remoteType!,
+          remoteSdp: content,
+          remoteType: 'answer',
         );
         break;
       case SignalingState.candidate:
-        final candidateData = _validateMapField(meta, 'candidate');
-        if (candidateData == null) return;
-
-        final candidate = candidateData['candidate'];
-        final sdpMid = candidateData['sdpMid'];
-        final sdpMLineIndex = candidateData['sdpMLineIndex'];
-        if (!_validateCandidateFields(candidate, sdpMid, sdpMLineIndex)) {
+        Map<String, dynamic> candidateData;
+        try {
+          candidateData = Map<String, dynamic>.from(jsonDecode(content) as Map);
+        } catch (e, stack) {
+          _logSignalingError('candidate json decode failed', '$e, $stack');
           return;
         }
 
         signalingCandidateCallbackHandler(
-          candidate: candidate as String?,
-          sdpMid: sdpMid as String?,
-          sdpMLineIndex: sdpMLineIndex as int?,
+          candidate: candidateData['candidate'] as String?,
+          sdpMid: candidateData['sdpMid'] as String?,
+          sdpMLineIndex: candidateData['sdpMLineIndex'] as int?,
         );
         break;
       case SignalingState.disconnect:
@@ -585,63 +538,15 @@ extension CallingControllerNostrSignalingEx on CallingController {
     );
   }
 
-  /// Validate and return string field from map
-  String? _validateStringField(Map meta, String fieldName, {bool required = false}) {
-    final value = meta[fieldName];
-    if (value is! String || (required && value.isEmpty)) {
-      _logSignalingError(fieldName, value);
-      return null;
-    }
-    return value;
-  }
-
-  /// Validate and return Map field from meta
-  Map<String, dynamic>? _validateMapField(Map meta, String fieldName) {
-    final value = meta[fieldName];
-    if (value is! Map) {
-      _logSignalingError(fieldName, value);
-      return null;
-    }
-    return Map<String, dynamic>.from(value);
-  }
-
-  /// Validate description object from meta
-  Map<String, dynamic>? _validateDescription(Map meta) {
-    return _validateMapField(meta, 'description');
-  }
-
-  /// Validate SDP fields (sdp and type must be non-null String)
-  bool _validateSdpFields(String? remoteSdp, String? remoteType, {String? sessionId}) {
-    if (remoteSdp is! String || remoteType is! String) {
-      final context = sessionId != null ? 'sessionId: $sessionId, ' : '';
-      _logSignalingError('remoteSdp/remoteType', '$context remoteSdp: $remoteSdp, remoteType: $remoteType');
-      return false;
-    }
-    return true;
-  }
-
-  /// Validate candidate fields (can be null, but if not null must be correct type)
-  bool _validateCandidateFields(dynamic candidate, dynamic sdpMid, dynamic sdpMLineIndex) {
-    if ((candidate != null && candidate is! String) ||
-        (sdpMid != null && sdpMid is! String) ||
-        (sdpMLineIndex != null && sdpMLineIndex is! int)) {
-      _logSignalingError('candidate fields', 'candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex');
-      return false;
-    }
-    return true;
-  }
-
   void signalingOfferCallbackHandler({
-    required String sessionId,
     required String? remoteSdp,
     required String? remoteType,
   }) {
     LogUtils.info(
       className: 'CallingController',
       funcName: 'signalingOfferCallbackHandler',
-      message: '[receive offer] sessionId: $sessionId, remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
+      message: '[receive offer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
     );
-    this.sessionId = sessionId;
     webRTCHandler.setRemoteDescription(
       remoteSdp: remoteSdp,
       remoteType: remoteType,

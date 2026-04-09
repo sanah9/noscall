@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
@@ -223,7 +222,13 @@ class CallKitManager with WidgetsBindingObserver {
     };
   }
 
-  void nostrCallStateChangeHandler(String friend, SignalingState state, String data, String? offerId,) {
+  void nostrCallStateChangeHandler(
+    String friend,
+    SignalingState state,
+    String data,
+    String? offerId,
+    String? callType,
+  ) {
     if (offerId == null || offerId.isEmpty) {
       LogUtils.e(() => 'nostrCallStateChangeHandler offerId: $offerId');
       return;
@@ -233,6 +238,7 @@ class CallKitManager with WidgetsBindingObserver {
       state: state,
       offerId: offerId,
       data: data,
+      mediaType: CallTypeEx.fromValue(callType),
     );
   }
 
@@ -258,10 +264,10 @@ class CallKitManager with WidgetsBindingObserver {
       if (await activeController.offerId != offerId) {
         if (state == SignalingState.offer) {
           CallingControllerNostrSignalingEx.sendDisconnect(
-            sessionId: '',
-            offerId: offerId,
+            callId: offerId,
             peerId: friend,
-            reason: 'hangUp',
+            reason: CallEndReason.reject,
+            reject: true,
           );
         }
       } else {
@@ -279,17 +285,7 @@ class CallKitManager with WidgetsBindingObserver {
         return;
       }
 
-      Map dataMap = {};
-      try {
-        dataMap = jsonDecode(data);
-      } catch (_) {}
-
-      var media = dataMap['media'];
-      mediaType ??= CallTypeEx.fromValue(media);
-      if (mediaType == null) {
-        LogUtils.e(() => 'Call type is null, ${StackTrace.current}');
-        return;
-      }
+      mediaType ??= CallType.audio;
 
       final user = ChatCore.Account.sharedInstance.getUserNotifier(friend).value;
 
