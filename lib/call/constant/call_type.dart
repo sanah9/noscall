@@ -7,8 +7,10 @@ enum CallType {
 }
 
 extension CallTypeEx on CallType {
-  static CallType? fromValue(dynamic value) =>
-      CallType.values.where((e) => e.value == value).firstOrNull;
+  static CallType? fromValue(dynamic value) {
+    if (value == 'voice') return CallType.audio;
+    return CallType.values.where((e) => e.value == value).firstOrNull;
+  }
 
   bool get isVideo {
     switch (this) {

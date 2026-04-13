@@ -32,6 +32,48 @@ void main() {
       expect(decoded.content, 'v=0\no=alice');
     });
 
+    test('normalizes outgoing audio call-type to voice', () async {
+      final offer = await NipAcProtocol.createOffer(
+        toPubkey: receiverPubkey,
+        callId: 'call-voice-001',
+        callType: 'audio',
+        sdp: 'v=0\no=audio',
+        pubkey: senderPubkey,
+        privkey: senderPrivkey,
+      );
+
+      final callTypeTag = offer.tags
+          .firstWhere((tag) => tag.length >= 2 && tag[0] == 'call-type')[1];
+      expect(callTypeTag, 'voice');
+
+      final decoded = NipAcProtocol.decodeInner(offer, receiverPubkey);
+      expect(decoded.callType, 'voice');
+    });
+
+    test('accepts legacy incoming audio call-type as voice', () async {
+      final legacyOfferMap = {
+        'kind': NipAcKind.offer.value,
+        'content': 'v=0\no=legacy',
+        'tags': [
+          ['p', receiverPubkey],
+          ['call-id', 'call-legacy-001'],
+          ['call-type', 'audio'],
+          ['alt', 'NIP-AC signaling'],
+        ],
+        'pubkey': senderPubkey,
+      };
+      final signed = await Event.from(
+        kind: legacyOfferMap['kind'] as int,
+        tags: (legacyOfferMap['tags'] as List<List<String>>),
+        content: legacyOfferMap['content'] as String,
+        pubkey: senderPubkey,
+        privkey: senderPrivkey,
+      );
+
+      final decoded = NipAcProtocol.decodeInner(signed, receiverPubkey);
+      expect(decoded.callType, 'voice');
+    });
+
     test('wrap/unwrap with 21059 keeps inner event', () async {
       final candidate = await NipAcProtocol.createCandidate(
         toPubkey: receiverPubkey,

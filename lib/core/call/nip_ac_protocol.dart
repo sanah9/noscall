@@ -56,6 +56,8 @@ class NipAcSignaling {
 class NipAcProtocol {
   static const int wrapKind = 21059;
   static const String _alt = 'NIP-AC signaling';
+  static const String callTypeVoice = 'voice';
+  static const String callTypeVideo = 'video';
 
   static Future<Event> createOffer({
     required String toPubkey,
@@ -159,7 +161,7 @@ class NipAcProtocol {
       ['alt', _alt],
     ];
     if (callType != null && kind == NipAcKind.offer.value) {
-      tags.add(['call-type', callType]);
+      tags.add(['call-type', _normalizeCallTypeForOutgoing(callType)]);
     }
     return Event.from(
       kind: kind,
@@ -210,7 +212,7 @@ class NipAcProtocol {
 
     final receiver = _firstTagValue(innerEvent.tags, 'p');
     final callId = _firstTagValue(innerEvent.tags, 'call-id');
-    final callType = _firstTagValue(innerEvent.tags, 'call-type');
+    final callType = _normalizeCallTypeForIncoming(_firstTagValue(innerEvent.tags, 'call-type'));
     if (receiver == null || receiver != myPubkey || callId == null || callId.isEmpty) {
       throw Exception('invalid nip-ac signaling tags');
     }
@@ -233,5 +235,16 @@ class NipAcProtocol {
       if (tag.length >= 2 && tag[0] == key) return tag[1];
     }
     return null;
+  }
+
+  static String _normalizeCallTypeForOutgoing(String callType) {
+    if (callType == 'audio') return callTypeVoice;
+    return callType;
+  }
+
+  static String? _normalizeCallTypeForIncoming(String? callType) {
+    if (callType == null) return null;
+    if (callType == 'audio') return callTypeVoice;
+    return callType;
   }
 }
