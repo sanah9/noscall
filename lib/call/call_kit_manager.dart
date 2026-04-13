@@ -336,19 +336,34 @@ class CallKitManager with WidgetsBindingObserver {
     required SignalingState state,
     required String offerId,
   }) async {
-    if (state == SignalingState.offer) {
-      LogUtils.v(() => 'Ignore self offer echo: $offerId');
-      return;
-    }
     final activeController = await activeControllerCmp?.future;
     if (activeController == null) return;
     if (await activeController.offerId != offerId) return;
 
-    if (state == SignalingState.answer || state == SignalingState.disconnect) {
-      disconnectOfferId.add(offerId);
-      await activeController.hangup(CallEndReason.disconnect, false, false);
-      LogUtils.i(() => 'Handled self echo event, ended local call: state=$state callId=$offerId');
+    if (!shouldHandleSelfEchoEvent(
+      state: state,
+      role: activeController.role,
+      callingState: activeController.state.value,
+    )) {
+      LogUtils.v(() => 'Ignore self echo event: state=$state callId=$offerId');
+      return;
     }
+
+    disconnectOfferId.add(offerId);
+    await activeController.hangup(CallEndReason.disconnect, false, false);
+    LogUtils.i(() => 'Handled self echo event, ended local call: state=$state callId=$offerId');
+  }
+
+  static bool shouldHandleSelfEchoEvent({
+    required SignalingState state,
+    required CallingRole role,
+    required CallingState callingState,
+  }) {
+    final isAnswerOrRejectElsewhere =
+        state == SignalingState.answer || state == SignalingState.disconnect;
+    final isIncomingCallRinging =
+        role == CallingRole.callee && callingState == CallingState.ringing;
+    return isAnswerOrRejectElsewhere && isIncomingCallRinging;
   }
 
   void _bufferGlobalCandidate(String callId, String content) {
