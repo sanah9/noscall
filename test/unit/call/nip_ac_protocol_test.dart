@@ -56,6 +56,26 @@ void main() {
       expect(decoded.state, SignalingState.candidate);
     });
 
+    test('unwrap rejects tampered inner event signature', () async {
+      final answer = await NipAcProtocol.createAnswer(
+        toPubkey: receiverPubkey,
+        callId: 'call-005',
+        sdp: 'v=0\no=bob',
+        pubkey: senderPubkey,
+        privkey: senderPrivkey,
+      );
+
+      final tamperedMap = Map<String, dynamic>.from(answer.toJson())
+        ..['content'] = 'v=0\no=mallory';
+      final tamperedInner = await Event.fromJson(tamperedMap, verify: false);
+      final wrapped = await NipAcProtocol.wrap(tamperedInner, receiverPubkey);
+
+      expect(
+        () => NipAcProtocol.unwrap(wrapped, receiverPubkey, receiverPrivkey),
+        throwsA(anything),
+      );
+    });
+
     test('reject/hangup map to disconnect signaling state', () async {
       final reject = await NipAcProtocol.createReject(
         toPubkey: receiverPubkey,

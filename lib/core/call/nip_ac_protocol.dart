@@ -198,7 +198,8 @@ class NipAcProtocol {
       myPrivkey,
     );
     final map = jsonDecode(plainContent) as Map<String, dynamic>;
-    return Event.fromJson(map, verify: false);
+    // Inner signaling event MUST keep sender signature verifiable after unwrap.
+    return Event.fromJson(map, verify: true);
   }
 
   static NipAcSignaling decodeInner(Event innerEvent, String myPubkey) {
