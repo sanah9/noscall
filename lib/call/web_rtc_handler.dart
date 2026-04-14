@@ -184,7 +184,14 @@ class WebRTCHandler {
     final newAction = Completer();
     this.setSpeakerAction = newAction;
 
-    switch(value) {
+    // Desktop platforms do not expose the same mobile speakerphone APIs.
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      LogUtils.i(() => 'Skip mobile speakerphone API on desktop: $value');
+      newAction.complete();
+      return;
+    }
+
+    switch (value) {
       case AudioOutputType.none:
         await Helper.setSpeakerphoneOn(false);
         break;
@@ -252,6 +259,9 @@ class WebRTCHandler {
 extension WebRTCPeerConnectionMediaEx on WebRTCHandler {
   Future prepareMedia() async {
     final isVideo = callType.isVideo;
+    if (Platform.isWindows || Platform.isLinux) {
+      await WebRTCHelper.preflightDesktopMediaDevices(expectVideo: isVideo);
+    }
     final media = await WebRTCHelper.createStream(
       isAudio: true,
       isVideo: isVideo,
@@ -335,6 +345,31 @@ extension WebRTCPeerConnectionCallbackEx on WebRTCHandler {
 }
 
 class WebRTCHelper {
+  static Future<void> preflightDesktopMediaDevices({
+    required bool expectVideo,
+  }) async {
+    try {
+      final devices = await navigator.mediaDevices.enumerateDevices();
+      final hasAudioInput = devices.any((d) => d.kind == 'audioinput');
+      final hasVideoInput = devices.any((d) => d.kind == 'videoinput');
+
+      LogUtils.i(
+        () => 'Desktop media devices detected: total=${devices.length}, '
+            'audioInput=$hasAudioInput, videoInput=$hasVideoInput',
+      );
+
+      if (!hasAudioInput) {
+        throw StateError('No audio input device found on desktop');
+      }
+      if (expectVideo && !hasVideoInput) {
+        throw StateError('Video call requested but no video input device found');
+      }
+    } catch (e, stack) {
+      LogUtils.e(() => 'Desktop media device preflight failed: $e, $stack');
+      rethrow;
+    }
+  }
+
   static Future<RTCPeerConnection> createConnection({
     required List<ICEServerModel> iceServers,
   }) {

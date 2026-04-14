@@ -56,6 +56,13 @@ class CallKitManager with WidgetsBindingObserver {
 
   Future<bool> _checkPermissions(CallType callType) async {
     try {
+      if (Platform.isWindows || Platform.isLinux) {
+        // Desktop platforms rely on OS-level media access and device selection.
+        // Do not block call setup with mobile permission APIs.
+        LogUtils.i(() => 'Desktop platform detected, skip mobile permission requests');
+        return true;
+      }
+
       if (Platform.isMacOS) {
         final microphoneGranted = await MacOSPermissions.requestMicrophone();
         if (!microphoneGranted) {
