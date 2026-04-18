@@ -16,3 +16,5 @@ Use **conventional commit** prefixes for all commits:
 | `test`     | Adding or updating tests          |
 
 Example: `feat: add NIP-04 encrypted DM support`
+
+Do **not** append tool footers (e.g. `Made-with: Cursor`) to commit messages; keep the subject line clean unless the user explicitly asks for extra body text.

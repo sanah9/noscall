@@ -6,10 +6,12 @@ import 'package:just_audio/just_audio.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
+import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/voice_messages/widgets/voice_waveform_bar.dart';
 
 class VoiceMessageDetailPage extends StatefulWidget {
@@ -185,12 +187,63 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     ColorScheme colorScheme,
     String otherPubkey,
   ) {
+    final theme = Theme.of(context);
+    final userNotifier = Account.sharedInstance.getUserNotifier(otherPubkey);
     return AppBar(
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
         onPressed: () => Navigator.of(context).pop(),
       ),
-      title: const Text('Voice message', style: TextStyle(fontSize: 18)),
+      title: ValueListenableBuilder<UserDBISAR>(
+        valueListenable: userNotifier,
+        builder: (context, user, _) {
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final maxW = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width * 0.5;
+              const arrowGap = 4.0;
+              const arrowW = 22.0;
+              final textMaxW =
+                  (maxW - arrowGap - arrowW).clamp(0.0, double.infinity);
+              return InkWell(
+                onTap: () => AppNavigatorScope.requireOf(context)
+                    .pushUserDetail(context, otherPubkey),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: textMaxW),
+                        child: Text(
+                          user.displayName(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.start,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right,
+                        size: arrowW,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      centerTitle: true,
       backgroundColor: colorScheme.surface,
       foregroundColor: colorScheme.onSurface,
       actions: [

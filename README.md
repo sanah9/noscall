@@ -43,6 +43,10 @@ flutter run -d android
 - **WebRTC**: flutter_webrtc for real-time communication
 - **Nostr**: nostr_core_dart for protocol implementation
 
+### Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) for the subject line (for example `feat:`, `fix:`). Do not append tool footers such as `Made-with: Cursor` to commit messages.
+
 ## Roadmap
 
 Future versions will continue improving decentralized communication and customization capabilities.
