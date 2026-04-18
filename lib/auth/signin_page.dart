@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/utils/loading.dart';
 import 'auth_service.dart';
+import 'widgets/auth_light_scheme_theme.dart';
 import 'widgets/gradient_background.dart';
 
 class SignInPage extends StatefulWidget {
@@ -138,51 +139,54 @@ class _SignInPageState extends State<SignInPage> {
 
   Widget _buildInputField() {
     const iconSize = 40.0;
-    return TextFormField(
-      controller: _privateKeyController,
-      obscureText: _obscureText,
-      validator: _validateInput,
-      maxLines: 1,
-      decoration: InputDecoration(
-        hintText: 'nsec or bunker://',
-        hintStyle: const TextStyle(
-          fontSize: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        prefixIconConstraints: BoxConstraints.tight(const Size.square(iconSize)),
-        prefixIcon: const Icon(Icons.key, size: 20),
-        suffixIcon: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: iconSize,
-              height: iconSize,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: _toggleObscureText,
-                iconSize: 20,
-                icon: Icon(
-                  _obscureText ? Icons.visibility : Icons.visibility_off,
+    return authLightSchemeTheme(
+      context,
+      child: TextFormField(
+        controller: _privateKeyController,
+        obscureText: _obscureText,
+        validator: _validateInput,
+        maxLines: 1,
+        decoration: InputDecoration(
+          hintText: 'nsec or bunker://',
+          hintStyle: const TextStyle(
+            fontSize: 12,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          prefixIconConstraints: BoxConstraints.tight(const Size.square(iconSize)),
+          prefixIcon: const Icon(Icons.key, size: 20),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: iconSize,
+                height: iconSize,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _toggleObscureText,
+                  iconSize: 20,
+                  icon: Icon(
+                    _obscureText ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  tooltip: _obscureText ? 'Show key' : 'Hide key',
                 ),
-                tooltip: _obscureText ? 'Show key' : 'Hide key',
               ),
-            ),
-            SizedBox(
-              width: iconSize,
-              height: iconSize,
-              child: IconButton(
-                visualDensity: VisualDensity.compact,
-                onPressed: _clearInput,
-                iconSize: 20,
-                icon: const Icon(
-                  Icons.clear,
+              SizedBox(
+                width: iconSize,
+                height: iconSize,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _clearInput,
+                  iconSize: 20,
+                  icon: const Icon(
+                    Icons.clear,
+                  ),
+                  tooltip: 'Clear',
                 ),
-                tooltip: 'Clear',
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

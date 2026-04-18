@@ -4,6 +4,7 @@ import 'package:noscall/utils/toast.dart';
 import 'package:noscall/utils/loading.dart';
 import 'package:noscall/core/account/account.dart';
 import 'auth_service.dart';
+import 'widgets/auth_light_scheme_theme.dart';
 import 'widgets/gradient_background.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
@@ -182,16 +183,19 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildNameField() {
-    return TextFormField(
-      controller: _nameController,
-      validator: _validateName,
-      decoration: InputDecoration(
-        labelText: 'Your Name',
-        hintText: 'Enter your display name',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+    return authLightSchemeTheme(
+      context,
+      child: TextFormField(
+        controller: _nameController,
+        validator: _validateName,
+        decoration: InputDecoration(
+          labelText: 'Your Name',
+          hintText: 'Enter your display name',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          prefixIcon: const Icon(Icons.person),
         ),
-        prefixIcon: const Icon(Icons.person),
       ),
     );
   }
