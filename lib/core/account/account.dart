@@ -100,10 +100,16 @@ class Account {
     return pattern.hasMatch(pubKey);
   }
 
-  FutureOr<UserDBISAR?> getUserInfo(String pubkey) {
+  /// Strips optional 66-char secp256k1 `02` prefix form used by some callers.
+  String _normalizePubkeyString(String pubkey) {
     if (pubkey.length == 66 && pubkey.startsWith('02')) {
-      pubkey = pubkey.replaceFirst('02', '');
+      return pubkey.replaceFirst('02', '');
     }
+    return pubkey;
+  }
+
+  FutureOr<UserDBISAR?> getUserInfo(String pubkey) {
+    pubkey = _normalizePubkeyString(pubkey);
     if (!isValidPubKey(pubkey)) return null;
 
     UserDBISAR? user = userCache[pubkey]?.value;
@@ -132,9 +138,27 @@ class Account {
     return result;
   }
 
+  /// Resolves profile via [getUserInfo] without awaiting: sync [UserDBISAR]
+  /// is wrapped in a new notifier; on [Future], uses a pubkey-only placeholder
+  /// until [updateOrCreateUserNotifier] runs from the completed [getUserInfo].
   ValueNotifier<UserDBISAR> getUserNotifier(String pubkey) {
-    return userCache.putIfAbsent(pubkey,
-            () => ValueNotifier(UserDBISAR(pubKey: pubkey)));
+    final normalized = _normalizePubkeyString(pubkey);
+    if (!isValidPubKey(normalized)) {
+      return userCache.putIfAbsent(
+        pubkey,
+        () => ValueNotifier(UserDBISAR(pubKey: pubkey)),
+      );
+    }
+    return userCache.putIfAbsent(normalized, () {
+      final FutureOr<UserDBISAR?> info = getUserInfo(normalized);
+      if (info is Future<UserDBISAR?>) {
+        return ValueNotifier<UserDBISAR>(UserDBISAR(pubKey: normalized));
+      }
+      final UserDBISAR? user = info;
+      return ValueNotifier<UserDBISAR>(
+        user ?? UserDBISAR(pubKey: normalized),
+      );
+    });
   }
 
   void _addToPQueue(UserDBISAR user) {
