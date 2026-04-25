@@ -406,13 +406,12 @@ class _SignUpPageState extends State<SignUpPage> {
       await _updateUserName(name);
 
       AppLoading.dismiss();
+      if (!mounted) return;
       AppToast.showSuccess(context, 'Account created successfully!');
-
-      if (mounted) {
-        context.go('/');
-      }
+      context.go('/');
     } catch (e) {
       AppLoading.dismiss();
+      if (!mounted) return;
       AppToast.showError(context, 'Account creation failed: $e');
     } finally {
       if (mounted) {

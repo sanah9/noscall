@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class ConnectionSettingsPage extends StatelessWidget {

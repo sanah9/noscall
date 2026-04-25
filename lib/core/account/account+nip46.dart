@@ -62,7 +62,6 @@ extension AccountNIP46 on Account {
     Account.sharedInstance.tempRemoteConnection!.clientPrivkey = newKeychain.private;
     Account.sharedInstance.tempRemoteConnection!.clientPubkey = newKeychain.public;
     Account.sharedInstance.tempRemoteConnection!.relays = relays;
-    String perms = SignerPermissionModel.defaultPermissionsForNIP46();
     String name = 'noscall-${Platform.operatingSystem}';
     String url = 'noscall';
     String image = '';
@@ -249,10 +248,8 @@ extension AccountNIP46 on Account {
     NIP46CommandResult result = await sendToRemoteSigner(event, id);
 
     if (result.result != 'ack') {
-      print('sendConnect connected false');
       return false;
     }
-    print('sendConnect connected success');
     return true;
   }
 

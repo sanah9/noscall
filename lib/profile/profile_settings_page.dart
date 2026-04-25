@@ -170,15 +170,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     );
   }
 
-
-
   Future<bool> _ensurePermission(Permission permission) async {
     final status = await permission.status;
     if (status.isGranted) return true;
     final requested = await permission.request();
     if (requested.isGranted) return true;
     if (requested.isPermanentlyDenied) {
-      AppToast.showError(context, 'Permission denied. Please enable it in Settings.');
+      if (!mounted) return false;
+      AppToast.showError(
+          context, 'Permission denied. Please enable it in Settings.');
       await openAppSettings();
     }
     return false;
@@ -199,12 +199,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         maxHeight: 1024,
         imageQuality: 90,
       );
+      if (!mounted) return;
       if (image != null) {
         setState(() {
           _selectedAvatarFile = File(image.path);
         });
       }
     } catch (e) {
+      if (!mounted) return;
       AppToast.showError(context, 'Failed to pick image: $e');
     }
   }
@@ -216,9 +218,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     } else {
       ok = await _ensurePermission(Permission.camera);
     }
+    if (!mounted) return;
 
     if (!ok) {
-      AppToast.showError(context, 'Camera permission denied. Please enable it in Settings.');
+      AppToast.showError(
+          context, 'Camera permission denied. Please enable it in Settings.');
       return;
     }
 
@@ -229,12 +233,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         maxHeight: 1024,
         imageQuality: 90,
       );
+      if (!mounted) return;
       if (image != null) {
         setState(() {
           _selectedAvatarFile = File(image.path);
         });
       }
     } catch (e) {
+      if (!mounted) return;
       AppToast.showError(context, 'Failed to take photo: $e');
     }
   }
@@ -304,7 +310,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
         // Check file size
         final fileSize = await _selectedAvatarFile!.length();
-        if (fileSize > 50 * 1024 * 1024) { // 50 MiB
+        if (!mounted) return;
+        if (fileSize > 50 * 1024 * 1024) {
+          // 50 MiB
           AppToast.showError(context, 'File size exceeds 50 MiB limit');
           setState(() {
             _isLoading = false;
@@ -313,7 +321,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         }
 
         // Upload file
-        final uploadedUrl = await FileUploadManager.uploadImage(_selectedAvatarFile!);
+        final uploadedUrl =
+            await FileUploadManager.uploadImage(_selectedAvatarFile!);
+        if (!mounted) return;
         if (uploadedUrl != null) {
           pictureUrl = uploadedUrl;
         } else {
@@ -374,11 +384,13 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
       // Update profile using Account.sharedInstance.updateProfile (extension method)
       final result = await Account.sharedInstance.updateProfile(updatedUser);
+      if (!mounted) return;
 
       if (result != null) {
         setState(() {
           _user = result;
-          _selectedAvatarFile = null; // Clear selected file after successful upload
+          _selectedAvatarFile =
+              null; // Clear selected file after successful upload
           _isLoading = false;
         });
         AppToast.showSuccess(context, 'Profile updated successfully');
@@ -390,6 +402,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         AppToast.showError(context, 'Failed to update profile');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });

@@ -388,16 +388,16 @@ class _SignInPageState extends State<SignInPage> {
 
       AppLoading.dismiss();
 
+      if (!mounted) return;
       if (success) {
         AppToast.showSuccess(context, 'Sign in successful!');
-        if (mounted) {
-          context.go('/');
-        }
+        context.go('/');
       } else {
         AppToast.showError(context, 'Sign in failed. Please check your input.');
       }
     } catch (e) {
       AppLoading.dismiss();
+      if (!mounted) return;
       AppToast.showError(context, 'Sign in error: $e');
     } finally {
       if (mounted) {
@@ -433,12 +433,12 @@ class _SignInPageState extends State<SignInPage> {
 
       AppLoading.dismiss();
 
+      if (!mounted) return;
       AppToast.showSuccess(context, 'Amber login successful!');
-      if (mounted) {
-        context.go('/');
-      }
+      context.go('/');
     } catch (e) {
       AppLoading.dismiss();
+      if (!mounted) return;
       AppToast.showError(context, 'Amber login error: $e');
     } finally {
       if (mounted) {

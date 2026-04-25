@@ -168,12 +168,14 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   }
 
   Future<void> _onTapSendVoice() async {
-    final nav = AppNavigatorScope.requireOf(context);
-    final selected = await nav.pushContactSelect(context);
+    final selected =
+        await AppNavigatorScope.requireOf(context).pushContactSelect(context);
     if (selected == null || selected.isEmpty || !mounted) return;
     final receiverPubkey = selected.first;
-    if (!mounted) return;
-    nav.pushSendVoiceMessage(context, receiverPubkey);
+    AppNavigatorScope.requireOf(context).pushSendVoiceMessage(
+      context,
+      receiverPubkey,
+    );
   }
 
   @override
@@ -252,7 +254,6 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                             ? null
                             : _replyTargets[msg.replyId],
                         onTap: () async {
-                          final nav = AppNavigatorScope.requireOf(context);
                           final myPubkey = Account.sharedInstance.currentPubkey;
                           final isIncoming = msg.receiver == myPubkey;
                           if (isIncoming && !msg.read) {
@@ -264,8 +265,9 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
                             await VoiceUnreadManager.instance
                                 .removeUnread(msg.messageId);
                           }
-                          if (!mounted) return;
-                          nav.pushVoiceMessageDetail(context, msg);
+                          if (!context.mounted) return;
+                          AppNavigatorScope.requireOf(context)
+                              .pushVoiceMessageDetail(context, msg);
                         },
                       );
                     },

@@ -92,7 +92,7 @@ class _AddContactPageState extends State<AddContactPage>
 
       final suggestions = users.whereType<UserDBISAR>().toList()
         ..sort(
-              (a, b) => a
+          (a, b) => a
               .displayName()
               .toLowerCase()
               .compareTo(b.displayName().toLowerCase()),
@@ -208,7 +208,7 @@ class _AddContactPageState extends State<AddContactPage>
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText:
-        'Enter npub (e.g., npub1abc...) or DNS (e.g., user@domain.com)',
+            'Enter npub (e.g., npub1abc...) or DNS (e.g., user@domain.com)',
         hintStyle: TextStyle(
           color: onSurfaceVariant,
         ),
@@ -218,12 +218,12 @@ class _AddContactPageState extends State<AddContactPage>
         ),
         suffixIcon: searchQuery.isNotEmpty
             ? IconButton(
-          icon: Icon(
-            Icons.clear,
-            color: onSurfaceVariant,
-          ),
-          onPressed: _clearSearch,
-        )
+                icon: Icon(
+                  Icons.clear,
+                  color: onSurfaceVariant,
+                ),
+                onPressed: _clearSearch,
+              )
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -274,8 +274,7 @@ class _AddContactPageState extends State<AddContactPage>
 
   Widget _buildSearchButton() {
     return ElevatedButton(
-      onPressed:
-      _isSearching ? null : () => _searchUser(searchQuery),
+      onPressed: _isSearching ? null : () => _searchUser(searchQuery),
       style: ElevatedButton.styleFrom(
         backgroundColor: primary,
         foregroundColor: onPrimary,
@@ -286,15 +285,15 @@ class _AddContactPageState extends State<AddContactPage>
       ),
       child: _isSearching
           ? SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(
-            onPrimary,
-          ),
-        ),
-      )
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  onPrimary,
+                ),
+              ),
+            )
           : const Text('Search'),
     );
   }
@@ -444,11 +443,12 @@ class _AddContactPageState extends State<AddContactPage>
         _dismissKeyboard();
 
         final pubkey = user.pubKey;
-        await AppNavigatorScope.requireOf(context).pushUserDetail(context, pubkey);
+        await AppNavigatorScope.requireOf(context)
+            .pushUserDetail(context, pubkey);
         if (!mounted) return;
 
         final isContact =
-        Contacts.sharedInstance.allContacts.containsKey(pubkey);
+            Contacts.sharedInstance.allContacts.containsKey(pubkey);
         if (isContact) {
           _followerSuggestions.remove(user);
         }
@@ -496,9 +496,11 @@ class _AddContactPageState extends State<AddContactPage>
         pubkey = UserDBISAR.decodePubkey(query) ?? '';
       } else if (isDnsFormat) {
         pubkey = await Account.getDNSPubkey(
-          query.substring(0, query.indexOf('@')),
-          query.substring(query.indexOf('@') + 1),
-        ) ?? '';
+              query.substring(0, query.indexOf('@')),
+              query.substring(query.indexOf('@') + 1),
+            ) ??
+            '';
+        if (!mounted) return;
       }
 
       if (pubkey.isEmpty) {
@@ -519,13 +521,14 @@ class _AddContactPageState extends State<AddContactPage>
       }
 
       // Search user profile from relay with 15s timeout
-      final user = await Account.sharedInstance.reloadProfileFromRelay(pubkey)
-          .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              throw Exception('Search timeout');
-            },
-          );
+      final user =
+          await Account.sharedInstance.reloadProfileFromRelay(pubkey).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw Exception('Search timeout');
+        },
+      );
+      if (!mounted) return;
 
       setState(() {
         _searchResults.clear();
@@ -539,6 +542,7 @@ class _AddContactPageState extends State<AddContactPage>
         AppToast.showSuccess(context, 'User found');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isSearching = false;
       });

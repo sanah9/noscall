@@ -102,16 +102,11 @@ class _ContactNavigatorState extends State<ContactNavigator> {
     }
   }
 
-  bool _onPopPage(Route<dynamic> route, dynamic result) {
-    if (!route.didPop(result)) {
-      return false;
-    }
-    if (_pages.length > 1) {
-      setState(() {
-        _pages = _pages.sublist(0, _pages.length - 1);
-      });
-    }
-    return true;
+  void _onDidRemovePage(Page<Object?> page) {
+    if (_pages.length <= 1) return;
+    setState(() {
+      _pages = List<Page>.from(_pages)..remove(page);
+    });
   }
 
   @override
@@ -119,15 +114,17 @@ class _ContactNavigatorState extends State<ContactNavigator> {
     return FutureBuilder(
       future: _initialize,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return Container();
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container();
+        }
         return ContactNavigatorProvider(
           state: this,
           child: Navigator(
             pages: _pages,
-            onPopPage: _onPopPage,
+            onDidRemovePage: _onDidRemovePage,
           ),
         );
-      }
+      },
     );
   }
 }

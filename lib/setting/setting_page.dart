@@ -76,11 +76,11 @@ class _SettingPageState extends State<SettingPage> {
   Future<void> _logout() async {
     try {
       await _authService.logout();
+      if (!mounted) return;
       AppToast.showSuccess(context, 'Logged out successfully');
-      if (mounted) {
-        context.go('/login');
-      }
+      context.go('/login');
     } catch (e) {
+      if (!mounted) return;
       AppToast.showError(context, 'Logout failed: $e');
     }
   }

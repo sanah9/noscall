@@ -18,7 +18,7 @@ void main() {
     // Example: test/widget/setting/relay_management_page_test.dart
     
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: Center(
             child: Text('Test placeholder'),

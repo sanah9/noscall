@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
@@ -38,6 +37,7 @@ class _DataExportPageState extends State<DataExportPage> {
     setState(() => _exportingCallHistory = true);
     try {
       final basePath = await _getExportDirectory();
+      if (!mounted) return;
       if (basePath == null) {
         AppToast.showError(context, 'Failed to get export directory');
         return;
@@ -61,22 +61,27 @@ class _DataExportPageState extends State<DataExportPage> {
       final csvLines = <String>[
         'peerPubkey,direction,type,status,startTime,durationSeconds',
         ...rows.map((r) => [
-          r['peerPubkey'],
-          r['direction'],
-          r['type'],
-          r['status'],
-          r['startTime'],
-          r['durationSeconds'],
-        ].join(',')),
+              r['peerPubkey'],
+              r['direction'],
+              r['type'],
+              r['status'],
+              r['startTime'],
+              r['durationSeconds'],
+            ].join(',')),
       ];
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
       final jsonFile = File('$basePath/call_history_$timestamp.json');
       final csvFile = File('$basePath/call_history_$timestamp.csv');
       await jsonFile.writeAsString(jsonStr);
       await csvFile.writeAsString(csvLines.join('\n'));
       if (mounted) {
         AppToast.showSuccess(context, 'Call history exported');
-        _showExportResult(context, 'Call history', [jsonFile.path, csvFile.path]);
+        _showExportResult(
+            context, 'Call history', [jsonFile.path, csvFile.path]);
       }
     } catch (e) {
       if (mounted) {
@@ -92,30 +97,37 @@ class _DataExportPageState extends State<DataExportPage> {
     setState(() => _exportingContacts = true);
     try {
       final basePath = await _getExportDirectory();
+      if (!mounted) return;
       if (basePath == null) {
         AppToast.showError(context, 'Failed to get export directory');
         return;
       }
       final contacts = Contacts.sharedInstance.allContacts.values.toList();
-      final rows = contacts.map((u) => {
-        'pubkey': u.pubKey,
-        'name': u.name ?? '',
-        'nickName': u.nickName ?? '',
-        'picture': u.picture ?? '',
-      }).toList();
+      final rows = contacts
+          .map((u) => {
+                'pubkey': u.pubKey,
+                'name': u.name ?? '',
+                'nickName': u.nickName ?? '',
+                'picture': u.picture ?? '',
+              })
+          .toList();
       final jsonStr = const JsonEncoder.withIndent('  ').convert(
         rows.map((r) => r).toList(),
       );
       final csvLines = <String>[
         'pubkey,name,nickName,picture',
         ...rows.map((r) => [
-          r['pubkey'] as String,
-          r['name'] as String,
-          r['nickName'] as String,
-          r['picture'] as String,
-        ].map((s) => '"${s.replaceAll('"', '""')}"').join(',')),
+              r['pubkey'] as String,
+              r['name'] as String,
+              r['nickName'] as String,
+              r['picture'] as String,
+            ].map((s) => '"${s.replaceAll('"', '""')}"').join(',')),
       ];
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
       final jsonFile = File('$basePath/contacts_$timestamp.json');
       final csvFile = File('$basePath/contacts_$timestamp.csv');
       await jsonFile.writeAsString(jsonStr);
@@ -133,7 +145,8 @@ class _DataExportPageState extends State<DataExportPage> {
     }
   }
 
-  void _showExportResult(BuildContext context, String title, List<String> paths) {
+  void _showExportResult(
+      BuildContext context, String title, List<String> paths) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     showDialog(
@@ -153,12 +166,12 @@ class _DataExportPageState extends State<DataExportPage> {
               ),
               const SizedBox(height: 8),
               ...paths.map((p) => SelectableText(
-                p,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontFamily: 'monospace',
-                ),
-              )),
+                    p,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontFamily: 'monospace',
+                    ),
+                  )),
             ],
           ),
         ),
@@ -197,8 +210,7 @@ class _DataExportPageState extends State<DataExportPage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(

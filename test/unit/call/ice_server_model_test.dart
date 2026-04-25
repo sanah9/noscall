@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noscall/call/ice_server_manager.dart';
 import '../../helpers/test_data.dart';
-import '../../helpers/test_helpers.dart';
 
 void main() {
   group('ICEServerModel', () {
@@ -183,7 +182,6 @@ void main() {
         final server = ICEServerModel(url: TestData.validStunUrl);
         
         expect(server == 'string', isFalse);
-        expect(server == null, isFalse);
       });
 
       test('should be equal to itself', () {

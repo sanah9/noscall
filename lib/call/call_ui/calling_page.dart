@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 

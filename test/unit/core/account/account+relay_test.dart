@@ -1,12 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account+relay.dart';
+import 'package:noscall/core/common/network/connect.dart';
 import '../../../helpers/test_data.dart';
+import '../../../helpers/test_setup.dart';
 import '../../../helpers/test_helpers.dart';
 
 void main() {
   // Initialize Flutter binding because Connect singleton needs to access platform channels
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    TestSetup.installConnectivityFallback();
+    Connect.setTestOverrides(skipSocketConnections: true);
+  });
+
+  tearDownAll(() {
+    Connect.clearTestOverrides();
+    TestSetup.restoreConnectivityPlatform();
+  });
   
   group('Account Relay Management', () {
     late Account account;

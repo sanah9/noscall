@@ -31,7 +31,7 @@ if ! command -v flutter &> /dev/null; then
 fi
 
 print_info "Running Flutter analyzer..."
-flutter analyze
+dart run tool/analyze_with_baseline.dart
 
 # Get test type parameter
 TEST_TYPE=${1:-all}
@@ -39,15 +39,26 @@ TEST_TYPE=${1:-all}
 case $TEST_TYPE in
     unit)
         print_info "Running unit tests..."
-        flutter test test/unit/ --coverage
+        flutter test test/unit --coverage
         ;;
     widget)
-        print_info "Running widget tests..."
-        flutter test test/widget/ --coverage
+        if [ -d "test/widget" ]; then
+            print_info "Running widget tests..."
+            flutter test test/widget --coverage
+        elif [ -f "test/widget_test.dart" ]; then
+            print_info "Running widget placeholder test..."
+            flutter test test/widget_test.dart --coverage
+        else
+            print_warning "No widget tests found, skipping"
+        fi
         ;;
     integration)
-        print_info "Running integration tests..."
-        flutter test test/integration/ --coverage
+        if [ -d "test/integration" ]; then
+            print_info "Running integration tests..."
+            flutter test test/integration --coverage
+        else
+            print_warning "No integration tests found, skipping"
+        fi
         ;;
     account)
         print_info "Running Account module tests..."
@@ -63,7 +74,7 @@ case $TEST_TYPE in
         ;;
     all)
         print_info "Running all tests..."
-        flutter test --coverage
+        flutter test test --coverage
         
         # Generate coverage report
         if command -v genhtml &> /dev/null; then

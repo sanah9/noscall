@@ -223,11 +223,11 @@ class _ToastWidgetState extends State<_ToastWidget>
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
-                                color: _getTextColor(colorScheme).withOpacity(0.1),
+                                color: _getTextColor(colorScheme).withValues(alpha: 0.1),
                               ),
                               child: Icon(
                                 Icons.close,
-                                color: _getTextColor(colorScheme).withOpacity(0.7),
+                                color: _getTextColor(colorScheme).withValues(alpha: 0.7),
                                 size: 16,
                               ),
                             ),
@@ -285,11 +285,11 @@ class _ToastWidgetState extends State<_ToastWidget>
   }
 
   Color _getBorderColor(ColorScheme colorScheme) {
-    return colorScheme.outline.withOpacity(0.2);
+    return colorScheme.outline.withValues(alpha: 0.2);
   }
 
   Color _getShadowColor(ColorScheme colorScheme) {
-    return colorScheme.shadow.withOpacity(0.1);
+    return colorScheme.shadow.withValues(alpha: 0.1);
   }
 
   IconData _getIcon() {

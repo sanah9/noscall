@@ -42,7 +42,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   late ThemeData theme;
   BorderRadius get sectionRadius => BorderRadius.circular(16);
   Color get primary => theme.colorScheme.primary;
-  Color get primaryContainer => theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+  Color get primaryContainer =>
+      theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
   Color get surface => theme.colorScheme.surface;
   Color get onSurface => theme.colorScheme.onSurface;
   Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant;
@@ -57,8 +58,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
   void _initializeData() {
     user = Account.sharedInstance.getUserNotifier(widget.pubkey);
-    isContact = ValueNotifier(Contacts.sharedInstance.allContacts.containsKey(widget.pubkey));
-    isBlocked = ValueNotifier(Contacts.sharedInstance.inBlockList(widget.pubkey));
+    isContact = ValueNotifier(
+        Contacts.sharedInstance.allContacts.containsKey(widget.pubkey));
+    isBlocked =
+        ValueNotifier(Contacts.sharedInstance.inBlockList(widget.pubkey));
     isLoading = ValueNotifier(false);
     isUpdatingFromRemote = ValueNotifier(false);
   }
@@ -132,7 +135,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void _sendVoiceMessage() {
-    AppNavigatorScope.requireOf(context).pushSendVoiceMessage(context, widget.pubkey);
+    AppNavigatorScope.requireOf(context)
+        .pushSendVoiceMessage(context, widget.pubkey);
   }
 
   Widget _buildCallHistorySection() {
@@ -175,8 +179,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
           child: ValueListenableBuilder<bool>(
             valueListenable: isLoading,
             builder: (context, isLoadingValue, child) {
-              final title = isContactValue ? 'Remove from Contacts' : 'Add to Contacts';
-              final icon = isContactValue ? Icons.person_remove : Icons.person_add;
+              final title =
+                  isContactValue ? 'Remove from Contacts' : 'Add to Contacts';
+              final icon =
+                  isContactValue ? Icons.person_remove : Icons.person_add;
               final onTap = isContactValue ? _removeContact : _addContact;
 
               return Column(
@@ -234,7 +240,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
           return ValueListenableBuilder<bool>(
             valueListenable: isLoading,
             builder: (context, isLoadingValue, child) {
-              final title = isBlockedValue ? 'Unblock Contact' : 'Block Contact';
+              final title =
+                  isBlockedValue ? 'Unblock Contact' : 'Block Contact';
               return _buildSectionTile(
                 title: title,
                 icon: Icons.block,
@@ -300,11 +307,15 @@ class _UserDetailPageState extends State<UserDetailPage> {
     isLoading.value = true;
     try {
       await operation();
+      if (!mounted) return;
       AppToast.showSuccess(context, successMessage);
     } catch (e) {
+      if (!mounted) return;
       AppToast.showError(context, '$errorMessage: $e');
     } finally {
-      isLoading.value = false;
+      if (mounted) {
+        isLoading.value = false;
+      }
     }
   }
 
@@ -333,7 +344,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       AppToast.showError(context, 'Only contacts can modify nickname');
       return;
     }
-    
+
     context.push('/edit-nickname', extra: {
       'pubkey': widget.pubkey,
       'currentNickname': userData.nickName ?? '',
@@ -395,7 +406,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void _addContact() async {
     await _handleAsyncOperation(
       operation: () async {
-        final result = await Contacts.sharedInstance.addToContact([widget.pubkey]);
+        final result =
+            await Contacts.sharedInstance.addToContact([widget.pubkey]);
         if (result.status) {
           isContact.value = true;
         } else {
@@ -413,7 +425,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
     await _handleAsyncOperation(
       operation: () async {
-        final result = await Contacts.sharedInstance.removeContact(widget.pubkey);
+        final result =
+            await Contacts.sharedInstance.removeContact(widget.pubkey);
         if (result.status) {
           isContact.value = false;
         } else {
@@ -430,7 +443,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Contact'),
-        content: const Text('Are you sure you want to remove this contact from your contacts list?'),
+        content: const Text(
+            'Are you sure you want to remove this contact from your contacts list?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -453,14 +467,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
     await _handleAsyncOperation(
       operation: () async {
         if (isBlocked.value) {
-          final result = await Contacts.sharedInstance.removeBlockList([widget.pubkey]);
+          final result =
+              await Contacts.sharedInstance.removeBlockList([widget.pubkey]);
           if (result.status) {
             isBlocked.value = false;
           } else {
             throw Exception('Failed to unblock contact');
           }
         } else {
-          final result = await Contacts.sharedInstance.addToBlockList(widget.pubkey);
+          final result =
+              await Contacts.sharedInstance.addToBlockList(widget.pubkey);
           if (result.status) {
             isBlocked.value = true;
           } else {
@@ -498,12 +514,16 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   Future<void> _updateUserInfoFromRemote() async {
-    if (isUpdatingFromRemote.value) return; // Prevent multiple simultaneous updates
+    if (isUpdatingFromRemote.value) {
+      return; // Prevent multiple simultaneous updates
+    }
 
     isUpdatingFromRemote.value = true;
     await Account.sharedInstance.reloadProfileFromRelay(widget.pubkey);
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     isUpdatingFromRemote.value = false;
   }
 }
@@ -618,7 +638,8 @@ class _UserDetailActionButtons extends StatelessWidget {
     );
   }
 
-  Widget _buildButton({required IconData icon, required VoidCallback onPressed}) {
+  Widget _buildButton(
+      {required IconData icon, required VoidCallback onPressed}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(30),
       child: GestureDetector(

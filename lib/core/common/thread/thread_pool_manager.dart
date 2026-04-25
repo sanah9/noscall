@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/services.dart';
 
@@ -91,7 +92,7 @@ void _isolateEntry(SendPort sendPort) {
         final result = await task();
         replyPort.send(result);
       } catch (e, stackTrace) {
-        print('_isolateEntry Error: $e\n$stackTrace');
+        stderr.writeln('_isolateEntry Error: $e\n$stackTrace');
         replyPort.send("Error: $e");
       }
     }

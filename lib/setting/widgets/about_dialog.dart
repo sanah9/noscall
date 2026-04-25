@@ -27,10 +27,12 @@ class _AboutDialogState extends State<AboutDialog> {
 
   late ThemeData theme;
   Color get primary => theme.colorScheme.primary;
-  Color get primaryContainer => theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+  Color get primaryContainer =>
+      theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
   Color get onPrimaryContainer => theme.colorScheme.onPrimaryContainer;
   Color get onSurface => theme.colorScheme.onSurface;
-  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+  Color get onSurfaceVariant =>
+      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
   Color get borderColor => theme.colorScheme.outline.withValues(alpha: 0.1);
 
   @override
@@ -131,14 +133,18 @@ class _AboutDialogState extends State<AboutDialog> {
         try {
           final uri = Uri.parse(githubUrl);
           if (await canLaunchUrl(uri)) {
-            final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+            final launched =
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+            if (!mounted) return;
             if (!launched) {
               AppToast.showError(context, 'Unable to open URL');
             }
           } else {
+            if (!mounted) return;
             AppToast.showError(context, 'Unable to open URL');
           }
         } catch (e) {
+          if (!mounted) return;
           AppToast.showError(context, 'Failed to open URL: $e');
         }
       },
@@ -188,7 +194,8 @@ class _AboutDialogState extends State<AboutDialog> {
                 const SizedBox(height: 4),
                 if (isValueBox)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                       color: primaryContainer,
                       borderRadius: BorderRadius.circular(8),

@@ -23,6 +23,19 @@ class Connect {
   factory Connect() => sharedInstance;
   static final Connect sharedInstance = Connect._internal();
 
+  /// Test-only: when enabled, [connect] skips opening real sockets.
+  static bool _skipSocketConnectionsForTests = false;
+
+  /// Test-only: override network connection side effects in unit tests.
+  static void setTestOverrides({bool skipSocketConnections = false}) {
+    _skipSocketConnectionsForTests = skipSocketConnections;
+  }
+
+  /// Test-only: clear overrides after tests.
+  static void clearTestOverrides() {
+    _skipSocketConnectionsForTests = false;
+  }
+
   static const int timeout = 10;
   static const int connectionTimeout = 10;
   static const int MAX_SUBSCRIPTIONS_COUNT = 15;
@@ -176,6 +189,10 @@ class Connect {
 
     LogUtils.v(() => "connecting... $relay");
     webSockets[relay] = ISocket(null, 0, relayKinds);
+    if (_skipSocketConnectionsForTests) {
+      webSockets[relay] = ISocket(null, 3, relayKinds);
+      return;
+    }
     try {
       WebSocket? socket;
       socket = await _connectWs(relay);

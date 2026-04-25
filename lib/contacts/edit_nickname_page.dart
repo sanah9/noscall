@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:noscall/core/core.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/utils/toast.dart';
@@ -54,8 +53,7 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
         actions: [
           TextButton(
@@ -92,11 +90,13 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
                 hintStyle: TextStyle(color: onSurfaceVariant),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: onSurfaceVariant.withValues(alpha: 0.3)),
+                  borderSide: BorderSide(
+                      color: onSurfaceVariant.withValues(alpha: 0.3)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: onSurfaceVariant.withValues(alpha: 0.3)),
+                  borderSide: BorderSide(
+                      color: onSurfaceVariant.withValues(alpha: 0.3)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -156,6 +156,7 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
       currentUser.pubKey,
       newNickname,
     );
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
@@ -163,7 +164,8 @@ class _EditNicknamePageState extends State<EditNicknamePage> {
       AppToast.showSuccess(context, 'Nickname updated successfully');
       AppNavigatorScope.requireOf(context).pop(context);
     } else {
-      AppToast.showError(context, 'Failed to update nickname: ${event.message}');
+      AppToast.showError(
+          context, 'Failed to update nickname: ${event.message}');
     }
   }
 }

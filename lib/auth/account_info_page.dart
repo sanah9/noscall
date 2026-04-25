@@ -63,7 +63,9 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: SelectableText(
                   _userInfo['npub'] ?? '',
@@ -120,7 +122,9 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: SelectableText(
                   _userInfo['pubkey'] ?? '',
@@ -196,7 +200,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primary,
-            colorScheme.primary.withOpacity(0.8),
+            colorScheme.primary.withValues(alpha: 0.8),
           ],
         ),
       ),
@@ -301,7 +305,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
               ),
               Divider(
                 height: 1,
-                color: colorScheme.outline.withOpacity(0.1),
+                  color: colorScheme.outline.withValues(alpha: 0.1),
                 indent: 16,
                 endIndent: 16,
               ),
@@ -395,7 +399,7 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
               ),
               Divider(
                 height: 1,
-                color: colorScheme.outline.withOpacity(0.1),
+                color: colorScheme.outline.withValues(alpha: 0.1),
                 indent: 16,
                 endIndent: 16,
               ),
@@ -434,9 +438,11 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.3),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.primary.withOpacity(0.3)),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,13 +503,11 @@ class _AccountInfoPageState extends State<AccountInfoPage> {
             TextButton(
               onPressed: () async {
                 final navigator = Navigator.of(context);
-                final router = GoRouter.of(context);
                 navigator.pop();
                 await _authService.logout();
-                AppToast.showSuccess(context, 'Logged out successfully');
-                if (mounted) {
-                  router.go('/login');
-                }
+                if (!mounted) return;
+                AppToast.showSuccess(this.context, 'Logged out successfully');
+                GoRouter.of(this.context).go('/login');
               },
               child: Text(
                 'Logout',
