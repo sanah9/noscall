@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
-import 'dart:io';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'connect_dependencies.dart';
 import 'event_cache.dart';
 import 'reconnection_state.dart';
 
@@ -16,24 +16,31 @@ import 'connect_types.dart';
 export 'connect_types.dart';
 
 class Connect {
-  Connect._internal() {
-    startHeartBeat();
-    listenConnectivity();
-  }
+  Connect._internal()
+      : _connectivity = DefaultConnectConnectivity(),
+        _socketConnector = const DefaultRelaySocketConnector();
   factory Connect() => sharedInstance;
   static final Connect sharedInstance = Connect._internal();
 
-  /// Test-only: when enabled, [connect] skips opening real sockets.
-  static bool _skipSocketConnectionsForTests = false;
+  ConnectConnectivity _connectivity;
+  RelaySocketConnector _socketConnector;
+  bool _isInitialized = false;
 
-  /// Test-only: override network connection side effects in unit tests.
-  static void setTestOverrides({bool skipSocketConnections = false}) {
-    _skipSocketConnectionsForTests = skipSocketConnections;
+  static void setTestOverrides({
+    ConnectConnectivity? connectivity,
+    RelaySocketConnector? socketConnector,
+  }) {
+    sharedInstance.configureDependencies(
+      connectivity: connectivity,
+      socketConnector: socketConnector,
+    );
   }
 
-  /// Test-only: clear overrides after tests.
   static void clearTestOverrides() {
-    _skipSocketConnectionsForTests = false;
+    sharedInstance.configureDependencies(
+      connectivity: DefaultConnectConnectivity(),
+      socketConnector: const DefaultRelaySocketConnector(),
+    );
   }
 
   static const int timeout = 10;
@@ -65,6 +72,23 @@ class Connect {
   final Map<String, ReconnectionState> _reconnectionStates = {};
   ConnectivityResult? _currentConnectivity;
 
+  bool get isInitialized => _isInitialized;
+
+  void configureDependencies({
+    ConnectConnectivity? connectivity,
+    RelaySocketConnector? socketConnector,
+  }) {
+    _connectivity = connectivity ?? _connectivity;
+    _socketConnector = socketConnector ?? _socketConnector;
+  }
+
+  Future<void> init() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+    startHeartBeat();
+    await listenConnectivity();
+  }
+
   void startHeartBeat() {
     if (timer == null || timer!.isActive == false) {
       timer = Timer.periodic(const Duration(seconds: 5), (Timer t) {
@@ -86,25 +110,25 @@ class Connect {
     }
   }
 
-  void listenConnectivity() {
-    Connectivity().checkConnectivity().then((results) {
-      _currentConnectivity = results.isNotEmpty ? results.first : null;
-    });
+  Future<void> listenConnectivity() async {
+    final results = await _connectivity.checkConnectivity();
+    _currentConnectivity = results.isNotEmpty ? results.first : null;
 
-    _connectivitySubscription ??=
-        Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) async {
-          _currentConnectivity = results.isNotEmpty ? results.first : null;
-          if (results.any((result) => result != ConnectivityResult.none)) {
-            for (var state in _reconnectionStates.values) {
-              state.reset();
-            }
-            resetConnection(force: false);
-          }
-        });
+    _connectivitySubscription ??= _connectivity.onConnectivityChanged
+        .listen((List<ConnectivityResult> results) async {
+      _currentConnectivity = results.isNotEmpty ? results.first : null;
+      if (results.any((result) => result != ConnectivityResult.none)) {
+        for (var state in _reconnectionStates.values) {
+          state.reset();
+        }
+        resetConnection(force: false);
+      }
+    });
   }
 
   bool _hasNetworkConnectivity() {
-    return _currentConnectivity != null && _currentConnectivity != ConnectivityResult.none;
+    return _currentConnectivity != null &&
+        _currentConnectivity != ConnectivityResult.none;
   }
 
   // void _stopCheckTimeOut() {
@@ -132,7 +156,10 @@ class Connect {
       var request = requestsMap[requestMapKey];
       if (request != null) {
         // call closeSubscription type eoseCallBack only once
-        if (request.closeSubscription == false && request.eoseCallBack == null) continue;
+        if (request.closeSubscription == false &&
+            request.eoseCallBack == null) {
+          continue;
+        }
         var start = request.requestTime;
         if (start > 0 && now - start > timeout * 1000) {
           // request timeout
@@ -162,7 +189,8 @@ class Connect {
     }
   }
 
-  List<String> relays({List<RelayKind> relayKinds = const [RelayKind.general]}) {
+  List<String> relays(
+      {List<RelayKind> relayKinds = const [RelayKind.general]}) {
     List<String> result = [];
     for (var relay in webSockets.keys) {
       if (webSockets[relay]?.connectStatus == 1 &&
@@ -173,9 +201,14 @@ class Connect {
     return result;
   }
 
-  Future<void> connect(String relay, {RelayKind relayKind = RelayKind.general}) async {
+  Future<void> connect(String relay,
+      {RelayKind relayKind = RelayKind.general}) async {
     LogUtils.v(() => 'connect to $relay, kind: ${relayKind.name}');
     if (relay.isEmpty) return;
+    if (!_isInitialized) {
+      LogUtils.w(() =>
+          'Connect used before init(); continuing without lifecycle watchers.');
+    }
 
     List<RelayKind> relayKinds = webSockets[relay]?.relayKinds ?? [relayKind];
     if (!relayKinds.contains(relayKind)) {
@@ -183,18 +216,17 @@ class Connect {
     }
     webSockets[relay]?.relayKinds = relayKinds;
 
-    if (webSockets[relay]?.connectStatus == 0 || webSockets[relay]?.connectStatus == 1) return;
+    if (webSockets[relay]?.connectStatus == 0 ||
+        webSockets[relay]?.connectStatus == 1) {
+      return;
+    }
 
     _reconnectionStates[relay]?.reset();
 
     LogUtils.v(() => "connecting... $relay");
     webSockets[relay] = ISocket(null, 0, relayKinds);
-    if (_skipSocketConnectionsForTests) {
-      webSockets[relay] = ISocket(null, 3, relayKinds);
-      return;
-    }
     try {
-      WebSocket? socket;
+      RelaySocket? socket;
       socket = await _connectWs(relay);
       if (socket != null) {
         socket.done.then((dynamic _) => _onDisconnected(relay, relayKind));
@@ -209,7 +241,8 @@ class Connect {
     }
   }
 
-  Future<bool> connectRelays(List<String> relays, {RelayKind relayKind = RelayKind.general}) async {
+  Future<bool> connectRelays(List<String> relays,
+      {RelayKind relayKind = RelayKind.general}) async {
     final completer = Completer<bool>();
     if (relays.isEmpty && !completer.isCompleted) completer.complete(true);
     if (relayKind == RelayKind.temp) {
@@ -231,7 +264,9 @@ class Connect {
 
   Future closeConnects(List<String> relays, RelayKind relayKind) async {
     await Future.forEach(relays, (relay) async {
-      webSockets[relay]?.relayKinds.removeWhere((e) => (e == RelayKind.temp || e == relayKind));
+      webSockets[relay]
+          ?.relayKinds
+          .removeWhere((e) => (e == RelayKind.temp || e == relayKind));
       if (webSockets[relay]?.relayKinds.isEmpty == true) {
         await closeConnect(relay);
       }
@@ -246,11 +281,11 @@ class Connect {
     // Cancel heartbeat timer
     timer?.cancel();
     timer = null;
-    
+
     // Cancel connectivity subscription
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
-    
+
     // Cancel all pending reconnection timers
     for (var timer in _reconnectionTimers.values) {
       timer.cancel();
@@ -267,6 +302,8 @@ class Connect {
     auths.clear();
     eventCheckerFutures.clear();
     subscriptionsWaitingQueue.clear();
+    _currentConnectivity = null;
+    _isInitialized = false;
   }
 
   Future closeConnect(String relay) async {
@@ -293,11 +330,13 @@ class Connect {
     if (relays != null) {
       rs = List.from(relays
           .where((relay) =>
-              relay.isNotEmpty && (relay.startsWith('ws://') || relay.startsWith('wss://')))
+              relay.isNotEmpty &&
+              (relay.startsWith('ws://') || relay.startsWith('wss://')))
           .toList());
     }
-    List<String> subscriptionRelays =
-        rs.isNotEmpty == true ? rs : Connect.sharedInstance.relays(relayKinds: relayKinds);
+    List<String> subscriptionRelays = rs.isNotEmpty == true
+        ? rs
+        : Connect.sharedInstance.relays(relayKinds: relayKinds);
     if (subscriptionRelays.isEmpty) {
       eoseCallBack?.call('', OKEvent('', false, 'no relays connected'), '', []);
       return '';
@@ -312,7 +351,9 @@ class Connect {
   }
 
   String addSubscriptions(Map<String, List<Filter>> filters,
-      {EventCallBack? eventCallBack, EOSECallBack? eoseCallBack, bool closeSubscription = true}) {
+      {EventCallBack? eventCallBack,
+      EOSECallBack? eoseCallBack,
+      bool closeSubscription = true}) {
     /// Create a subscription message request with one or many filters
     String requestsId = generate64RandomHexChars();
     for (String relay in filters.keys) {
@@ -320,8 +361,8 @@ class Connect {
       String subscriptionString = requestWithFilter.serialize();
 
       /// add request to request map
-      Requests requests = Requests(requestsId, filters.keys.toList(), 0, {}, eventCallBack,
-          eoseCallBack, subscriptionString, closeSubscription);
+      Requests requests = Requests(requestsId, filters.keys.toList(), 0, {},
+          eventCallBack, eoseCallBack, subscriptionString, closeSubscription);
       requests.subscriptions[relay] = requestWithFilter.subscriptionId;
       requestsMap[requestWithFilter.subscriptionId + relay] = requests;
 
@@ -357,12 +398,13 @@ class Connect {
       String subscriptionId = waitingQueue.removeAt(0);
       var request = requestsMap[subscriptionId + relay];
       if (request != null) {
-        requestsMap[subscriptionId + relay]!.requestTime = DateTime.now().millisecondsSinceEpoch;
+        requestsMap[subscriptionId + relay]!.requestTime =
+            DateTime.now().millisecondsSinceEpoch;
         _send(request.subscriptionString, toRelays: [relay]);
       }
     } else {
-      LogUtils.v(
-          () => 'sendingQueue: $sendingQueue, waitingQueue: ${waitingQueue.length}, $relay');
+      LogUtils.v(() =>
+          'sendingQueue: $sendingQueue, waitingQueue: ${waitingQueue.length}, $relay');
     }
   }
 
@@ -409,14 +451,21 @@ class Connect {
     List<String> rs = (toRelays == null || toRelays.isEmpty)
         ? relays(relayKinds: relayKinds)
         : List.from(toRelays);
-    LogUtils.v(() => 'send event toRelays: ${jsonEncode(rs)}, eventString: $eventString');
-    Sends sends = Sends(generate64RandomHexChars(), rs, DateTime.now().millisecondsSinceEpoch,
-        event.id, sendCallBack, eventString);
+    LogUtils.v(() =>
+        'send event toRelays: ${jsonEncode(rs)}, eventString: $eventString');
+    Sends sends = Sends(
+        generate64RandomHexChars(),
+        rs,
+        DateTime.now().millisecondsSinceEpoch,
+        event.id,
+        sendCallBack,
+        eventString);
     sendsMap[event.id] = sends;
     _send(eventString, toRelays: rs);
   }
 
-  void _send(String data, {List<String>? toRelays, String? eventId, String? subscriptionId}) {
+  void _send(String data,
+      {List<String>? toRelays, String? eventId, String? subscriptionId}) {
     if (toRelays != null && toRelays.isNotEmpty) {
       toRelays = Set.from(toRelays).cast<String>().toList();
       for (var relay in toRelays) {
@@ -453,7 +502,8 @@ class Connect {
   }
 
   Future<void> _handleMessage(String message, String relay) async {
-    var m = await ThreadPoolManager.sharedInstance.runOtherTask(() => _deserializeMessage(message));
+    var m = await ThreadPoolManager.sharedInstance
+        .runOtherTask(() => _deserializeMessage(message));
     switch (m.type) {
       case "EVENT":
         _handleEvent(m.message, relay);
@@ -484,9 +534,11 @@ class Connect {
     String? subscriptionId = event.subscriptionId;
     if (subscriptionId != null) {
       String requestsMapKey = subscriptionId + relay;
-      if (subscriptionId.isNotEmpty && requestsMap.containsKey(requestsMapKey)) {
+      if (subscriptionId.isNotEmpty &&
+          requestsMap.containsKey(requestsMapKey)) {
         // reset requestTime
-        requestsMap[requestsMapKey]!.requestTime = DateTime.now().millisecondsSinceEpoch;
+        requestsMap[requestsMapKey]!.requestTime =
+            DateTime.now().millisecondsSinceEpoch;
         EventCallBack? callBack = requestsMap[requestsMapKey]!.eventCallBack;
         if (callBack != null) {
           EventCache.sharedInstance.receiveEvent(event, relay);
@@ -503,7 +555,8 @@ class Connect {
   }
 
   Future<void> _handleEvent(Event event, String relay) async {
-    LogUtils.v(() => 'Received event, subscriptionId: ${event.subscriptionId}, ${event.toJson()}');
+    LogUtils.v(() =>
+        'Received event, subscriptionId: ${event.subscriptionId}, ${event.toJson()}');
     if (EventCache.sharedInstance.cacheIds.contains(event.id)) {
       return;
     }
@@ -540,7 +593,8 @@ class Connect {
     if (subscriptionId.isNotEmpty && requestsMap.containsKey(requestsMapKey)) {
       // check auth
       if (Nip42.authRequired(closed.message)) {
-        String subscriptionString = requestsMap[requestsMapKey]!.subscriptionString;
+        String subscriptionString =
+            requestsMap[requestsMapKey]!.subscriptionString;
         if (auths[relay]?.resendDatas.contains(subscriptionString) == false) {
           auths[relay]?.resendDatas.add(subscriptionString);
         }
@@ -558,7 +612,8 @@ class Connect {
     List<String> requestsMapKeys =
         requestsMap.keys.where((element) => element.contains(relay)).toList();
     for (var requestsMapKey in requestsMapKeys) {
-      _removeRequestsMapRelay(requestsMapKey.replaceAll(relay, ''), relay, true);
+      _removeRequestsMapRelay(
+          requestsMapKey.replaceAll(relay, ''), relay, true);
     }
 
     noticeCallBack?.call(n, relay);
@@ -595,10 +650,12 @@ class Connect {
           sendsMap[ok.eventId]!.okCallBack!(ok, relay);
           sendsMap.remove(ok.eventId);
         } else if (!ok.status && ok.eventId.isEmpty) {
-          List<String> requestsMapKeys =
-              requestsMap.keys.where((element) => element.contains(relay)).toList();
+          List<String> requestsMapKeys = requestsMap.keys
+              .where((element) => element.contains(relay))
+              .toList();
           for (var requestsMapKey in requestsMapKeys) {
-            _removeRequestsMapRelay(requestsMapKey.replaceAll(relay, ''), relay, true);
+            _removeRequestsMapRelay(
+                requestsMapKey.replaceAll(relay, ''), relay, true);
           }
         }
       } else {
@@ -619,7 +676,8 @@ class Connect {
     }
   }
 
-  void _removeRequestsMapRelay(String subscriptionId, String removeRelay, bool error) {
+  void _removeRequestsMapRelay(
+      String subscriptionId, String removeRelay, bool error) {
     var requestsMapKey = subscriptionId + removeRelay;
     var request = requestsMap[requestsMapKey];
     if (request == null) return;
@@ -633,9 +691,13 @@ class Connect {
     // all relays have EOSE
     EOSECallBack? callBack = request.eoseCallBack;
     OKEvent ok = OKEvent(subscriptionId, !error, '');
-    if (callBack != null) callBack(subscriptionId, ok, removeRelay, request.relays);
+    if (callBack != null) {
+      callBack(subscriptionId, ok, removeRelay, request.relays);
+    }
     requestsMap[requestsMapKey]?.eoseCallBack = null;
-    if (request.closeSubscription) _closeSubscription(subscriptionId, removeRelay);
+    if (request.closeSubscription) {
+      _closeSubscription(subscriptionId, removeRelay);
+    }
   }
 
   Future<void> _sendAuth(String relay) async {
@@ -644,7 +706,10 @@ class Connect {
     String? eventId = auths[relay]?.eventId;
     if (eventId?.isNotEmpty == true) return;
     auths[relay]!.eventId = 'sending...';
-    Event event = await Nip42.encode(challenge, relay, Account.sharedInstance.currentPubkey,
+    Event event = await Nip42.encode(
+        challenge,
+        relay,
+        Account.sharedInstance.currentPubkey,
         Account.sharedInstance.currentPrivkey);
     var authJson = Nip42.authString(event);
     auths[relay]!.eventId = event.id;
@@ -656,7 +721,8 @@ class Connect {
     _setConnectStatus(relay, 3);
 
     if (!webSockets.containsKey(relay)) {
-      LogUtils.v(() => 'Skipping reconnection for relay no longer managed: $relay');
+      LogUtils.v(
+          () => 'Skipping reconnection for relay no longer managed: $relay');
       return;
     }
 
@@ -668,19 +734,22 @@ class Connect {
     }
 
     if (!_hasNetworkConnectivity()) {
-      LogUtils.v(() => 'No network connectivity, skipping reconnection for $relay');
+      LogUtils.v(
+          () => 'No network connectivity, skipping reconnection for $relay');
       return;
     }
 
     if (!state.shouldReconnect()) {
-      LogUtils.v(() => 'Reconnection limit reached or in cooldown for $relay (attempts: ${state.attemptCount})');
+      LogUtils.v(() =>
+          'Reconnection limit reached or in cooldown for $relay (attempts: ${state.attemptCount})');
       return;
     }
 
     state.recordAttempt();
     final backoffDelay = state.getBackoffDelay();
 
-    LogUtils.v(() => 'Scheduling reconnection for $relay in ${backoffDelay.inSeconds}s (attempt ${state.attemptCount})');
+    LogUtils.v(() =>
+        'Scheduling reconnection for $relay in ${backoffDelay.inSeconds}s (attempt ${state.attemptCount})');
 
     _reconnectionTimers[relay]?.cancel();
     _reconnectionTimers[relay] = Timer(backoffDelay, () {
@@ -693,7 +762,7 @@ class Connect {
     });
   }
 
-  void _listenEvent(WebSocket socket, String relay, RelayKind relayKind) {
+  void _listenEvent(RelaySocket socket, String relay, RelayKind relayKind) {
     socket.listen((message) async {
       await _handleMessage(message, relay);
     }, onDone: () async {
@@ -705,7 +774,7 @@ class Connect {
     });
   }
 
-  Future _connectWs(String relay) async {
+  Future<RelaySocket?> _connectWs(String relay) async {
     try {
       _setConnectStatus(relay, 0);
       return await _connectWsSetting(relay);
@@ -714,25 +783,30 @@ class Connect {
       _setConnectStatus(relay, 3);
 
       List<RelayKind>? relayKinds = webSockets[relay]?.relayKinds;
-      bool hasNonTempKind = relayKinds?.any((kind) => kind != RelayKind.temp) ?? false;
+      bool hasNonTempKind =
+          relayKinds?.any((kind) => kind != RelayKind.temp) ?? false;
       if (hasNonTempKind && webSockets.containsKey(relay)) {
         final relayKind = relayKinds?.firstWhere(
-          (kind) => kind != RelayKind.temp,
-          orElse: () => RelayKind.general,
-        ) ?? RelayKind.general;
+              (kind) => kind != RelayKind.temp,
+              orElse: () => RelayKind.general,
+            ) ??
+            RelayKind.general;
         _reConnectToRelay(relay, relayKind);
       }
+      return null;
     }
   }
 
-  Future _connectWsSetting(String relay) async {
-    return await WebSocket.connect(relay).timeout(
-      const Duration(seconds: connectionTimeout),
-      onTimeout: () {
-        LogUtils.v(() => 'WebSocket connection timeout for $relay');
-        throw TimeoutException('Connection timeout after ${connectionTimeout}s', const Duration(seconds: connectionTimeout));
-      },
-    );
+  Future<RelaySocket> _connectWsSetting(String relay) async {
+    try {
+      return await _socketConnector.connect(
+        relay,
+        timeout: const Duration(seconds: connectionTimeout),
+      );
+    } on TimeoutException catch (e) {
+      LogUtils.v(() => 'WebSocket connection timeout for $relay');
+      throw TimeoutException(e.message, e.duration);
+    }
   }
 
   Future<void> _onDisconnected(String relay, RelayKind relayKind) async {

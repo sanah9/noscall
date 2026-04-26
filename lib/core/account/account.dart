@@ -28,7 +28,8 @@ enum NIP46ConnectionStatus {
 
 typedef AccountUpdateCallback = void Function();
 typedef NIP46CommandResultCallback = void Function(NIP46CommandResult result);
-typedef NIP46ConnectionStatusCallback = void Function(NIP46ConnectionStatus status);
+typedef NIP46ConnectionStatusCallback = void Function(
+    NIP46ConnectionStatus status);
 
 class Account {
   /// singleton
@@ -62,9 +63,10 @@ class Account {
   AccountUpdateCallback? groupListUpdateCallback;
   AccountUpdateCallback? relayGroupListUpdateCallback;
 
-  void init() {
+  Future<void> init() async {
+    await Connect.sharedInstance.init();
     startHeartBeat();
-    _loadAllUsers();
+    await _loadAllUsers();
     initNIP46Callback();
   }
 
@@ -170,8 +172,10 @@ class Account {
   }
 
   Future<UserDBISAR?> _searchUserFromDB(String pubkey) async {
-    UserDBISAR? user =
-        await DBISAR.sharedInstance.isar.userDBISARs.where().pubKeyEqualTo(pubkey).findFirst();
+    UserDBISAR? user = await DBISAR.sharedInstance.isar.userDBISARs
+        .where()
+        .pubKeyEqualTo(pubkey)
+        .findFirst();
     if (user != null) {
       user = user.withGrowableLevels();
       updateOrCreateUserNotifier(user.pubKey, user);
@@ -179,7 +183,8 @@ class Account {
     return user;
   }
 
-  Future<UserDBISAR?> getUserFromDB({String pubkey = '', String privkey = ''}) async {
+  Future<UserDBISAR?> getUserFromDB(
+      {String pubkey = '', String privkey = ''}) async {
     if (privkey.isNotEmpty) {
       pubkey = Keychain.getPublicKey(privkey);
     }
@@ -197,12 +202,14 @@ class Account {
     return null;
   }
 
-  Future<UserDBISAR?> loginWithPubKey(String pubkey, SignerApplication signerApplication) async {
+  Future<UserDBISAR?> loginWithPubKey(
+      String pubkey, SignerApplication signerApplication) async {
     UserDBISAR? userDB = await getUserFromDB(pubkey: pubkey);
     if (userDB != null) {
       me = userDB;
       currentPubkey = userDB.pubKey;
-      currentPrivkey = SignerHelper.getSignerApplicationKey(signerApplication, '');
+      currentPrivkey =
+          SignerHelper.getSignerApplicationKey(signerApplication, '');
       userDB.privkey = currentPrivkey;
       updateOrCreateUserNotifier(currentPubkey, userDB);
       await saveUserToDB(userDB);
@@ -222,7 +229,8 @@ class Account {
         db.defaultPassword != null &&
         db.defaultPassword!.isNotEmpty) {
       String encryptedPrivKey = db.encryptedPrivKey!;
-      Uint8List privkey = decryptPrivateKey(hexToBytes(encryptedPrivKey), db.defaultPassword!);
+      Uint8List privkey =
+          decryptPrivateKey(hexToBytes(encryptedPrivKey), db.defaultPassword!);
       if (Keychain.getPublicKey(bytesToHex(privkey)) == pubkey) {
         me = db;
         currentPrivkey = bytesToHex(privkey);
@@ -245,7 +253,8 @@ class Account {
     if (db.defaultPassword == null || db.defaultPassword!.isEmpty) {
       db.defaultPassword = generateStrongPassword(16);
     }
-    Uint8List enPrivkey = encryptPrivateKey(hexToBytes(privkey), db.defaultPassword!);
+    Uint8List enPrivkey =
+        encryptPrivateKey(hexToBytes(privkey), db.defaultPassword!);
     db.encryptedPrivKey = bytesToHex(enPrivkey);
     await saveUserToDB(db);
     me = db;
@@ -263,8 +272,8 @@ class Account {
 
   static Future<String?> getDNSPubkey(String name, String domain) async {
     try {
-      final response =
-          await http.get(Uri.parse('https://$domain/.well-known/nostr.json?name=$name'));
+      final response = await http
+          .get(Uri.parse('https://$domain/.well-known/nostr.json?name=$name'));
 
       if (response.statusCode == 200) {
         var jsonResponse = jsonDecode(response.body);
@@ -307,8 +316,8 @@ class Account {
   static Future<UserDBISAR> newAccount({Keychain? user}) async {
     user ?? Keychain.generate();
     String defaultPassword = generateStrongPassword(16);
-    Uint8List enPrivkey = await compute(
-        encryptPrivateKeyWithMap, {'privkey': user!.private, 'password': defaultPassword});
+    Uint8List enPrivkey = await compute(encryptPrivateKeyWithMap,
+        {'privkey': user!.private, 'password': defaultPassword});
     UserDBISAR db = UserDBISAR();
     db.pubKey = user.public;
     db.encryptedPrivKey = bytesToHex(enPrivkey);
@@ -323,8 +332,8 @@ class Account {
 
   Future<UserDBISAR> newAccountWithPassword(String password) async {
     var user = Keychain.generate();
-    Uint8List enPrivkey =
-        await compute(decryptPrivateKeyWithMap, {'privkey': user.private, 'password': password});
+    Uint8List enPrivkey = await compute(decryptPrivateKeyWithMap,
+        {'privkey': user.private, 'password': password});
     UserDBISAR db = UserDBISAR();
     db.pubKey = user.public;
     db.encryptedPrivKey = bytesToHex(enPrivkey);
@@ -343,7 +352,8 @@ class Account {
   Future<UserDBISAR?> updatePassword(String password) async {
     UserDBISAR? db = await getUserFromDB(privkey: currentPrivkey);
     if (db != null) {
-      Uint8List enPrivkey = encryptPrivateKey(hexToBytes(currentPrivkey), password);
+      Uint8List enPrivkey =
+          encryptPrivateKey(hexToBytes(currentPrivkey), password);
       db.encryptedPrivKey = bytesToHex(enPrivkey);
       db.defaultPassword = password;
       await saveUserToDB(db);
@@ -356,7 +366,7 @@ class Account {
     // Cancel heartbeat timer
     timer?.cancel();
     timer = null;
-    
+
     await Connect.sharedInstance.closeAllConnects();
     Contacts.sharedInstance.allContacts.clear();
     Relays.sharedInstance.relays.clear();
@@ -371,7 +381,8 @@ class Account {
   static Future<Event?> loadAddress(String d, String pubkey) async {
     Completer<Event?> completer = Completer<Event?>();
     Filter f = Filter(d: [d], authors: [pubkey]);
-    Connect.sharedInstance.addSubscription([f], eventCallBack: (event, relay) async {
+    Connect.sharedInstance.addSubscription([f],
+        eventCallBack: (event, relay) async {
       if (!completer.isCompleted) completer.complete(event);
     }, eoseCallBack: (requestId, status, relay, unRelays) {
       if (unRelays.isEmpty) {
@@ -381,7 +392,8 @@ class Account {
     return completer.future;
   }
 
-  static Future<Event?> loadEvent(String eventId, {List<String>? relays}) async {
+  static Future<Event?> loadEvent(String eventId,
+      {List<String>? relays}) async {
     EventCache.sharedInstance.cacheIds.remove(eventId);
     Completer<Event?> completer = Completer<Event?>();
     Timer(const Duration(seconds: 15), () {
@@ -392,22 +404,24 @@ class Account {
 
     if (relays == null && Connect.sharedInstance.relays().isEmpty) return null;
     if (relays != null && relays.isNotEmpty) {
-      await Connect.sharedInstance.connectRelays(relays, relayKind: RelayKind.temp);
+      await Connect.sharedInstance
+          .connectRelays(relays, relayKind: RelayKind.temp);
     }
     Filter f = Filter(ids: [eventId]);
     Connect.sharedInstance.addSubscription([f], relays: relays,
         eventCallBack: (event, relay) async {
-          if (!completer.isCompleted) completer.complete(event);
-        }, eoseCallBack: (requestId, status, relay, unRelays) {
-          if (unRelays.isEmpty) {
-            if (!completer.isCompleted) completer.complete(null);
-          }
-        });
+      if (!completer.isCompleted) completer.complete(event);
+    }, eoseCallBack: (requestId, status, relay, unRelays) {
+      if (unRelays.isEmpty) {
+        if (!completer.isCompleted) completer.complete(null);
+      }
+    });
     return completer.future;
   }
 
   static String encodeProfile(String pubkey, List<String> relays) {
-    String profile = Nip19.encodeShareableEntity('nprofile', pubkey, relays, null, null);
+    String profile =
+        Nip19.encodeShareableEntity('nprofile', pubkey, relays, null, null);
     return Nip21.encode(profile);
   }
 
@@ -432,14 +446,15 @@ class Account {
       var tags = (json['tags'] as List<dynamic>)
           .map((e) => (e as List<dynamic>).map((e) => e.toString()).toList())
           .toList();
-      json['id'] = Event.processEventId(
-          json['pubkey'], json['created_at'], json['kind'], tags, json['content']);
+      json['id'] = Event.processEventId(json['pubkey'], json['created_at'],
+          json['kind'], tags, json['content']);
     }
     Event event = await Event.fromJson(json, verify: false);
     if (SignerHelper.needSigner(currentPrivkey)) {
       final pubkey = Account.sharedInstance.currentPubkey;
       final privkey = Account.sharedInstance.currentPrivkey;
-      event.sig = await SignerHelper.signMessage(event.id, pubkey, privkey) ?? '';
+      event.sig =
+          await SignerHelper.signMessage(event.id, pubkey, privkey) ?? '';
     } else {
       event.sig = event.getSignature(currentPrivkey);
     }
@@ -448,21 +463,25 @@ class Account {
   }
 
   Future<String> encryptNip04(String content, String peer) async {
-    return await Nip4.encryptContent(content, peer, currentPubkey, currentPrivkey);
+    return await Nip4.encryptContent(
+        content, peer, currentPubkey, currentPrivkey);
   }
 
   Future<String> decryptNip04(String content, String peer) async {
-    return await Nip4.decryptContent(content, peer, currentPubkey, currentPrivkey);
+    return await Nip4.decryptContent(
+        content, peer, currentPubkey, currentPrivkey);
   }
 
-  static Future<String> getSignatureWithSecret(String secret, [String? privkey]) async {
+  static Future<String> getSignatureWithSecret(String secret,
+      [String? privkey]) async {
     privkey ??= Account.sharedInstance.currentPrivkey;
     if (SignerHelper.needSigner(privkey)) {
       final pubkey = Account.sharedInstance.currentPubkey;
       final privkey = Account.sharedInstance.currentPrivkey;
       return await SignerHelper.signMessage(secret, pubkey, privkey) ?? '';
     }
-    final hexMessage = hex.encode(SHA256Digest().process(Uint8List.fromList(utf8.encode(secret))));
+    final hexMessage = hex.encode(
+        SHA256Digest().process(Uint8List.fromList(utf8.encode(secret))));
     return Keychain(privkey).sign(hexMessage);
   }
 

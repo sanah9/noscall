@@ -1,6 +1,6 @@
-import 'dart:io';
-
 import 'package:nostr_core_dart/nostr.dart';
+
+import 'connect_dependencies.dart';
 
 /// Notice callback
 typedef NoticeCallBack = void Function(String notice, String relay);
@@ -25,8 +25,8 @@ class Sends {
   OKCallBack? okCallBack;
   String eventString;
 
-  Sends(this.sendsId, this.relays, this.sendsTime, this.eventId, this.okCallBack,
-      this.eventString);
+  Sends(this.sendsId, this.relays, this.sendsTime, this.eventId,
+      this.okCallBack, this.eventString);
 }
 
 class Requests {
@@ -59,7 +59,7 @@ class AuthData {
 }
 
 class ISocket {
-  WebSocket? socket;
+  RelaySocket? socket;
 
   /// connecting = 0;
   /// open = 1;

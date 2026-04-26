@@ -1,37 +1,94 @@
 import 'dart:async';
 
-import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:noscall/core/common/network/connect_dependencies.dart';
 
 class TestSetup {
-  static ConnectivityPlatform? _previousConnectivityPlatform;
-
-  /// Installs a deterministic connectivity fallback for tests that touch
-  /// singleton startup paths before a real platform implementation exists.
-  static void installConnectivityFallback({
+  static ConnectConnectivity connectivity({
     List<ConnectivityResult> initialResults = const [ConnectivityResult.none],
+    Stream<List<ConnectivityResult>>? changes,
   }) {
-    _previousConnectivityPlatform ??= ConnectivityPlatform.instance;
-    ConnectivityPlatform.instance = _FakeConnectivityPlatform(initialResults);
+    return FakeConnectConnectivity(
+      initialResults: initialResults,
+      changes: changes,
+    );
   }
 
-  /// Restores the connectivity platform implementation after tests complete.
-  static void restoreConnectivityPlatform() {
-    final previous = _previousConnectivityPlatform;
-    if (previous == null) return;
-    ConnectivityPlatform.instance = previous;
-    _previousConnectivityPlatform = null;
+  static RelaySocketConnector socketConnector({
+    Map<String, FakeRelaySocket>? socketsByRelay,
+  }) {
+    return FakeRelaySocketConnector(socketsByRelay: socketsByRelay);
   }
 }
 
-class _FakeConnectivityPlatform extends ConnectivityPlatform {
-  _FakeConnectivityPlatform(this._results);
+class FakeConnectConnectivity implements ConnectConnectivity {
+  FakeConnectConnectivity({
+    this.initialResults = const [ConnectivityResult.none],
+    Stream<List<ConnectivityResult>>? changes,
+  }) : _changes = changes ?? const Stream<List<ConnectivityResult>>.empty();
 
-  final List<ConnectivityResult> _results;
+  final List<ConnectivityResult> initialResults;
+  final Stream<List<ConnectivityResult>> _changes;
 
   @override
-  Future<List<ConnectivityResult>> checkConnectivity() async => _results;
+  Future<List<ConnectivityResult>> checkConnectivity() async => initialResults;
 
   @override
-  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
-      const Stream<List<ConnectivityResult>>.empty();
+  Stream<List<ConnectivityResult>> get onConnectivityChanged => _changes;
+}
+
+class FakeRelaySocketConnector implements RelaySocketConnector {
+  FakeRelaySocketConnector({Map<String, FakeRelaySocket>? socketsByRelay})
+      : socketsByRelay = socketsByRelay ?? {};
+
+  final Map<String, FakeRelaySocket> socketsByRelay;
+  final List<String> connectedRelays = [];
+
+  @override
+  Future<RelaySocket> connect(
+    String relay, {
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    connectedRelays.add(relay);
+    return socketsByRelay.putIfAbsent(relay, () => FakeRelaySocket());
+  }
+}
+
+class FakeRelaySocket implements RelaySocket {
+  final StreamController<dynamic> _controller = StreamController<dynamic>();
+  final Completer<void> _done = Completer<void>();
+  final List<String> sentData = [];
+
+  @override
+  Future<void> get done => _done.future;
+
+  @override
+  void add(String data) {
+    sentData.add(data);
+  }
+
+  @override
+  Future<void> close() async {
+    if (!_done.isCompleted) {
+      _done.complete();
+    }
+    if (!_controller.isClosed) {
+      await _controller.close();
+    }
+  }
+
+  @override
+  StreamSubscription<dynamic> listen(
+    void Function(dynamic event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return _controller.stream.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
 }

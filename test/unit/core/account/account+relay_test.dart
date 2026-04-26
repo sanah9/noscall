@@ -10,16 +10,19 @@ void main() {
   // Initialize Flutter binding because Connect singleton needs to access platform channels
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUpAll(() {
-    TestSetup.installConnectivityFallback();
-    Connect.setTestOverrides(skipSocketConnections: true);
+  setUpAll(() async {
+    Connect.setTestOverrides(
+      connectivity: TestSetup.connectivity(),
+      socketConnector: TestSetup.socketConnector(),
+    );
+    await Connect.sharedInstance.init();
   });
 
-  tearDownAll(() {
+  tearDownAll(() async {
+    await Connect.sharedInstance.closeAllConnects();
     Connect.clearTestOverrides();
-    TestSetup.restoreConnectivityPlatform();
   });
-  
+
   group('Account Relay Management', () {
     late Account account;
 
@@ -43,10 +46,10 @@ void main() {
       test('should add relay to list when relay is valid', () async {
         // Arrange
         const testRelay = TestData.validRelayUrl;
-        
+
         // Act
         final result = await account.addGeneralRelay(testRelay);
-        
+
         // Assert
         expect(result.status, isTrue);
         expect(account.me?.relayList, contains(testRelay));
@@ -56,10 +59,10 @@ void main() {
         // Arrange
         const testRelay = TestData.validRelayUrl;
         account.me!.relayList = [testRelay];
-        
+
         // Act
         final result = await account.addGeneralRelay(testRelay);
-        
+
         // Assert
         expect(result.status, isFalse);
         expect(result.message, 'already exit');
@@ -69,7 +72,7 @@ void main() {
       test('should return error when relay is empty', () async {
         // Act
         final result = await account.addGeneralRelay('');
-        
+
         // Assert
         expect(result.status, isFalse);
         expect(result.message, 'empty relay');
@@ -81,10 +84,10 @@ void main() {
         // Arrange
         const testRelay = TestData.validRelayUrl;
         account.me!.relayList = [testRelay];
-        
+
         // Act
         final result = await account.removeGeneralRelay(testRelay);
-        
+
         // Assert
         expect(result.status, isTrue);
         expect(account.me?.relayList, isNot(contains(testRelay)));
@@ -94,10 +97,10 @@ void main() {
         // Arrange
         const testRelay = TestData.validRelayUrl;
         account.me!.relayList = [];
-        
+
         // Act
         final result = await account.removeGeneralRelay(testRelay);
-        
+
         // Assert
         expect(result.status, isFalse);
         expect(result.message, 'not exit');
@@ -106,7 +109,7 @@ void main() {
       test('should return error when relay is empty', () async {
         // Act
         final result = await account.removeGeneralRelay('');
-        
+
         // Assert
         expect(result.status, isFalse);
         expect(result.message, 'empty relay');
@@ -120,10 +123,10 @@ void main() {
           TestData.validRelayUrl,
           TestHelpers.createValidRelayUrl(host: 'another.relay.com'),
         ];
-        
+
         // Act
         final result = await account.setGeneralRelayListToLocal(relays);
-        
+
         // Assert
         expect(result.status, isTrue);
         expect(account.me?.relayList, equals(relays));
@@ -138,10 +141,10 @@ void main() {
           TestData.validRelayUrl,
           TestHelpers.createValidRelayUrl(host: 'another.relay.com'),
         ];
-        
+
         // Act
         final result = account.getMyGeneralRelayList();
-        
+
         // Assert
         expect(result.length, equals(2));
         expect(result[0].url, equals(TestData.validRelayUrl));
@@ -150,10 +153,10 @@ void main() {
       test('should return empty list when no relays configured', () {
         // Arrange
         account.me!.relayList = [];
-        
+
         // Act
         final result = account.getMyGeneralRelayList();
-        
+
         // Assert
         expect(result, isEmpty);
       });

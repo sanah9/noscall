@@ -52,7 +52,8 @@ class AuthService {
 
   bool isAuthenticated = false;
 
-  final StreamController<bool> _authStateController = StreamController<bool>.broadcast();
+  final StreamController<bool> _authStateController =
+      StreamController<bool>.broadcast();
   bool _isDisposed = false;
 
   // Getters
@@ -90,11 +91,13 @@ class AuthService {
     await _initChatCore(pubkey);
   }
 
-  Future<void> _autoLoginWithMethod(String pubkey, LoginMethod loginMethod) async {
+  Future<void> _autoLoginWithMethod(
+      String pubkey, LoginMethod loginMethod) async {
     try {
       switch (loginMethod) {
         case LoginMethod.privateKey:
-          final user = await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
+          final user =
+              await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
           if (user == null) {
             throw Exception('login failed');
           }
@@ -102,7 +105,8 @@ class AuthService {
         case LoginMethod.amber:
           if (Platform.isAndroid && await _isAmberInstalled()) {
             final signerApplication = loginMethod.getSignerApplication();
-            final user = await Account.sharedInstance.loginWithPubKey(pubkey, signerApplication);
+            final user = await Account.sharedInstance
+                .loginWithPubKey(pubkey, signerApplication);
             if (user == null) {
               throw Exception('login failed');
             }
@@ -160,7 +164,8 @@ class AuthService {
 
       await _initDatabase(pubkey);
 
-      final userDB = await Account.sharedInstance.loginWithPriKey(actualPrivateKey);
+      final userDB =
+          await Account.sharedInstance.loginWithPriKey(actualPrivateKey);
       if (userDB == null) {
         throw Exception('Login failed');
       }
@@ -169,7 +174,8 @@ class AuthService {
 
       await _saveUserInfo(pubkey, LoginMethod.privateKey);
 
-      LogUtils.i(() => 'Successfully logged in with private key. Pubkey: ${pubkey.substring(0, 8)}...');
+      LogUtils.i(() =>
+          'Successfully logged in with private key. Pubkey: ${pubkey.substring(0, 8)}...');
       return true;
     } catch (e) {
       LogUtils.e(() => 'Private key login failed: $e');
@@ -209,7 +215,8 @@ class AuthService {
 
     await _saveUserInfo(pubkey, LoginMethod.amber);
 
-    LogUtils.i(() => 'Successfully logged in with Amber. Pubkey: ${pubkey.substring(0, 8)}...');
+    LogUtils.i(() =>
+        'Successfully logged in with Amber. Pubkey: ${pubkey.substring(0, 8)}...');
   }
 
   Future<bool> loginWithBunkerUrl(String bunkerUrl) async {
@@ -236,7 +243,8 @@ class AuthService {
 
       await _saveUserInfo(pubkey, LoginMethod.bunker, bunkerUrl);
 
-      LogUtils.i(() => 'Successfully logged in with Bunker URL. Pubkey: ${pubkey.substring(0, 8)}...');
+      LogUtils.i(() =>
+          'Successfully logged in with Bunker URL. Pubkey: ${pubkey.substring(0, 8)}...');
       return true;
     } catch (e) {
       LogUtils.e(() => 'Bunker URL login failed: $e');
@@ -250,7 +258,8 @@ class AuthService {
 
       await DBISAR.sharedInstance.open(pubkey);
 
-      LogUtils.i(() => 'Database and services initialized for pubkey: ${pubkey.substring(0, 8)}...');
+      LogUtils.i(() =>
+          'Database and services initialized for pubkey: ${pubkey.substring(0, 8)}...');
     } catch (e) {
       LogUtils.e(() => 'Failed to initialize database: $e');
       rethrow;
@@ -259,7 +268,7 @@ class AuthService {
 
   Future<void> _initChatCore(String pubkey) async {
     try {
-      Account.sharedInstance.init();
+      await Account.sharedInstance.init();
 
       final appDir = await getApplicationDocumentsDirectory();
       final databasePath = '${appDir.path}/noscall_$pubkey';
@@ -277,7 +286,8 @@ class AuthService {
       await CallKitManager.instance.initRTC();
 
       isAuthenticated = true;
-      LogUtils.i(() => 'Chat core initialized successfully for pubkey: ${pubkey.substring(0, 8)}...');
+      LogUtils.i(() =>
+          'Chat core initialized successfully for pubkey: ${pubkey.substring(0, 8)}...');
     } catch (e) {
       LogUtils.e(() => 'Failed to initialize chat core: $e');
       rethrow;
@@ -302,11 +312,13 @@ class AuthService {
     try {
       final random = Random.secure();
       final randomBytes = List<int>.generate(32, (i) => random.nextInt(256));
-      final privateKey = randomBytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+      final privateKey =
+          randomBytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
 
       // Validate the generated key
       if (privateKey.length != 64) {
-        throw Exception('Generated private key has invalid length: ${privateKey.length}');
+        throw Exception(
+            'Generated private key has invalid length: ${privateKey.length}');
       }
 
       return privateKey;
@@ -317,7 +329,8 @@ class AuthService {
     }
   }
 
-  Future<void> _saveUserInfo(String pubkey, LoginMethod loginMethod, [String bunkerUrl = '']) async {
+  Future<void> _saveUserInfo(String pubkey, LoginMethod loginMethod,
+      [String bunkerUrl = '']) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_userKey, pubkey);
@@ -330,7 +343,8 @@ class AuthService {
 
       _authStateController.add(true);
 
-      LogUtils.i(() => 'User info saved successfully with login method: ${loginMethod.value}');
+      LogUtils.i(() =>
+          'User info saved successfully with login method: ${loginMethod.value}');
     } catch (e) {
       LogUtils.e(() => 'Failed to save user info: $e');
     }
@@ -436,7 +450,6 @@ class AuthService {
       if (!_isDisposed) {
         _authStateController.add(false);
       }
-
     } catch (e) {
       LogUtils.e(() => 'Failed to reset authentication state: $e');
       rethrow;
