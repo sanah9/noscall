@@ -2,19 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:isar/isar.dart';
 import 'package:pointycastle/export.dart';
 import 'package:convert/convert.dart';
 
 import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/core/call/contacts/contacts.dart';
-import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'account+nip46.dart';
 import 'account+profile.dart';
+import 'account_dependencies.dart';
 import 'model/userDB_isar.dart';
 import 'relays.dart';
 
@@ -32,6 +31,8 @@ typedef NIP46ConnectionStatusCallback = void Function(
     NIP46ConnectionStatus status);
 
 class Account {
+  static AccountPersistence _persistence = const DefaultAccountPersistence();
+
   /// singleton
   Account._internal();
   factory Account() => sharedInstance;
@@ -65,6 +66,14 @@ class Account {
   AccountUpdateCallback? channelListUpdateCallback;
   AccountUpdateCallback? groupListUpdateCallback;
   AccountUpdateCallback? relayGroupListUpdateCallback;
+
+  static void setTestDependencies({AccountPersistence? persistence}) {
+    _persistence = persistence ?? const DefaultAccountPersistence();
+  }
+
+  static void clearTestDependencies() {
+    _persistence = const DefaultAccountPersistence();
+  }
 
   Future<void> init() async {
     _ensureCoreBindingsInitialized();
@@ -161,13 +170,10 @@ class Account {
   }
 
   Future<void> _loadAllUsers() async {
-    var queryBuilder = DBISAR.sharedInstance.isar.userDBISARs.where();
-    List<UserDBISAR?> maps = await queryBuilder.findAll();
-    for (UserDBISAR? user in maps) {
-      if (user != null) {
-        user = user.withGrowableLevels();
-        updateOrCreateUserNotifier(user.pubKey, user);
-      }
+    final users = await _persistence.loadAllUsers();
+    for (var user in users) {
+      user = user.withGrowableLevels();
+      updateOrCreateUserNotifier(user.pubKey, user);
     }
   }
 
@@ -176,7 +182,7 @@ class Account {
   }
 
   static Future<void> saveUserToDB(UserDBISAR user) async {
-    await DBISAR.sharedInstance.saveToDB(user);
+    await _persistence.saveUser(user);
   }
 
   bool isValidPubKey(String pubKey) {
@@ -254,10 +260,7 @@ class Account {
   }
 
   Future<UserDBISAR?> _searchUserFromDB(String pubkey) async {
-    UserDBISAR? user = await DBISAR.sharedInstance.isar.userDBISARs
-        .where()
-        .pubKeyEqualTo(pubkey)
-        .findFirst();
+    UserDBISAR? user = await _persistence.findUserByPubkey(pubkey);
     if (user != null) {
       user = user.withGrowableLevels();
       updateOrCreateUserNotifier(user.pubKey, user);
@@ -436,7 +439,7 @@ class Account {
   Future<void> logout() async {
     await _shutdownSessionRuntime();
     _resetSessionState(keepIdentity: false);
-    await DBISAR.sharedInstance.closeDatabase();
+    await _persistence.close();
   }
 
   static Future<Event?> loadAddress(String d, String pubkey) async {

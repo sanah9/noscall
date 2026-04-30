@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 import 'package:noscall/core/core.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:noscall/call/call_kit_manager.dart';
-import 'package:noscall/call/push_token_service.dart';
 import 'package:nostr_core_dart/nostr.dart';
+
+import 'auth_service_dependencies.dart';
 
 enum LoginMethod {
   privateKey('privateKey'),
@@ -38,6 +35,8 @@ enum LoginMethod {
 }
 
 class AuthService {
+  static AuthServiceDependencies _dependencies =
+      const AuthServiceDependencies();
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
@@ -61,6 +60,21 @@ class AuthService {
   String? get currentUserNpub => _currentUserNpub;
   Stream<bool> get authStateStream => _authStateController.stream;
 
+  static void setTestDependencies(AuthServiceDependencies dependencies) {
+    _dependencies = dependencies;
+  }
+
+  static void clearTestDependencies() {
+    _dependencies = const AuthServiceDependencies();
+  }
+
+  void resetForTest() {
+    _currentUserPubkey = null;
+    _currentUserNpub = null;
+    _currentLoginMethod = null;
+    isAuthenticated = false;
+  }
+
   Future<void> initialize() async {
     try {
       await _autoLogin();
@@ -71,11 +85,11 @@ class AuthService {
   }
 
   Future<void> _autoLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pubkey = prefs.getString(_userKey);
+    final pubkey = await _dependencies.preferences.getString(_userKey);
     if (pubkey == null) return;
 
-    final loginMethodString = prefs.getString(_loginMethodKey);
+    final loginMethodString =
+        await _dependencies.preferences.getString(_loginMethodKey);
     if (loginMethodString == null) return;
 
     final loginMethod = LoginMethod.fromString(loginMethodString);
@@ -97,15 +111,15 @@ class AuthService {
       switch (loginMethod) {
         case LoginMethod.privateKey:
           final user =
-              await Account.sharedInstance.loginWithPubKeyAndPassword(pubkey);
+              await _dependencies.account.loginWithPubKeyAndPassword(pubkey);
           if (user == null) {
             throw Exception('login failed');
           }
           break;
         case LoginMethod.amber:
-          if (Platform.isAndroid && await _isAmberInstalled()) {
+          if (_dependencies.platform.isAndroid && await _isAmberInstalled()) {
             final signerApplication = loginMethod.getSignerApplication();
-            final user = await Account.sharedInstance
+            final user = await _dependencies.account
                 .loginWithPubKey(pubkey, signerApplication);
             if (user == null) {
               throw Exception('login failed');
@@ -116,10 +130,10 @@ class AuthService {
           }
           break;
         case LoginMethod.bunker:
-          final prefs = await SharedPreferences.getInstance();
-          final bunkerUrl = prefs.getString(_userBunkerUrlKey);
+          final bunkerUrl =
+              await _dependencies.preferences.getString(_userBunkerUrlKey);
           if (bunkerUrl != null) {
-            final user = await Account.sharedInstance
+            final user = await _dependencies.account
                 .loginWithNip46URI(bunkerUrl)
                 .timeout(
               const Duration(seconds: 30),
@@ -157,7 +171,7 @@ class AuthService {
         throw Exception('Private key must be 64 characters long');
       }
 
-      final pubkey = Account.getPublicKey(actualPrivateKey);
+      final pubkey = _dependencies.account.getPublicKey(actualPrivateKey);
       if (pubkey.isEmpty) {
         throw Exception('Failed to generate public key from private key');
       }
@@ -165,7 +179,7 @@ class AuthService {
       await _initDatabase(pubkey);
 
       final userDB =
-          await Account.sharedInstance.loginWithPriKey(actualPrivateKey);
+          await _dependencies.account.loginWithPriKey(actualPrivateKey);
       if (userDB == null) {
         throw Exception('Login failed');
       }
@@ -184,7 +198,7 @@ class AuthService {
   }
 
   Future<void> loginWithAmber() async {
-    if (!Platform.isAndroid) {
+    if (!_dependencies.platform.isAndroid) {
       throw Exception('Amber login is only available on Android');
     }
 
@@ -203,7 +217,7 @@ class AuthService {
 
     await _initDatabase(pubkey);
 
-    final userDB = await Account.sharedInstance.loginWithPubKey(
+    final userDB = await _dependencies.account.loginWithPubKey(
       pubkey,
       LoginMethod.amber.getSignerApplication(),
     );
@@ -226,14 +240,15 @@ class AuthService {
       }
 
       // Get public key from Bunker URL
-      final pubkey = await Account.getPublicKeyWithNIP46URI(bunkerUrl);
+      final pubkey =
+          await _dependencies.account.getPublicKeyWithNIP46URI(bunkerUrl);
       if (pubkey.isEmpty) {
         throw Exception('Failed to get public key from Bunker URL');
       }
 
       await _initDatabase(pubkey);
 
-      final userDB = await Account.sharedInstance.loginWithNip46URI(bunkerUrl);
+      final userDB = await _dependencies.account.loginWithNip46URI(bunkerUrl);
 
       if (userDB == null) {
         throw Exception('Login failed');
@@ -256,7 +271,7 @@ class AuthService {
     try {
       if (pubkey.isEmpty) return;
 
-      await DBISAR.sharedInstance.open(pubkey);
+      await _dependencies.database.open(pubkey);
 
       LogUtils.i(() =>
           'Database and services initialized for pubkey: ${pubkey.substring(0, 8)}...');
@@ -268,10 +283,10 @@ class AuthService {
 
   Future<void> _initChatCore(String pubkey) async {
     try {
-      await Account.sharedInstance.init();
+      await _dependencies.account.initAccount();
 
-      final appDir = await getApplicationDocumentsDirectory();
-      final databasePath = '${appDir.path}/noscall_$pubkey';
+      final appDir = await _dependencies.runtime.getApplicationDocumentsPath();
+      final databasePath = '$appDir/noscall_$pubkey';
       final config = ChatCoreInitConfig(
         pubkey: pubkey,
         databasePath: databasePath,
@@ -281,9 +296,9 @@ class AuthService {
         allowSendNotification: true,
         allowReceiveNotification: true,
       );
-      await ChatCoreManager().initChatCoreWithConfig(config);
+      await _dependencies.runtime.initChatCore(config);
 
-      await CallKitManager.instance.initRTC();
+      await _dependencies.runtime.initRtc();
 
       isAuthenticated = true;
       LogUtils.i(() =>
@@ -332,10 +347,10 @@ class AuthService {
   Future<void> _saveUserInfo(String pubkey, LoginMethod loginMethod,
       [String bunkerUrl = '']) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userKey, pubkey);
-      await prefs.setString(_loginMethodKey, loginMethod.value);
-      await prefs.setString(_userBunkerUrlKey, bunkerUrl);
+      await _dependencies.preferences.setString(_userKey, pubkey);
+      await _dependencies.preferences
+          .setString(_loginMethodKey, loginMethod.value);
+      await _dependencies.preferences.setString(_userBunkerUrlKey, bunkerUrl);
 
       _currentUserPubkey = pubkey;
       _currentUserNpub = _pubkeyToNpub(pubkey);
@@ -354,12 +369,11 @@ class AuthService {
     try {
       await _logout();
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_userKey);
-      await prefs.remove(_loginMethodKey);
+      await _dependencies.preferences.remove(_userKey);
+      await _dependencies.preferences.remove(_loginMethodKey);
 
       // Clear VoIP push token data (best practice: clear on logout)
-      await PushTokenService().clearVoIPToken();
+      await _dependencies.runtime.clearPushTokens();
 
       _currentUserPubkey = null;
       _currentUserNpub = null;
@@ -379,7 +393,7 @@ class AuthService {
   /// Internal logout method
   Future<void> _logout() async {
     try {
-      await Account.sharedInstance.logout();
+      await _dependencies.account.logout();
       LogUtils.i(() => 'Internal logout completed');
     } catch (e) {
       LogUtils.e(() => 'Failed to perform internal logout: $e');
@@ -416,31 +430,30 @@ class AuthService {
   }
 
   UserDBISAR? getCurrentUserDB() {
-    return Account.sharedInstance.me;
+    return _dependencies.account.currentUser;
   }
 
-  bool get isUserLoggedIn => Account.sharedInstance.me != null;
+  bool get isUserLoggedIn => _dependencies.account.currentUser != null;
 
   String? getCurrentPubkey() {
-    return Account.sharedInstance.currentPubkey;
+    return _dependencies.account.currentPubkey;
   }
 
   Future<bool> _isAmberInstalled() async {
-    return CoreMethodChannel.isInstalledAmber();
+    return _dependencies.platform.isAmberInstalled();
   }
 
   Future<String?> _getAmberPublicKey() async {
-    return ExternalSignerTool.getPubKey();
+    return _dependencies.platform.getAmberPublicKey();
   }
 
   Future<void> _resetAuthState() async {
     try {
       await _logout();
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_userKey);
-      await prefs.remove(_loginMethodKey);
-      await prefs.remove(_userBunkerUrlKey);
+      await _dependencies.preferences.remove(_userKey);
+      await _dependencies.preferences.remove(_loginMethodKey);
+      await _dependencies.preferences.remove(_userBunkerUrlKey);
 
       _currentUserPubkey = null;
       _currentUserNpub = null;

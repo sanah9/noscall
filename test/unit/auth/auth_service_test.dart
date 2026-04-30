@@ -1,6 +1,144 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/auth/auth_service.dart';
+import 'package:noscall/auth/auth_service_dependencies.dart';
+import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/common/config/call_core_init_config.dart';
+
+class FakeAuthPreferencesStore implements AuthPreferencesStore {
+  final Map<String, String> values = {};
+
+  @override
+  Future<String?> getString(String key) async => values[key];
+
+  @override
+  Future<void> remove(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<void> setString(String key, String value) async {
+    values[key] = value;
+  }
+}
+
+class FakeAuthAccountGateway implements AuthAccountGateway {
+  UserDBISAR? nextUser;
+  bool initCalled = false;
+  bool logoutCalled = false;
+  String publicKeyFromPrivateKey =
+      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  String bunkerPubkey =
+      'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+  UserDBISAR? _currentUser;
+  String _currentPubkey = '';
+
+  @override
+  UserDBISAR? get currentUser => _currentUser;
+
+  @override
+  String get currentPubkey => _currentPubkey;
+
+  @override
+  String getPublicKey(String privkey) => publicKeyFromPrivateKey;
+
+  @override
+  Future<String> getPublicKeyWithNIP46URI(String uri) async => bunkerPubkey;
+
+  @override
+  Future<void> initAccount() async {
+    initCalled = true;
+  }
+
+  @override
+  Future<UserDBISAR?> loginWithNip46URI(String uri) async {
+    _currentUser = nextUser;
+    _currentPubkey = nextUser?.pubKey ?? '';
+    return nextUser;
+  }
+
+  @override
+  Future<UserDBISAR?> loginWithPriKey(String privkey) async {
+    _currentUser = nextUser;
+    _currentPubkey = nextUser?.pubKey ?? '';
+    return nextUser;
+  }
+
+  @override
+  Future<UserDBISAR?> loginWithPubKey(
+      String pubkey, SignerApplication signerApplication) async {
+    _currentUser = nextUser;
+    _currentPubkey = nextUser?.pubKey ?? pubkey;
+    return nextUser;
+  }
+
+  @override
+  Future<UserDBISAR?> loginWithPubKeyAndPassword(String pubkey) async {
+    _currentUser = nextUser;
+    _currentPubkey = nextUser?.pubKey ?? pubkey;
+    return nextUser;
+  }
+
+  @override
+  Future<void> logout() async {
+    logoutCalled = true;
+    _currentUser = null;
+    _currentPubkey = '';
+  }
+}
+
+class FakeAuthDatabaseGateway implements AuthDatabaseGateway {
+  final List<String> openedPubkeys = [];
+
+  @override
+  Future<void> open(String pubkey) async {
+    openedPubkeys.add(pubkey);
+  }
+}
+
+class FakeAuthRuntimeGateway implements AuthRuntimeGateway {
+  String documentsPath = '/tmp';
+  ChatCoreInitConfig? lastConfig;
+  bool initRtcCalled = false;
+  bool clearPushTokensCalled = false;
+
+  @override
+  Future<void> clearPushTokens() async {
+    clearPushTokensCalled = true;
+  }
+
+  @override
+  Future<String> getApplicationDocumentsPath() async => documentsPath;
+
+  @override
+  Future<void> initChatCore(ChatCoreInitConfig config) async {
+    lastConfig = config;
+  }
+
+  @override
+  Future<void> initRtc() async {
+    initRtcCalled = true;
+  }
+}
+
+class FakeAuthPlatformGateway implements AuthPlatformGateway {
+  FakeAuthPlatformGateway({
+    this.isAndroid = false,
+    this.amberInstalled = false,
+    this.amberPubkey,
+  });
+
+  @override
+  final bool isAndroid;
+  final bool amberInstalled;
+  final String? amberPubkey;
+
+  @override
+  Future<String?> getAmberPublicKey() async => amberPubkey;
+
+  @override
+  Future<bool> isAmberInstalled() async => amberInstalled;
+}
 
 void main() {
   group('LoginMethod', () {
@@ -76,9 +214,34 @@ void main() {
 
   group('AuthService', () {
     late AuthService authService;
+    late FakeAuthPreferencesStore preferences;
+    late FakeAuthAccountGateway accountGateway;
+    late FakeAuthDatabaseGateway databaseGateway;
+    late FakeAuthRuntimeGateway runtimeGateway;
+    late FakeAuthPlatformGateway platformGateway;
 
     setUp(() {
+      preferences = FakeAuthPreferencesStore();
+      accountGateway = FakeAuthAccountGateway();
+      databaseGateway = FakeAuthDatabaseGateway();
+      runtimeGateway = FakeAuthRuntimeGateway();
+      platformGateway = FakeAuthPlatformGateway();
+      AuthService.setTestDependencies(
+        AuthServiceDependencies(
+          preferences: preferences,
+          account: accountGateway,
+          database: databaseGateway,
+          runtime: runtimeGateway,
+          platform: platformGateway,
+        ),
+      );
       authService = AuthService();
+      authService.resetForTest();
+    });
+
+    tearDown(() {
+      authService.resetForTest();
+      AuthService.clearTestDependencies();
     });
 
     group('generatePrivateKey', () {
@@ -149,7 +312,8 @@ void main() {
         expect(result, isFalse);
       });
 
-      test('returns false for invalid nsec prefix (nsec with bad payload)', () async {
+      test('returns false for invalid nsec prefix (nsec with bad payload)',
+          () async {
         final result = await authService.loginWithPrivateKey('nsec1invalid');
         expect(result, isFalse);
       });
@@ -176,6 +340,43 @@ void main() {
       test('exposes a Stream<bool>', () {
         expect(authService.authStateStream, isNotNull);
         expect(authService.authStateStream, isA<Stream<bool>>());
+      });
+    });
+
+    group('dependency injection', () {
+      test('initialize uses injected dependencies for auto login', () async {
+        const pubkey =
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        preferences.values['noscall_user_pubkey'] = pubkey;
+        preferences.values['noscall_login_method'] = 'privateKey';
+        accountGateway.nextUser = UserDBISAR(pubKey: pubkey);
+
+        await authService.initialize();
+
+        expect(databaseGateway.openedPubkeys, [pubkey]);
+        expect(accountGateway.initCalled, isTrue);
+        expect(runtimeGateway.lastConfig?.pubkey, pubkey);
+        expect(runtimeGateway.initRtcCalled, isTrue);
+        expect(authService.isAuthenticated, isTrue);
+        expect(authService.getUserInfo()['pubkey'], pubkey);
+      });
+
+      test('logout clears injected preferences and runtime state', () async {
+        const pubkey =
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        preferences.values['noscall_user_pubkey'] = pubkey;
+        preferences.values['noscall_login_method'] = 'privateKey';
+        preferences.values['noscall_user_bunker_url'] = 'bunker://relay';
+        accountGateway.nextUser = UserDBISAR(pubKey: pubkey);
+
+        await authService.initialize();
+        await authService.logout();
+
+        expect(accountGateway.logoutCalled, isTrue);
+        expect(runtimeGateway.clearPushTokensCalled, isTrue);
+        expect(preferences.values.containsKey('noscall_user_pubkey'), isFalse);
+        expect(preferences.values.containsKey('noscall_login_method'), isFalse);
+        expect(authService.isAuthenticated, isFalse);
       });
     });
   });
