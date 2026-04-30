@@ -34,10 +34,10 @@ info|prefer_typing_uninitialized_variables|lib/core/call/contacts/contacts+isola
 info|unnecessary_brace_in_string_interps|lib/contacts/contact_navigation_extension.dart|17|86|Unnecessary braces in a string interpolation
 info|unrelated_type_equality_checks|test/unit/call/ice_server_model_test.dart|184|23|The type of the right operand ('String') isn't a subtype or a supertype of the left operand ('ICEServerModel')
 warning|invalid_use_of_protected_member|lib/core/account/account+profile.dart|152|23|The member 'notifyListeners' can only be used within instance members of subclasses of 'package:flutter/src/foundation/change_notifier.dart'
-warning|invalid_use_of_protected_member|lib/core/account/account.dart|495|26|The member 'notifyListeners' can only be used within instance members of subclasses of 'package:flutter/src/foundation/change_notifier.dart'
+warning|invalid_use_of_protected_member|lib/core/account/account.dart|553|26|The member 'notifyListeners' can only be used within instance members of subclasses of 'package:flutter/src/foundation/change_notifier.dart'
 warning|invalid_use_of_protected_member|lib/core/common/database/db_isar.dart|196|39|The member 'getCollectionByNameInternal' can only be used within instance members of subclasses of 'package:isar/src/isar.dart'
 warning|invalid_use_of_visible_for_testing_member|lib/core/account/account+profile.dart|152|23|The member 'notifyListeners' can only be used within 'package:flutter/src/foundation/change_notifier.dart' or a test
-warning|invalid_use_of_visible_for_testing_member|lib/core/account/account.dart|495|26|The member 'notifyListeners' can only be used within 'package:flutter/src/foundation/change_notifier.dart' or a test
+warning|invalid_use_of_visible_for_testing_member|lib/core/account/account.dart|553|26|The member 'notifyListeners' can only be used within 'package:flutter/src/foundation/change_notifier.dart' or a test
 warning|must_be_immutable|lib/setting/widgets/keys_dialog.dart|8|7|This class (or a class that this class inherits from) is marked as '@immutable', but one or more of its instance fields aren't final: KeysDialog.theme
 warning|unused_element|lib/auth/signin_page.dart|233|10|The declaration '_buildInfoContainer' isn't referenced
 warning|unused_element|lib/auth/signup_page.dart|268|10|The declaration '_buildPrivateKeyInfo' isn't referenced

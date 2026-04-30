@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noscall/core/account/account.dart';
+import 'package:noscall/core/common/network/connect.dart';
 import '../../../helpers/test_data.dart';
 import '../../../helpers/test_helpers.dart';
+import '../../../helpers/test_setup.dart';
 
 void main() {
   group('Account', () {
@@ -9,13 +11,19 @@ void main() {
 
     setUp(() {
       account = Account.sharedInstance;
+      Connect.setTestOverrides(
+        connectivity: TestSetup.connectivity(),
+        socketConnector: TestSetup.socketConnector(),
+      );
     });
 
-    tearDown(() {
+    tearDown(() async {
       // Clean up test data
       account.me = null;
       account.currentPubkey = '';
       account.currentPrivkey = '';
+      await Connect.sharedInstance.closeAllConnects();
+      Connect.clearTestOverrides();
     });
 
     group('isValidPubKey', () {
@@ -34,7 +42,8 @@ void main() {
     });
 
     group('syncMe', () {
-      test('should not throw when me is set (persists to DB; DB not mocked)', () async {
+      test('should not throw when me is set (persists to DB; DB not mocked)',
+          () async {
         // Arrange
         final testUser = TestHelpers.createTestUser(
           pubKey: TestData.validPubkey,
@@ -66,7 +75,23 @@ void main() {
 
         // Assert
         expect(account.userCache.containsKey(testUser.pubKey), isTrue);
-        expect(account.userCache[testUser.pubKey]?.value.pubKey, equals(testUser.pubKey));
+        expect(account.userCache[testUser.pubKey]?.value.pubKey,
+            equals(testUser.pubKey));
+      });
+    });
+
+    group('init', () {
+      test('does not start runtime without an authenticated session', () async {
+        account.me = null;
+        account.currentPubkey = '';
+        account.currentPrivkey = '';
+
+        await account.init();
+
+        expect(account.hasAuthenticatedSession, isFalse);
+        expect(account.isSessionInitialized, isFalse);
+        expect(account.timer, isNull);
+        expect(Connect.sharedInstance.isInitialized, isFalse);
       });
     });
   });

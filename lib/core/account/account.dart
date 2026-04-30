@@ -55,6 +55,9 @@ class Account {
 
   List<String> pQueue = [];
   List<Event> unsentNIP46EventQueue = [];
+  bool _coreBindingsInitialized = false;
+  bool _sessionInitialized = false;
+  String _initializedSessionPubkey = '';
 
   AccountUpdateCallback? relayListUpdateCallback;
   AccountUpdateCallback? dmRelayListUpdateCallback;
@@ -64,10 +67,89 @@ class Account {
   AccountUpdateCallback? relayGroupListUpdateCallback;
 
   Future<void> init() async {
+    _ensureCoreBindingsInitialized();
+    if (!hasAuthenticatedSession) return;
+
+    await _restartSessionIfNeeded();
+    if (_sessionInitialized) return;
+
     await Connect.sharedInstance.init();
     startHeartBeat();
+    _resetUserCache();
     await _loadAllUsers();
+    await loginSuccess();
+    _sessionInitialized = true;
+    _initializedSessionPubkey = currentPubkey;
+  }
+
+  bool get hasAuthenticatedSession =>
+      me != null && currentPubkey.isNotEmpty && currentPrivkey.isNotEmpty;
+
+  bool get isSessionInitialized =>
+      _sessionInitialized && _initializedSessionPubkey == currentPubkey;
+
+  void _ensureCoreBindingsInitialized() {
+    if (_coreBindingsInitialized) return;
     initNIP46Callback();
+    _coreBindingsInitialized = true;
+  }
+
+  Future<void> _restartSessionIfNeeded() async {
+    if (!_sessionInitialized || _initializedSessionPubkey == currentPubkey) {
+      return;
+    }
+    await _shutdownSessionRuntime();
+    _resetSessionState(keepIdentity: true);
+  }
+
+  Future<void> _shutdownSessionRuntime() async {
+    timer?.cancel();
+    timer = null;
+    disposeProfileConnectListeners();
+    disposeNip46ConnectListeners();
+    await Contacts.sharedInstance.dispose();
+    await Connect.sharedInstance.closeAllConnects();
+  }
+
+  void _resetUserCache() {
+    userCache.clear();
+    pQueue.clear();
+  }
+
+  void _resetSessionState({required bool keepIdentity}) {
+    _sessionInitialized = false;
+    _initializedSessionPubkey = '';
+    NIP46Subscription = '';
+    currentRemoteConnection = null;
+    tempRemoteConnection = null;
+    resultCompleters.clear();
+    unsentNIP46EventQueue.clear();
+    _resetUserCache();
+    Contacts.sharedInstance.allContacts.clear();
+    Relays.sharedInstance.relays.clear();
+    EventCache.sharedInstance.cacheIds.clear();
+    contactListUpdateCallback = null;
+    if (keepIdentity) return;
+    me = null;
+    currentPubkey = '';
+    currentPrivkey = '';
+  }
+
+  Future<void> _activateAuthenticatedUser(
+    UserDBISAR userDB,
+    String privkey, {
+    bool persistUser = false,
+  }) async {
+    me = userDB;
+    currentPubkey = userDB.pubKey;
+    currentPrivkey = privkey;
+    userDB.privkey = privkey;
+    updateOrCreateUserNotifier(currentPubkey, userDB);
+    _sessionInitialized = false;
+    _initializedSessionPubkey = '';
+    if (persistUser) {
+      await saveUserToDB(userDB);
+    }
   }
 
   void startHeartBeat() {
@@ -206,14 +288,11 @@ class Account {
       String pubkey, SignerApplication signerApplication) async {
     UserDBISAR? userDB = await getUserFromDB(pubkey: pubkey);
     if (userDB != null) {
-      me = userDB;
-      currentPubkey = userDB.pubKey;
-      currentPrivkey =
-          SignerHelper.getSignerApplicationKey(signerApplication, '');
-      userDB.privkey = currentPrivkey;
-      updateOrCreateUserNotifier(currentPubkey, userDB);
-      await saveUserToDB(userDB);
-      loginSuccess();
+      await _activateAuthenticatedUser(
+        userDB,
+        SignerHelper.getSignerApplicationKey(signerApplication, ''),
+        persistUser: true,
+      );
     }
     return userDB;
   }
@@ -232,11 +311,7 @@ class Account {
       Uint8List privkey =
           decryptPrivateKey(hexToBytes(encryptedPrivKey), db.defaultPassword!);
       if (Keychain.getPublicKey(bytesToHex(privkey)) == pubkey) {
-        me = db;
-        currentPrivkey = bytesToHex(privkey);
-        currentPubkey = db.pubKey;
-        updateOrCreateUserNotifier(currentPubkey, db);
-        loginSuccess();
+        await _activateAuthenticatedUser(db, bytesToHex(privkey));
         return db;
       }
     }
@@ -257,11 +332,7 @@ class Account {
         encryptPrivateKey(hexToBytes(privkey), db.defaultPassword!);
     db.encryptedPrivKey = bytesToHex(enPrivkey);
     await saveUserToDB(db);
-    me = db;
-    currentPrivkey = privkey;
-    currentPubkey = db.pubKey;
-    updateOrCreateUserNotifier(currentPubkey, db);
-    loginSuccess();
+    await _activateAuthenticatedUser(db, privkey);
     return db;
   }
 
@@ -363,21 +434,8 @@ class Account {
   }
 
   Future<void> logout() async {
-    // Cancel heartbeat timer
-    timer?.cancel();
-    timer = null;
-
-    disposeProfileConnectListeners();
-    disposeNip46ConnectListeners();
-    await Contacts.sharedInstance.dispose();
-    await Connect.sharedInstance.closeAllConnects();
-    Contacts.sharedInstance.allContacts.clear();
-    Relays.sharedInstance.relays.clear();
-    EventCache.sharedInstance.cacheIds.clear();
-    me = null;
-    currentPubkey = '';
-    currentPrivkey = '';
-    userCache.clear();
+    await _shutdownSessionRuntime();
+    _resetSessionState(keepIdentity: false);
     await DBISAR.sharedInstance.closeDatabase();
   }
 
