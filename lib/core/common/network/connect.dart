@@ -177,10 +177,12 @@ class Connect {
     }
   }
 
-  void addConnectStatusListener(ConnectStatusCallBack callBack) {
+  ConnectStatusListenerHandle addConnectStatusListener(
+      ConnectStatusCallBack callBack) {
     if (!connectStatusListeners.contains(callBack)) {
       connectStatusListeners.add(callBack);
     }
+    return ConnectStatusListenerHandle(callBack, removeConnectStatusListener);
   }
 
   void removeConnectStatusListener(ConnectStatusCallBack callBack) {

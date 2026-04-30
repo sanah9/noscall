@@ -367,6 +367,9 @@ class Account {
     timer?.cancel();
     timer = null;
 
+    disposeProfileConnectListeners();
+    disposeNip46ConnectListeners();
+    await Contacts.sharedInstance.dispose();
     await Connect.sharedInstance.closeAllConnects();
     Contacts.sharedInstance.allContacts.clear();
     Relays.sharedInstance.relays.clear();

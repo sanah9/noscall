@@ -9,9 +9,13 @@ import 'account.dart';
 import 'model/userDB_isar.dart';
 import 'relays.dart';
 
+ConnectStatusListenerHandle? _profileReloadListener;
+
 extension AccountProfile on Account {
   Future<void> loginSuccess() async {
-    Connect.sharedInstance.addConnectStatusListener((relay, status, relayKinds) async {
+    _profileReloadListener?.dispose();
+    _profileReloadListener = Connect.sharedInstance
+        .addConnectStatusListener((relay, status, relayKinds) async {
       if (status == 1 &&
           Account.sharedInstance.me != null &&
           relayKinds.contains(RelayKind.general)) {
@@ -22,51 +26,62 @@ extension AccountProfile on Account {
     reloadMyProfileFromRelay();
   }
 
+  void disposeProfileConnectListeners() {
+    _profileReloadListener?.dispose();
+    _profileReloadListener = null;
+  }
+
   Future<UserDBISAR> reloadMyProfileFromRelay({String? relay}) async {
     Completer<UserDBISAR> completer = Completer<UserDBISAR>();
-    Filter f = Filter(kinds: ChatCoreManager().myProfileKinds(), authors: [currentPubkey]);
+    Filter f = Filter(
+        kinds: ChatCoreManager().myProfileKinds(), authors: [currentPubkey]);
     List<Event> events = [];
-    Connect.sharedInstance.addSubscription([f], relays: relay == null ? null : [relay],
-        eventCallBack: (event, relay) async {
-          events.add(event);
-        }, eoseCallBack: (requestId, ok, relay, unRelays) async {
-          if (unRelays.isEmpty) {
-            for (var event in events) {
-              switch (event.kind) {
-                case 0:
-                  me = handleKind0Event(me, event);
-                  break;
-                case 3:
-                  me = _handleKind3Event(me, event);
-                  break;
-                case 10000:
-                  me = await _handleKind10000Event(me, event);
-                  break;
-                case 10002:
-                  me = _handleKind10002Event(me, event);
-                  break;
-                case 10050:
-                  me = _handleKind10050Event(me, event);
-                  break;
-                case 30000:
-                  me = await _handleKind30000Event(me, event);
-                  break;
-              }
-            }
-            updateOrCreateUserNotifier(currentPubkey, me!);
-            syncMe();
-            if (!completer.isCompleted) completer.complete(me);
+    Connect.sharedInstance
+        .addSubscription([f], relays: relay == null ? null : [relay],
+            eventCallBack: (event, relay) async {
+      events.add(event);
+    }, eoseCallBack: (requestId, ok, relay, unRelays) async {
+      if (unRelays.isEmpty) {
+        for (var event in events) {
+          switch (event.kind) {
+            case 0:
+              me = handleKind0Event(me, event);
+              break;
+            case 3:
+              me = _handleKind3Event(me, event);
+              break;
+            case 10000:
+              me = await _handleKind10000Event(me, event);
+              break;
+            case 10002:
+              me = _handleKind10002Event(me, event);
+              break;
+            case 10050:
+              me = _handleKind10050Event(me, event);
+              break;
+            case 30000:
+              me = await _handleKind30000Event(me, event);
+              break;
           }
-        });
+        }
+        updateOrCreateUserNotifier(currentPubkey, me!);
+        syncMe();
+        if (!completer.isCompleted) completer.complete(me);
+      }
+    });
     return completer.future;
   }
 
-  Future<UserDBISAR> reloadProfileFromRelay(String pubkey, {List<String>? relays}) async {
+  Future<UserDBISAR> reloadProfileFromRelay(String pubkey,
+      {List<String>? relays}) async {
     Completer<UserDBISAR> completer = Completer<UserDBISAR>();
     UserDBISAR? db = await getUserInfo(pubkey);
-    List<Filter> filters = [Filter(kinds: ChatCoreManager().userProfileKinds(), authors: [pubkey])];
+    List<Filter> filters = [
+      Filter(kinds: ChatCoreManager().userProfileKinds(), authors: [pubkey])
+    ];
 
-    Connect.sharedInstance.addSubscription(filters, relays: relays, eventCallBack: (event, relay) async {
+    Connect.sharedInstance.addSubscription(filters, relays: relays,
+        eventCallBack: (event, relay) async {
       switch (event.kind) {
         case 0:
           db = handleKind0Event(db, event);
@@ -119,7 +134,8 @@ extension AccountProfile on Account {
       authors: users.keys.toList(),
     );
 
-    Connect.sharedInstance.addSubscription([f], eventCallBack: (event, relay) async {
+    Connect.sharedInstance.addSubscription([f],
+        eventCallBack: (event, relay) async {
       String p = event.pubkey;
       UserDBISAR db = users[p] ?? UserDBISAR(pubKey: p);
       if (event.kind == 0) {
@@ -176,7 +192,8 @@ extension AccountProfile on Account {
     };
     Map additionMap = jsonDecode(db.otherField ?? '{}');
     map.addAll(additionMap);
-    Event event = await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
+    Event event =
+        await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
     Connect.sharedInstance.sendEvent(event, sendCallBack: (ok, relay) {
       if (ok.status) {
         Account.sharedInstance.updateOrCreateUserNotifier(db.pubKey, db);
@@ -191,6 +208,7 @@ extension AccountProfile on Account {
   Future<Event?> getMyMetadataEvent() async {
     UserDBISAR? db = await getUserFromDB(pubkey: currentPubkey);
     if (db == null) return null;
+
     /// send metadata event
     Map map = {
       'name': db.name ?? '',
@@ -204,7 +222,8 @@ extension AccountProfile on Account {
     };
     Map additionMap = jsonDecode(db.otherField ?? '{}');
     map.addAll(additionMap);
-    Event event = await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
+    Event event =
+        await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
     return event;
   }
 
@@ -249,7 +268,8 @@ extension AccountProfile on Account {
         'lud16',
         'lud06'
       };
-      Map filteredMap = Map.from(map)..removeWhere((key, value) => keysToRemove.contains(key));
+      Map filteredMap = Map.from(map)
+        ..removeWhere((key, value) => keysToRemove.contains(key));
       db.otherField = jsonEncode(filteredMap);
     } else {
       if (db?.lnurl == null || db?.lnurl == 'null' || db!.lnurl!.isEmpty) {
@@ -295,10 +315,12 @@ extension AccountProfile on Account {
       db.inboxRelayList ??= [];
       db.outboxRelayList ??= [];
       for (var relay in result) {
-        if ((relay.r == 'read' || relay.r == null) && !db.inboxRelayList!.contains(relay.url)) {
+        if ((relay.r == 'read' || relay.r == null) &&
+            !db.inboxRelayList!.contains(relay.url)) {
           db.inboxRelayList!.add(relay.url);
         }
-        if ((relay.r == 'write' || relay.r == null) && !db.outboxRelayList!.contains(relay.url)) {
+        if ((relay.r == 'write' || relay.r == null) &&
+            !db.outboxRelayList!.contains(relay.url)) {
           db.outboxRelayList!.add(relay.url);
         }
       }
@@ -330,7 +352,8 @@ extension AccountProfile on Account {
     if (result.identifier == Contacts.identifier) {
       // contact list
       db.lastFriendsListUpdatedTime = event.createdAt;
-      db.friendsList = await Nip51.peoplesToContent(result.people, currentPrivkey, currentPubkey);
+      db.friendsList = await Nip51.peoplesToContent(
+          result.people, currentPrivkey, currentPubkey);
       contactListUpdateCallback?.call();
     }
     return db;

@@ -17,6 +17,24 @@ typedef EOSECallBack = void Function(
 typedef ConnectStatusCallBack = void Function(
     String relay, int status, List<RelayKind> relayKinds);
 
+class ConnectStatusListenerHandle {
+  ConnectStatusListenerHandle(this._callBack, this._onDispose);
+
+  final ConnectStatusCallBack _callBack;
+  final void Function(ConnectStatusCallBack callBack) _onDispose;
+  bool _disposed = false;
+
+  ConnectStatusCallBack get callBack => _callBack;
+
+  bool get isDisposed => _disposed;
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _onDispose(_callBack);
+  }
+}
+
 class Sends {
   String sendsId;
   List<String> relays;

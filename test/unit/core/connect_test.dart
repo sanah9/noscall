@@ -59,4 +59,24 @@ void main() {
       equals(1),
     );
   });
+
+  test('ConnectStatusListenerHandle disposes listener idempotently', () {
+    final connect = Connect.sharedInstance;
+
+    void onStatus(String relay, int status, List<RelayKind> relayKinds) {}
+
+    final handle = connect.addConnectStatusListener(onStatus);
+
+    expect(connect.connectStatusListeners, contains(onStatus));
+    expect(handle.isDisposed, isFalse);
+
+    handle.dispose();
+
+    expect(connect.connectStatusListeners, isNot(contains(onStatus)));
+    expect(handle.isDisposed, isTrue);
+
+    handle.dispose();
+
+    expect(connect.connectStatusListeners, isNot(contains(onStatus)));
+  });
 }
