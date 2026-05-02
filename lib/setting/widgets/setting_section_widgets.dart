@@ -145,6 +145,8 @@ String networkStatusLabel(List<ConnectivityResult> connectivity) {
       return 'Other';
     case ConnectivityResult.bluetooth:
       return 'Bluetooth';
+    case ConnectivityResult.satellite:
+      return 'Satellite';
   }
 }
 
