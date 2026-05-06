@@ -2,18 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
-import 'package:flutter_webrtc/flutter_webrtc.dart' show RTCIceCandidate, RTCIceConnectionState;
+import 'package:flutter_webrtc/flutter_webrtc.dart'
+    show RTCIceCandidate, RTCIceConnectionState;
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:noscall/core/core.dart';
-import 'callkeep_manager.dart';
-import 'call_connectivity_listener.dart';
+import 'calling_controller_dependencies.dart';
 import 'call_duration_tracker.dart';
 import 'call_invite_timeout.dart';
 import 'constant/call_type.dart';
-import 'web_rtc_handler.dart';
-import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 
 ///                                   Start
@@ -50,10 +48,10 @@ class CallingController {
     bool isRecordOn = true,
     bool isFrontCamera = false,
     this.disposeCallback,
+    required this.dependencies,
     this.callHistoryManager,
     this.callKeepManager,
-  }) :
-        state = ValueNotifier(state),
+  })  : state = ValueNotifier(state),
         hasConnected = ValueNotifier(state == CallingState.connected),
         speakerType = ValueNotifier(speakerType),
         isCameraOn = ValueNotifier(isCameraOn),
@@ -89,17 +87,18 @@ class CallingController {
 
   late final CallDurationTracker _durationTracker;
   late final CallInviteTimeout _inviteTimeout;
-  late final CallConnectivityListener _connectivityListener;
+  late final CallingControllerConnectivityWatcher _connectivityListener;
 
   ValueNotifier<Duration> get connectedDuration => _durationTracker.duration;
 
   Function(String offerId)? disposeCallback;
+  final CallingControllerDependencies dependencies;
 
-  late WebRTCHandler webRTCHandler;
+  late CallingControllerWebRTCSession webRTCHandler;
 
   late DateTime callStartTime;
-  final CallHistoryManager? callHistoryManager;
-  final CallKeepManager? callKeepManager;
+  final CallHistoryRecorder? callHistoryManager;
+  final CallKeepActions? callKeepManager;
 
   static Future<CallingController> create({
     required UserDBISAR user,
@@ -113,9 +112,12 @@ class CallingController {
     bool isRecordOn = true,
     bool isFrontCamera = false,
     Function(String offerId)? disposeCallback,
-    CallHistoryManager? callHistoryManager,
-    CallKeepManager? callKeepManager,
+    CallHistoryRecorder? callHistoryManager,
+    CallKeepActions? callKeepManager,
+    CallingControllerDependencies? dependencies,
   }) async {
+    final resolvedDependencies =
+        dependencies ?? CallingControllerDependencies();
     final controller = CallingController._(
       user: user,
       role: role,
@@ -127,6 +129,7 @@ class CallingController {
       isRecordOn: isRecordOn,
       isFrontCamera: isFrontCamera,
       disposeCallback: disposeCallback,
+      dependencies: resolvedDependencies,
       callHistoryManager: callHistoryManager,
       callKeepManager: callKeepManager,
     );
@@ -137,7 +140,8 @@ class CallingController {
       controller.callIdCmp.complete(offerId);
     }
 
-    controller.webRTCHandler = await WebRTCHandler.create(
+    controller.webRTCHandler =
+        await controller.dependencies.webRTCFactory.create(
       callType: callType,
       state: controller.state,
       speakerType: controller.speakerType,
@@ -150,7 +154,8 @@ class CallingController {
 
     controller._durationTracker = CallDurationTracker();
     controller._inviteTimeout = CallInviteTimeout();
-    controller._connectivityListener = CallConnectivityListener();
+    controller._connectivityListener =
+        controller.dependencies.connectivityWatcherFactory();
 
     controller.callStartTime = DateTime.now();
 
@@ -197,7 +202,8 @@ class CallingController {
         : CallDirection.incoming;
 
     // Convert string reason to CallEndReason enum for consistent handling
-    final callEndReason = CallEndReasonEx.fromValue(reason) ?? CallEndReason.disconnect;
+    final callEndReason =
+        CallEndReasonEx.fromValue(reason) ?? CallEndReason.disconnect;
     if (hasConnected.value) {
       status = CallStatus.completed;
     } else {
@@ -232,13 +238,13 @@ class CallingController {
     LogUtils.info(
       className: 'CallingController',
       funcName: '_recordCallHistory',
-      message: 'Call history recorded: $callId, $direction, $status, duration: ${duration.inSeconds}s',
+      message:
+          'Call history recorded: $callId, $direction, $status, duration: ${duration.inSeconds}s',
     );
   }
 }
 
 extension CallingControllerUserActionEx on CallingController {
-
   void speakerToggleHandler(AudioOutputType value) async {
     if (speakerType.value == value) return;
 
@@ -247,7 +253,8 @@ extension CallingControllerUserActionEx on CallingController {
     speakerType.value = value;
   }
 
-  void recordToggleHandler(bool value, [bool shouldInvokeCallKeep = true]) async {
+  void recordToggleHandler(bool value,
+      [bool shouldInvokeCallKeep = true]) async {
     if (isRecordOn.value == value) return;
 
     final isSuccess = await webRTCHandler.recordToggle(value);
@@ -315,9 +322,8 @@ extension CallingControllerSignalingEx on CallingController {
 
     // Determine the appropriate reason based on call state using Dart 3.0 switch
     final finalReason = switch (reason) {
-      CallEndReason.hangup => !hasConnected.value
-          ? CallEndReason.hangup
-          : CallEndReason.disconnect,
+      CallEndReason.hangup =>
+        !hasConnected.value ? CallEndReason.hangup : CallEndReason.disconnect,
       _ => reason,
     };
 
@@ -326,7 +332,7 @@ extension CallingControllerSignalingEx on CallingController {
     state.value = CallingState.ended;
 
     if (shouldInvokeCallKeep) {
-      switch (reason)  {
+      switch (reason) {
         case CallEndReason.reject:
           callKeepManager?.rejectCall(await callId);
           break;
@@ -372,10 +378,10 @@ extension CallingControllerNostrSignalingEx on CallingController {
       LogUtils.info(
           className: 'CallingController',
           funcName: '_sendOffer',
-          message: '[send offer] sdp.length: ${description.sdp?.length}, type: ${description.type}'
-      );
+          message:
+              '[send offer] sdp.length: ${description.sdp?.length}, type: ${description.type}');
 
-      OKEvent okEvent = await Contacts.sharedInstance.sendOffer(
+      OKEvent okEvent = await dependencies.signalingGateway.sendOffer(
         peerId,
         callId,
         callType.value,
@@ -385,7 +391,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
       LogUtils.info(
         className: 'CallingController',
         funcName: '_sendOffer',
-        message: '[send offer] okEvent id:${okEvent.eventId}, status: ${okEvent.status}, message: ${okEvent.message}',
+        message:
+            '[send offer] okEvent id:${okEvent.eventId}, status: ${okEvent.status}, message: ${okEvent.message}',
       );
 
       return okEvent.status;
@@ -407,10 +414,11 @@ extension CallingControllerNostrSignalingEx on CallingController {
       LogUtils.info(
         className: 'CallingController',
         funcName: '_sendAnswer',
-        message: '[send answer] sessionId: $sessionId, offerId: $offerId, peerId: $peerId, sdp.length: ${description.sdp?.length}, type: ${description.type}',
+        message:
+            '[send answer] sessionId: $sessionId, offerId: $offerId, peerId: $peerId, sdp.length: ${description.sdp?.length}, type: ${description.type}',
       );
 
-      final okEvent = await Contacts.sharedInstance.sendAnswer(
+      final okEvent = await dependencies.signalingGateway.sendAnswer(
         offerId,
         peerId,
         description.sdp ?? '',
@@ -419,8 +427,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
       LogUtils.info(
           className: 'CallingController',
           funcName: '_sendAnswer',
-          message: '[send answer] offerId: $offerId, okEvent status: ${okEvent.status}, message: ${okEvent.message}'
-      );
+          message:
+              '[send answer] offerId: $offerId, okEvent status: ${okEvent.status}, message: ${okEvent.message}');
 
       await _sendAllCandidate();
     } catch (e, stack) {
@@ -434,10 +442,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
 
   Future _sendAllCandidate() async {
     final candidates = {...localCandidateSet};
-    await Future.wait([
-      for (var candidate in candidates)
-        _sendCandidate(candidate)
-    ]);
+    await Future.wait(
+        [for (var candidate in candidates) _sendCandidate(candidate)]);
   }
 
   Future _sendCandidate(RTCIceCandidate candidate) async {
@@ -455,10 +461,11 @@ extension CallingControllerNostrSignalingEx on CallingController {
     LogUtils.info(
       className: 'CallingController',
       funcName: '_sendCandidate',
-      message: '[send candidate] sessionId: $sessionId, offerId: $offerId, peerId: $peerId, candidate: ${candidate.candidate}, sdpMid: ${candidate.sdpMid}, sdpMLineIndex: ${candidate.sdpMLineIndex}',
+      message:
+          '[send candidate] sessionId: $sessionId, offerId: $offerId, peerId: $peerId, candidate: ${candidate.candidate}, sdpMid: ${candidate.sdpMid}, sdpMLineIndex: ${candidate.sdpMLineIndex}',
     );
 
-    final okEvent = await Contacts.sharedInstance.sendCandidate(
+    final okEvent = await dependencies.signalingGateway.sendCandidate(
       offerId,
       peerId,
       meta,
@@ -470,16 +477,18 @@ extension CallingControllerNostrSignalingEx on CallingController {
     LogUtils.info(
       className: 'CallingController',
       funcName: '_sendCandidate',
-      message: '[send candidate] okEvent status: ${okEvent.status}, message: ${okEvent.message}',
+      message:
+          '[send candidate] okEvent status: ${okEvent.status}, message: ${okEvent.message}',
     );
   }
 
-  Future _sendDisconnect(CallEndReason reason) async {
-    CallingControllerNostrSignalingEx.sendDisconnect(
+  Future<void> _sendDisconnect(CallEndReason reason) async {
+    await CallingControllerNostrSignalingEx.sendDisconnect(
       callId: await offerId,
       peerId: peerId,
       reason: reason,
       reject: reason == CallEndReason.reject,
+      signalingGateway: dependencies.signalingGateway,
     );
   }
 
@@ -492,21 +501,26 @@ extension CallingControllerNostrSignalingEx on CallingController {
     required String peerId,
     required CallEndReason reason,
     bool reject = false,
+    CallingControllerSignalingGateway? signalingGateway,
   }) async {
     LogUtils.info(
       className: 'CallingController',
       funcName: 'sendDisconnect',
-      message: '[send disconnect] callId: $callId, peerId: $peerId, reason: ${reason.value}, reject: $reject',
+      message:
+          '[send disconnect] callId: $callId, peerId: $peerId, reason: ${reason.value}, reject: $reject',
     );
 
+    final gateway =
+        signalingGateway ?? DefaultCallingControllerSignalingGateway();
     final okEvent = reject
-        ? await Contacts.sharedInstance.sendReject(callId, peerId, reason.value)
-        : await Contacts.sharedInstance.sendHangup(callId, peerId, reason.value);
+        ? await gateway.sendReject(callId, peerId, reason.value)
+        : await gateway.sendHangup(callId, peerId, reason.value);
 
     LogUtils.info(
       className: 'CallingController',
       funcName: 'sendDisconnect',
-      message: '[send disconnect] okEvent status: ${okEvent.status}, message: ${okEvent.message}',
+      message:
+          '[send disconnect] okEvent status: ${okEvent.status}, message: ${okEvent.message}',
     );
   }
 
@@ -564,7 +578,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
     LogUtils.info(
       className: 'CallingController',
       funcName: 'signalingOfferCallbackHandler',
-      message: '[receive offer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
+      message:
+          '[receive offer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
     );
     webRTCHandler.setRemoteDescription(
       remoteSdp: remoteSdp,
@@ -580,7 +595,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
     LogUtils.info(
       className: 'CallingController',
       funcName: 'signalingCandidateCallbackHandler',
-      message: '[receive candidate] candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex',
+      message:
+          '[receive candidate] candidate: $candidate, sdpMid: $sdpMid, sdpMLineIndex: $sdpMLineIndex',
     );
     webRTCHandler.addCandidate(
       candidate: candidate,
@@ -596,7 +612,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
     LogUtils.info(
       className: 'CallingController',
       funcName: 'signalingAnswerCallbackHandler',
-      message: '[receive answer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
+      message:
+          '[receive answer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
     );
     state.value = CallingState.connecting;
     webRTCHandler.setRemoteDescription(
@@ -646,7 +663,8 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
     });
   }
 
-  void onIceConnectionStateHandler(RTCIceConnectionState connectionState) async {
+  void onIceConnectionStateHandler(
+      RTCIceConnectionState connectionState) async {
     LogUtils.info(
       className: 'CallingController',
       funcName: 'onIceConnectionStateHandler',

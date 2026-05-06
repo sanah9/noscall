@@ -8,9 +8,10 @@ import 'package:noscall/core/native_method_channel.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'ice_server_manager.dart';
 import 'constant/call_type.dart';
+import 'calling_controller_dependencies.dart';
 import 'pip_manager.dart';
 
-class WebRTCHandler {
+class WebRTCHandler implements CallingControllerWebRTCSession {
   WebRTCHandler._({
     required this.callType,
     this.state,
@@ -27,7 +28,9 @@ class WebRTCHandler {
   late MediaStream localMedia;
   MediaStream? remoteMedia;
 
+  @override
   final RTCVideoRenderer localRenderer = RTCVideoRenderer();
+  @override
   final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
 
   Function(RTCIceCandidate candidate)? onIceCandidateCallback;
@@ -83,20 +86,27 @@ class WebRTCHandler {
     );
   }
 
-  Future<RTCSessionDescription> createOffer() => WebRTCHelper.createOffer(peerConnection, callType.isVideo);
+  @override
+  Future<RTCSessionDescription> createOffer() =>
+      WebRTCHelper.createOffer(peerConnection, callType.isVideo);
 
-  Future<RTCSessionDescription> createAnswer() => WebRTCHelper.createAnswer(peerConnection, callType.isVideo);
+  @override
+  Future<RTCSessionDescription> createAnswer() =>
+      WebRTCHelper.createAnswer(peerConnection, callType.isVideo);
 
-  Future setRemoteDescription({
+  @override
+  Future<void> setRemoteDescription({
     required String? remoteSdp,
     required String? remoteType,
   }) async {
     LogUtils.info(
       className: 'WebRTCHandler',
       funcName: 'setRemoteDescription',
-      message: 'remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
+      message:
+          'remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
     );
-    await peerConnection.setRemoteDescription(RTCSessionDescription(remoteSdp, remoteType));
+    await peerConnection
+        .setRemoteDescription(RTCSessionDescription(remoteSdp, remoteType));
     for (final candidate in _pendingCandidates) {
       try {
         LogUtils.info(
@@ -112,7 +122,8 @@ class WebRTCHandler {
     _pendingCandidates.clear();
   }
 
-  Future addCandidate({
+  @override
+  Future<void> addCandidate({
     required String? candidate,
     required String? sdpMid,
     required int? sdpMLineIndex,
@@ -138,6 +149,7 @@ class WebRTCHandler {
     }
   }
 
+  @override
   Future<bool> recordToggle(bool isOpen) async {
     final audioTracks = [...localMedia.getAudioTracks()];
     for (final track in audioTracks) {
@@ -146,6 +158,7 @@ class WebRTCHandler {
     return true;
   }
 
+  @override
   Future<bool> cameraToggle(bool isOpen) async {
     final audioTracks = [...localMedia.getVideoTracks()];
     for (final track in audioTracks) {
@@ -155,6 +168,7 @@ class WebRTCHandler {
   }
 
   Completer<bool>? switchCameraAction;
+  @override
   Future<bool> switchCamera() async {
     final switchCameraAction = this.switchCameraAction;
     if (switchCameraAction != null && !switchCameraAction.isCompleted) {
@@ -175,7 +189,8 @@ class WebRTCHandler {
   }
 
   Completer? setSpeakerAction;
-  Future setSpeakerType(AudioOutputType value) async {
+  @override
+  Future<void> setSpeakerType(AudioOutputType value) async {
     final setSpeakerAction = this.setSpeakerAction;
     if (setSpeakerAction != null && !setSpeakerAction.isCompleted) {
       return setSpeakerAction.future;
@@ -206,7 +221,8 @@ class WebRTCHandler {
     newAction.complete();
   }
 
-  Future close() async {
+  @override
+  Future<void> close() async {
     try {
       final tracks = localMedia.getTracks();
       await Future.wait(tracks.map((e) => e.stop()));
@@ -218,6 +234,7 @@ class WebRTCHandler {
     }
   }
 
+  @override
   void dispose() {
     peerConnection.dispose();
     localRenderer.dispose();
@@ -362,7 +379,8 @@ class WebRTCHelper {
         throw StateError('No audio input device found on desktop');
       }
       if (expectVideo && !hasVideoInput) {
-        throw StateError('Video call requested but no video input device found');
+        throw StateError(
+            'Video call requested but no video input device found');
       }
     } catch (e, stack) {
       LogUtils.e(() => 'Desktop media device preflight failed: $e, $stack');
@@ -408,8 +426,8 @@ class WebRTCHelper {
     return navigator.mediaDevices.getUserMedia(mediaConstraints);
   }
 
-  static Future<RTCSessionDescription> createOffer(RTCPeerConnection connection, bool isVideo) async {
-
+  static Future<RTCSessionDescription> createOffer(
+      RTCPeerConnection connection, bool isVideo) async {
     final description = await connection.createOffer({
       'mandatory': {
         'OfferToReceiveAudio': true,
@@ -418,7 +436,8 @@ class WebRTCHelper {
     });
 
     final sdp = description.sdp;
-    description.sdp = sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
+    description.sdp =
+        sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
 
     LogUtils.info(
       className: 'WebRTCHandler',
@@ -430,8 +449,8 @@ class WebRTCHelper {
     return description;
   }
 
-  static Future<RTCSessionDescription> createAnswer(RTCPeerConnection connection, bool isVideo) async {
-
+  static Future<RTCSessionDescription> createAnswer(
+      RTCPeerConnection connection, bool isVideo) async {
     final description = await connection.createAnswer({
       'mandatory': {
         'OfferToReceiveAudio': true,
@@ -440,7 +459,8 @@ class WebRTCHelper {
     });
 
     final sdp = description.sdp;
-    description.sdp = sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
+    description.sdp =
+        sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
 
     LogUtils.info(
       className: 'WebRTCHandler',
@@ -452,17 +472,20 @@ class WebRTCHelper {
     return description;
   }
 
-  static Future addStreamToRenderer(MediaStream stream, RTCVideoRenderer renderer) async {
+  static Future addStreamToRenderer(
+      MediaStream stream, RTCVideoRenderer renderer) async {
     if (renderer.textureId == null) await renderer.initialize();
     renderer.srcObject = stream;
   }
 
-  static Future<List<RTCRtpSender>> getVideoSender(RTCPeerConnection connection) async {
+  static Future<List<RTCRtpSender>> getVideoSender(
+      RTCPeerConnection connection) async {
     final senders = await connection.getSenders();
     return senders.where((e) => e.track?.kind == 'video').toList();
   }
 
-  static Future<List<RTCRtpSender>> getAudioSender(RTCPeerConnection connection) async {
+  static Future<List<RTCRtpSender>> getAudioSender(
+      RTCPeerConnection connection) async {
     final senders = await connection.getSenders();
     return senders.where((e) => e.track?.kind == 'audio').toList();
   }

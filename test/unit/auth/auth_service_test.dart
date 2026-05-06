@@ -26,6 +26,15 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
   UserDBISAR? nextUser;
   bool initCalled = false;
   bool logoutCalled = false;
+  int loginWithPriKeyCalls = 0;
+  int loginWithPubKeyCalls = 0;
+  int loginWithPubKeyAndPasswordCalls = 0;
+  int loginWithNip46UriCalls = 0;
+  String? lastPrivateKey;
+  String? lastPubkey;
+  String? lastBunkerUrl;
+  Object? initError;
+  Object? logoutError;
   String publicKeyFromPrivateKey =
       '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
   String bunkerPubkey =
@@ -47,11 +56,14 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
 
   @override
   Future<void> initAccount() async {
+    if (initError != null) throw initError!;
     initCalled = true;
   }
 
   @override
   Future<UserDBISAR?> loginWithNip46URI(String uri) async {
+    loginWithNip46UriCalls += 1;
+    lastBunkerUrl = uri;
     _currentUser = nextUser;
     _currentPubkey = nextUser?.pubKey ?? '';
     return nextUser;
@@ -59,6 +71,8 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
 
   @override
   Future<UserDBISAR?> loginWithPriKey(String privkey) async {
+    loginWithPriKeyCalls += 1;
+    lastPrivateKey = privkey;
     _currentUser = nextUser;
     _currentPubkey = nextUser?.pubKey ?? '';
     return nextUser;
@@ -67,6 +81,8 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
   @override
   Future<UserDBISAR?> loginWithPubKey(
       String pubkey, SignerApplication signerApplication) async {
+    loginWithPubKeyCalls += 1;
+    lastPubkey = pubkey;
     _currentUser = nextUser;
     _currentPubkey = nextUser?.pubKey ?? pubkey;
     return nextUser;
@@ -74,6 +90,8 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
 
   @override
   Future<UserDBISAR?> loginWithPubKeyAndPassword(String pubkey) async {
+    loginWithPubKeyAndPasswordCalls += 1;
+    lastPubkey = pubkey;
     _currentUser = nextUser;
     _currentPubkey = nextUser?.pubKey ?? pubkey;
     return nextUser;
@@ -81,6 +99,7 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
 
   @override
   Future<void> logout() async {
+    if (logoutError != null) throw logoutError!;
     logoutCalled = true;
     _currentUser = null;
     _currentPubkey = '';
@@ -89,9 +108,11 @@ class FakeAuthAccountGateway implements AuthAccountGateway {
 
 class FakeAuthDatabaseGateway implements AuthDatabaseGateway {
   final List<String> openedPubkeys = [];
+  Object? openError;
 
   @override
   Future<void> open(String pubkey) async {
+    if (openError != null) throw openError!;
     openedPubkeys.add(pubkey);
   }
 }
@@ -101,6 +122,8 @@ class FakeAuthRuntimeGateway implements AuthRuntimeGateway {
   ChatCoreInitConfig? lastConfig;
   bool initRtcCalled = false;
   bool clearPushTokensCalled = false;
+  Object? initChatCoreError;
+  Object? initRtcError;
 
   @override
   Future<void> clearPushTokens() async {
@@ -112,11 +135,13 @@ class FakeAuthRuntimeGateway implements AuthRuntimeGateway {
 
   @override
   Future<void> initChatCore(ChatCoreInitConfig config) async {
+    if (initChatCoreError != null) throw initChatCoreError!;
     lastConfig = config;
   }
 
   @override
   Future<void> initRtc() async {
+    if (initRtcError != null) throw initRtcError!;
     initRtcCalled = true;
   }
 }
@@ -286,6 +311,33 @@ void main() {
     });
 
     group('loginWithPrivateKey', () {
+      test('returns true and persists auth state for valid private key',
+          () async {
+        const privkey =
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        final authEvents = expectLater(
+          authService.authStateStream,
+          emits(true),
+        );
+        accountGateway.nextUser =
+            UserDBISAR(pubKey: accountGateway.publicKeyFromPrivateKey);
+
+        final result = await authService.loginWithPrivateKey(privkey);
+
+        expect(result, isTrue);
+        expect(accountGateway.loginWithPriKeyCalls, 1);
+        expect(accountGateway.lastPrivateKey, privkey);
+        expect(databaseGateway.openedPubkeys,
+            [accountGateway.publicKeyFromPrivateKey]);
+        expect(runtimeGateway.lastConfig?.pubkey,
+            accountGateway.publicKeyFromPrivateKey);
+        expect(preferences.values['noscall_user_pubkey'],
+            accountGateway.publicKeyFromPrivateKey);
+        expect(preferences.values['noscall_login_method'], 'privateKey');
+        expect(authService.isAuthenticated, isTrue);
+        await authEvents;
+      });
+
       test('returns false for empty string', () async {
         final result = await authService.loginWithPrivateKey('');
         expect(result, isFalse);
@@ -325,6 +377,29 @@ void main() {
     });
 
     group('loginWithBunkerUrl', () {
+      test('returns true and persists bunker login metadata', () async {
+        const bunkerUrl =
+            'bunker://abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789?relay=wss://relay.example.com';
+        final authEvents = expectLater(
+          authService.authStateStream,
+          emits(true),
+        );
+        accountGateway.nextUser =
+            UserDBISAR(pubKey: accountGateway.bunkerPubkey);
+
+        final result = await authService.loginWithBunkerUrl(bunkerUrl);
+
+        expect(result, isTrue);
+        expect(accountGateway.loginWithNip46UriCalls, 1);
+        expect(accountGateway.lastBunkerUrl, bunkerUrl);
+        expect(preferences.values['noscall_user_pubkey'],
+            accountGateway.bunkerPubkey);
+        expect(preferences.values['noscall_login_method'], 'bunker');
+        expect(preferences.values['noscall_user_bunker_url'], bunkerUrl);
+        expect(authService.isAuthenticated, isTrue);
+        await authEvents;
+      });
+
       test('returns false for empty string', () async {
         final result = await authService.loginWithBunkerUrl('');
         expect(result, isFalse);
@@ -340,6 +415,22 @@ void main() {
       test('exposes a Stream<bool>', () {
         expect(authService.authStateStream, isNotNull);
         expect(authService.authStateStream, isA<Stream<bool>>());
+      });
+
+      test('emits true on login and false on logout', () async {
+        const privkey =
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        accountGateway.nextUser =
+            UserDBISAR(pubKey: accountGateway.publicKeyFromPrivateKey);
+        final authEvents = expectLater(
+          authService.authStateStream,
+          emitsInOrder([true, false]),
+        );
+
+        await authService.loginWithPrivateKey(privkey);
+        await authService.logout();
+
+        await authEvents;
       });
     });
 
@@ -359,6 +450,80 @@ void main() {
         expect(runtimeGateway.initRtcCalled, isTrue);
         expect(authService.isAuthenticated, isTrue);
         expect(authService.getUserInfo()['pubkey'], pubkey);
+      });
+
+      test('initialize resets auth state when auto login fails', () async {
+        const pubkey =
+            '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        preferences.values['noscall_user_pubkey'] = pubkey;
+        preferences.values['noscall_login_method'] = 'privateKey';
+        final authEvents = expectLater(
+          authService.authStateStream,
+          emits(false),
+        );
+
+        await authService.initialize();
+
+        expect(accountGateway.loginWithPubKeyAndPasswordCalls, 1);
+        expect(accountGateway.logoutCalled, isTrue);
+        expect(preferences.values.containsKey('noscall_user_pubkey'), isFalse);
+        expect(preferences.values.containsKey('noscall_login_method'), isFalse);
+        expect(authService.isAuthenticated, isFalse);
+        expect(authService.getUserInfo()['pubkey'], '');
+        await authEvents;
+      });
+
+      test('initialize can auto login with bunker credentials', () async {
+        const pubkey =
+            'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+        const bunkerUrl = 'bunker://relay.example.com';
+        preferences.values['noscall_user_pubkey'] = pubkey;
+        preferences.values['noscall_login_method'] = 'bunker';
+        preferences.values['noscall_user_bunker_url'] = bunkerUrl;
+        accountGateway.nextUser = UserDBISAR(pubKey: pubkey);
+
+        await authService.initialize();
+
+        expect(accountGateway.loginWithNip46UriCalls, 1);
+        expect(accountGateway.lastBunkerUrl, bunkerUrl);
+        expect(databaseGateway.openedPubkeys, [pubkey]);
+        expect(authService.isAuthenticated, isTrue);
+      });
+
+      test('loginWithAmber uses injected platform and persists amber session',
+          () async {
+        platformGateway = FakeAuthPlatformGateway(
+          isAndroid: true,
+          amberInstalled: true,
+          amberPubkey:
+              Nip19.encodePubkey(accountGateway.publicKeyFromPrivateKey),
+        );
+        AuthService.setTestDependencies(
+          AuthServiceDependencies(
+            preferences: preferences,
+            account: accountGateway,
+            database: databaseGateway,
+            runtime: runtimeGateway,
+            platform: platformGateway,
+          ),
+        );
+        accountGateway.nextUser =
+            UserDBISAR(pubKey: accountGateway.publicKeyFromPrivateKey);
+        final authEvents = expectLater(
+          authService.authStateStream,
+          emits(true),
+        );
+
+        await authService.loginWithAmber();
+
+        expect(accountGateway.loginWithPubKeyCalls, 1);
+        expect(
+            accountGateway.lastPubkey, accountGateway.publicKeyFromPrivateKey);
+        expect(preferences.values['noscall_login_method'], 'amber');
+        expect(preferences.values['noscall_user_pubkey'],
+            accountGateway.publicKeyFromPrivateKey);
+        expect(authService.isAuthenticated, isTrue);
+        await authEvents;
       });
 
       test('logout clears injected preferences and runtime state', () async {

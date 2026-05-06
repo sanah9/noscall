@@ -130,22 +130,14 @@ class SettingProfileHeader extends StatelessWidget {
 /// Network status label from connectivity result.
 String networkStatusLabel(List<ConnectivityResult> connectivity) {
   if (connectivity.isEmpty) return 'Unknown';
-  switch (connectivity.first) {
-    case ConnectivityResult.wifi:
-      return 'WiFi';
-    case ConnectivityResult.mobile:
-      return 'Mobile';
-    case ConnectivityResult.ethernet:
-      return 'Ethernet';
-    case ConnectivityResult.vpn:
-      return 'VPN';
-    case ConnectivityResult.none:
-      return 'No connection';
-    case ConnectivityResult.other:
-      return 'Other';
-    case ConnectivityResult.bluetooth:
-      return 'Bluetooth';
-  }
+  final status = connectivity.first;
+  if (status == ConnectivityResult.wifi) return 'WiFi';
+  if (status == ConnectivityResult.mobile) return 'Mobile';
+  if (status == ConnectivityResult.ethernet) return 'Ethernet';
+  if (status == ConnectivityResult.vpn) return 'VPN';
+  if (status == ConnectivityResult.none) return 'No connection';
+  if (status == ConnectivityResult.bluetooth) return 'Bluetooth';
+  return 'Other';
 }
 
 /// Menu section: network tile + list of setting menu items.

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
+import 'package:noscall/call/calling_controller_dependencies.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/flutter_utils/datetime_extension.dart';
@@ -12,19 +13,20 @@ import 'package:noscall/core/common/database/db_isar.dart';
 
 const String _kUnreadMissedCallCountKey = 'unread_missed_call_count';
 
-class CallHistoryManager {
+class CallHistoryManager implements CallHistoryRecorder {
   Isar get _isar => DBISAR.sharedInstance.isar;
 
   List<CallLogGroup> _callLogGroups = [];
 
   List<CallLogGroup> get callLogGroups => List.unmodifiable(_callLogGroups);
 
-  final StreamController<List<CallLogGroup>> _dataChangeController = 
+  final StreamController<List<CallLogGroup>> _dataChangeController =
       StreamController<List<CallLogGroup>>.broadcast();
 
   get dataChangeController => _dataChangeController;
 
-  Stream<List<CallLogGroup>> get dataChangeStream => _dataChangeController.stream;
+  Stream<List<CallLogGroup>> get dataChangeStream =>
+      _dataChangeController.stream;
 
   /// Unread missed call count for tab badge. Persisted; cleared when user opens Recent tab.
   final ValueNotifier<int> unreadMissedCountNotifier = ValueNotifier(0);
@@ -34,7 +36,8 @@ class CallHistoryManager {
   Future<void> loadUnreadMissedCount() async {
     if (_unreadLoaded) return;
     _prefs ??= await SharedPreferences.getInstance();
-    unreadMissedCountNotifier.value = _prefs!.getInt(_kUnreadMissedCallCountKey) ?? 0;
+    unreadMissedCountNotifier.value =
+        _prefs!.getInt(_kUnreadMissedCallCountKey) ?? 0;
     _unreadLoaded = true;
   }
 
@@ -64,10 +67,8 @@ class CallHistoryManager {
 
   Future<void> initialize() async {
     try {
-      _callLogGroups = await _isar.callLogGroups
-          .where()
-          .sortByLastCallTimeDesc()
-          .findAll();
+      _callLogGroups =
+          await _isar.callLogGroups.where().sortByLastCallTimeDesc().findAll();
 
       for (final group in _callLogGroups) {
         await _loadCallEntriesForGroup(group);
@@ -80,6 +81,7 @@ class CallHistoryManager {
   }
 
   /// Returns true if a new record was added, false if callId already existed (e.g. duplicate from another relay).
+  @override
   Future<bool> addCallRecord({
     required String callId,
     required String peerPubkey,
@@ -89,7 +91,8 @@ class CallHistoryManager {
     required DateTime startTime,
     Duration? duration,
   }) async {
-    final existing = await _isar.callEntrys.where().callIdEqualTo(callId).findFirst();
+    final existing =
+        await _isar.callEntrys.where().callIdEqualTo(callId).findFirst();
     if (existing != null) return false;
 
     final callEntry = CallEntry(
@@ -108,10 +111,8 @@ class CallHistoryManager {
 
   Future<void> deleteCallLogGroup(String groupId) async {
     try {
-      final group = await _isar.callLogGroups
-          .where()
-          .groupIdEqualTo(groupId)
-          .findFirst();
+      final group =
+          await _isar.callLogGroups.where().groupIdEqualTo(groupId).findFirst();
 
       _callLogGroups.removeWhere((group) => group.groupId == groupId);
 
@@ -121,10 +122,7 @@ class CallHistoryManager {
             .anyOf(group?.callEntryIds ?? [],
                 (query, entryId) => query.callIdEqualTo(entryId))
             .deleteAll();
-        await _isar.callLogGroups
-            .where()
-            .groupIdEqualTo(groupId)
-            .deleteAll();
+        await _isar.callLogGroups.where().groupIdEqualTo(groupId).deleteAll();
       });
 
       _notifyDataChanged();
@@ -162,7 +160,8 @@ class CallHistoryManager {
     final groupsToRemove = <String>[];
 
     for (final group in _callLogGroups) {
-      final remainingIds = group.callEntryIds.where((id) => !oldCallIds.contains(id)).toList();
+      final remainingIds =
+          group.callEntryIds.where((id) => !oldCallIds.contains(id)).toList();
       if (remainingIds.isEmpty) {
         groupsToRemove.add(group.groupId);
       } else {
@@ -172,8 +171,11 @@ class CallHistoryManager {
           await _loadCallEntriesForGroup(group);
         }
         if (group.callEntries.isNotEmpty) {
-          group.lastCallTime = group.callEntries.map((e) => e.startTime).reduce((a, b) => a.isAfter(b) ? a : b);
-          group.isConnected = group.callEntries.any((e) => e.status == CallStatus.completed);
+          group.lastCallTime = group.callEntries
+              .map((e) => e.startTime)
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+          group.isConnected =
+              group.callEntries.any((e) => e.status == CallStatus.completed);
         }
         groupsToUpdate.add(group);
       }
@@ -227,7 +229,8 @@ class CallHistoryManager {
     }
   }
 
-  Future<void> _mergeToCallLogGroup(CallEntry callEntry, CallLogGroup group) async {
+  Future<void> _mergeToCallLogGroup(
+      CallEntry callEntry, CallLogGroup group) async {
     group.callEntryIds = [
       callEntry.callId,
       ...group.callEntryIds,
@@ -281,10 +284,8 @@ class CallHistoryManager {
     final callEntries = <CallEntry>[];
 
     for (final callEntryId in group.callEntryIds) {
-      final callEntry = await _isar.callEntrys
-          .where()
-          .callIdEqualTo(callEntryId)
-          .findFirst();
+      final callEntry =
+          await _isar.callEntrys.where().callIdEqualTo(callEntryId).findFirst();
 
       if (callEntry != null) {
         callEntries.add(callEntry);

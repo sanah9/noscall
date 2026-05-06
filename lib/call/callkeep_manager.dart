@@ -5,8 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:noscall/core/native_method_channel.dart';
 
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'calling_controller_dependencies.dart';
 
-class CallKeepManager {
+class CallKeepManager implements CallKeepActions {
   static final CallKeepManager _instance = CallKeepManager._internal();
   factory CallKeepManager() => _instance;
   CallKeepManager._internal();
@@ -17,18 +18,21 @@ class CallKeepManager {
   String? _currentCallerName;
   bool _isVideoEnabled = false;
 
-  final StreamController<Map<String, dynamic>> _callEventController = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _callEventController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   String? get currentCallId => _currentCallId;
   String? get currentCallerName => _currentCallerName;
   bool get isVideoEnabled => _isVideoEnabled;
-  Stream<Map<String, dynamic>> get callEventStream => _callEventController.stream;
+  Stream<Map<String, dynamic>> get callEventStream =>
+      _callEventController.stream;
 
   bool get _isSupportedPlatform => Platform.isIOS || Platform.isAndroid;
 
   Future<void> initialize() async {
     if (!_isSupportedPlatform) {
-      LogUtils.i(() => 'CallKeepManager: System call UI is not supported on ${Platform.operatingSystem}');
+      LogUtils.i(() =>
+          'CallKeepManager: System call UI is not supported on ${Platform.operatingSystem}');
       return;
     }
     try {
@@ -39,7 +43,8 @@ class CallKeepManager {
           },
           'android': {
             'alertTitle': 'Permission Request',
-            'alertDescription': 'This app needs access to your phone account permissions',
+            'alertDescription':
+                'This app needs access to your phone account permissions',
             'cancelButton': 'Cancel',
             'okButton': 'OK',
             'foregroundService': {
@@ -66,7 +71,8 @@ class CallKeepManager {
 
   void _setupEventHandlers() {
     _callKeep.on<CallKeepPerformAnswerCallAction>((event) {
-      LogUtils.i(() => 'CallKeepManager: Call answered: ${event.callData.callUUID}');
+      LogUtils.i(
+          () => 'CallKeepManager: Call answered: ${event.callData.callUUID}');
       _callEventController.add({
         'action': 'answer',
         'callId': event.callData.callUUID,
@@ -96,24 +102,30 @@ class CallKeepManager {
 
     _callKeep.on<CallKeepDidActivateAudioSession>((_) {
       unawaited(
-        NativeMethodChannel.audioSessionDidActivate().catchError((Object e, StackTrace stack) {
-          LogUtils.e(() => 'CallKeepManager: audioSessionDidActivate failed: $e, $stack');
+        NativeMethodChannel.audioSessionDidActivate()
+            .catchError((Object e, StackTrace stack) {
+          LogUtils.e(() =>
+              'CallKeepManager: audioSessionDidActivate failed: $e, $stack');
         }),
       );
     });
 
     _callKeep.on<CallKeepDidDeactivateAudioSession>((_) {
       unawaited(
-        NativeMethodChannel.audioSessionDidDeactivate().catchError((Object e, StackTrace stack) {
-          LogUtils.e(() => 'CallKeepManager: audioSessionDidDeactivate failed: $e, $stack');
+        NativeMethodChannel.audioSessionDidDeactivate()
+            .catchError((Object e, StackTrace stack) {
+          LogUtils.e(() =>
+              'CallKeepManager: audioSessionDidDeactivate failed: $e, $stack');
         }),
       );
     });
   }
 
-  Future<void> displayIncomingCall(String callId, String callerName, {bool hasVideo = false}) async {
+  Future<void> displayIncomingCall(String callId, String callerName,
+      {bool hasVideo = false}) async {
     if (!_isSupportedPlatform) {
-      LogUtils.i(() => 'CallKeepManager: Skipping incoming call UI on ${Platform.operatingSystem}');
+      LogUtils.i(() =>
+          'CallKeepManager: Skipping incoming call UI on ${Platform.operatingSystem}');
       return;
     }
     try {
@@ -127,16 +139,19 @@ class CallKeepManager {
         hasVideo: hasVideo,
       );
 
-      LogUtils.i(() => 'CallKeepManager: Incoming call displayed: $callId from $callerName');
+      LogUtils.i(() =>
+          'CallKeepManager: Incoming call displayed: $callId from $callerName');
     } catch (e) {
       LogUtils.e(() => 'CallKeepManager: Failed to display incoming call: $e');
       rethrow;
     }
   }
 
-  Future<void> startCall(String callId, String calleeName, {bool hasVideo = false}) async {
+  Future<void> startCall(String callId, String calleeName,
+      {bool hasVideo = false}) async {
     if (!_isSupportedPlatform) {
-      LogUtils.i(() => 'CallKeepManager: Skipping outgoing system call UI on ${Platform.operatingSystem}');
+      LogUtils.i(() =>
+          'CallKeepManager: Skipping outgoing system call UI on ${Platform.operatingSystem}');
       return;
     }
     try {
@@ -151,13 +166,15 @@ class CallKeepManager {
         hasVideo: hasVideo,
       );
 
-      LogUtils.i(() => 'CallKeepManager: Outgoing call started: $callId to $calleeName');
+      LogUtils.i(() =>
+          'CallKeepManager: Outgoing call started: $callId to $calleeName');
     } catch (e) {
       LogUtils.e(() => 'CallKeepManager: Failed to start call: $e');
       rethrow;
     }
   }
 
+  @override
   Future<void> endCall(String callId) async {
     if (!_isSupportedPlatform) {
       return;
@@ -172,6 +189,7 @@ class CallKeepManager {
     }
   }
 
+  @override
   Future<void> answerCall(String callId) async {
     if (!_isSupportedPlatform) {
       return;
@@ -185,6 +203,7 @@ class CallKeepManager {
     }
   }
 
+  @override
   Future<void> rejectCall(String callId) async {
     if (!_isSupportedPlatform) {
       return;
@@ -199,6 +218,7 @@ class CallKeepManager {
     }
   }
 
+  @override
   Future<void> setMutedCall(String callId, bool shouldMute) async {
     if (!_isSupportedPlatform) {
       return;
