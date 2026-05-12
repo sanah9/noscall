@@ -3,6 +3,7 @@ import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
@@ -11,17 +12,36 @@ import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 /// Fake that only records [removeFile] calls. Used to test "deleteCacheForMessage calls removeFile"
 /// without needing path_provider/sqflite.
 class FakeVoiceCacheManager implements BaseCacheManager {
+  FakeVoiceCacheManager(this.baseDir);
+
+  final io.Directory baseDir;
+  final _fs = const LocalFileSystem();
+  final Map<String, File> _filesByKey = {};
   final List<String> removeFileCalls = [];
   int emptyCacheCalls = 0;
+
+  String _pathForKey(String key, String fileExtension) =>
+      '${baseDir.path}/$key.$fileExtension';
 
   @override
   Future<void> removeFile(String key) async {
     removeFileCalls.add(key);
+    final existing = _filesByKey.remove(key);
+    if (existing != null && await existing.exists()) {
+      await existing.delete();
+    }
   }
 
   @override
   Future<void> emptyCache() async {
     emptyCacheCalls++;
+    final files = _filesByKey.values.toList();
+    _filesByKey.clear();
+    for (final file in files) {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
   }
 
   @override
@@ -29,19 +49,31 @@ class FakeVoiceCacheManager implements BaseCacheManager {
 
   @override
   Future<File> getSingleFile(String url,
-      {String? key, Map<String, String>? headers}) async {
-    throw UnimplementedError();
+      {String key = '', Map<String, String> headers = const {}}) async {
+    final cacheKey = key.isNotEmpty ? key : url;
+    final file = _filesByKey[cacheKey];
+    if (file == null || !await file.exists()) {
+      throw StateError('No cached file for key: $cacheKey');
+    }
+    return file;
   }
 
   @override
   Future<FileInfo?> getFileFromCache(String key,
       {bool ignoreMemCache = false}) async {
-    throw UnimplementedError();
+    final file = _filesByKey[key];
+    if (file == null || !await file.exists()) return null;
+    return FileInfo(
+      file,
+      FileSource.Cache,
+      DateTime.now().add(const Duration(days: 1)),
+      key,
+    );
   }
 
   @override
   Future<FileInfo?> getFileFromMemory(String key) async {
-    throw UnimplementedError();
+    return getFileFromCache(key);
   }
 
   @override
@@ -64,7 +96,12 @@ class FakeVoiceCacheManager implements BaseCacheManager {
       String? eTag,
       Duration? maxAge,
       String fileExtension = 'file'}) async {
-    throw UnimplementedError();
+    final cacheKey = key ?? url;
+    final file = _fs.file(_pathForKey(cacheKey, fileExtension));
+    await file.parent.create(recursive: true);
+    await file.writeAsBytes(fileBytes);
+    _filesByKey[cacheKey] = file;
+    return file;
   }
 
   @override
@@ -109,9 +146,11 @@ MessageDBISAR voiceMessage({
 
 void main() {
   late io.Directory tempDir;
+  late FakeVoiceCacheManager fakeCacheManager;
 
   setUp(() async {
     tempDir = await io.Directory.systemTemp.createTemp('voice_cache_test_');
+    fakeCacheManager = FakeVoiceCacheManager(tempDir);
   });
 
   tearDown(() async {
@@ -173,7 +212,7 @@ void main() {
   group('VoiceCacheManager.bindLocalFile', () {
     test('copies local file to cache then getOrDownload returns it', () async {
       VoiceCacheManager.setTestOverrides(
-        cacheManager: CacheManager(Config('voice_test')),
+        cacheManager: fakeCacheManager,
       );
       final source = io.File('${tempDir.path}/source.m4a');
       await source.writeAsBytes([10, 20, 30]);
@@ -192,9 +231,7 @@ void main() {
       expect(await file.exists(), isTrue);
       expect(await file.length(), 3);
       expect(await file.readAsBytes(), [10, 20, 30]);
-    },
-        skip:
-            'Requires path_provider + sqflite; run on device or integration test');
+    });
 
     test('no-op when messageId is empty', () async {
       final source = io.File('${tempDir.path}/empty_id.m4a');
@@ -208,19 +245,24 @@ void main() {
     });
 
     test('no-op when source file does not exist', () async {
+      VoiceCacheManager.setTestOverrides(cacheManager: fakeCacheManager);
       await VoiceCacheManager.instance.bindLocalFile(
         messageId: 'ev_nosource',
         url: 'https://example.com/x.m4a',
         localFilePath: '${tempDir.path}/nonexistent.m4a',
       );
       // Should not throw
-    }, skip: 'Requires CacheManager');
+      expect(
+        await fakeCacheManager.getFileFromCache('ev_nosource'),
+        isNull,
+      );
+    });
   });
 
   group('VoiceCacheManager.deleteCacheForMessage', () {
     test('removes cached file', () async {
       VoiceCacheManager.setTestOverrides(
-        cacheManager: CacheManager(Config('voice_test')),
+        cacheManager: fakeCacheManager,
       );
       final source = io.File('${tempDir.path}/to_delete.m4a');
       await source.writeAsBytes([1, 2, 3]);
@@ -239,12 +281,11 @@ void main() {
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_delete');
       expect(await file.exists(), isFalse);
-    },
-        skip:
-            'Requires path_provider + sqflite; run on device or integration test');
+      expect(fakeCacheManager.removeFileCalls, ['ev_delete']);
+    });
 
     test('calls removeFile on underlying manager', () async {
-      final fake = FakeVoiceCacheManager();
+      final fake = FakeVoiceCacheManager(tempDir);
       VoiceCacheManager.setTestOverrides(cacheManager: fake);
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_xyz');
@@ -258,7 +299,7 @@ void main() {
     });
 
     test('no-op when no cached file exists', () async {
-      final fake = FakeVoiceCacheManager();
+      final fake = FakeVoiceCacheManager(tempDir);
       VoiceCacheManager.setTestOverrides(cacheManager: fake);
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_never_cached');
@@ -269,7 +310,7 @@ void main() {
 
   group('VoiceCacheManager cache maintenance', () {
     test('deleteCacheForMessages removes each non-empty key', () async {
-      final fake = FakeVoiceCacheManager();
+      final fake = FakeVoiceCacheManager(tempDir);
       VoiceCacheManager.setTestOverrides(cacheManager: fake);
 
       await VoiceCacheManager.instance
@@ -279,7 +320,7 @@ void main() {
     });
 
     test('clearAllCache calls emptyCache on underlying manager', () async {
-      final fake = FakeVoiceCacheManager();
+      final fake = FakeVoiceCacheManager(tempDir);
       VoiceCacheManager.setTestOverrides(cacheManager: fake);
 
       await VoiceCacheManager.instance.clearAllCache();
