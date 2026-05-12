@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:noscall/call/constant/call_type.dart';
@@ -12,7 +12,8 @@ import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
-import 'package:noscall/voice_messages/widgets/voice_waveform_bar.dart';
+
+import 'widgets/voice_message_detail_sections.dart';
 
 class VoiceMessageDetailPage extends StatefulWidget {
   final MessageDBISAR message;
@@ -28,7 +29,7 @@ class VoiceMessageDetailPage extends StatefulWidget {
 
 class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
   late Future<File> _fileFuture;
-  late Future<_VoiceThreadPreview> _threadPreviewFuture;
+  late Future<VoiceThreadPreview> _threadPreviewFuture;
   final AudioPlayer _player = AudioPlayer();
   StreamSubscription<ProcessingState>? _processingStateSubscription;
 
@@ -109,9 +110,9 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 24),
-              _buildMessageTimeSection(context, timeStr),
+              VoiceMessageTimestampSection(timeText: timeStr),
               const SizedBox(height: 32),
-              FutureBuilder<_VoiceThreadPreview>(
+              FutureBuilder<VoiceThreadPreview>(
                 future: _threadPreviewFuture,
                 builder: (context, snapshot) {
                   final preview = snapshot.data;
@@ -123,7 +124,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
                   }
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 20),
-                    child: _buildThreadPreviewSection(context, preview),
+                    child: VoiceMessageThreadPreviewSection(preview: preview),
                   );
                 },
               ),
@@ -131,12 +132,17 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
                 future: _fileFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return _buildLoadingSection(context, durationSec);
+                    return VoiceMessageLoadingSection(
+                      durationSec: durationSec,
+                      onDelete: _onDelete,
+                    );
                   }
                   if (snapshot.hasError || !snapshot.hasData) {
-                    return _buildPlaybackErrorSection(context);
+                    return VoiceMessagePlaybackErrorSection(
+                      onRetry: _retryLoadAudio,
+                    );
                   }
-                  return _VoicePlayerSection(
+                  return VoicePlayerSection(
                     file: snapshot.data!,
                     player: _player,
                     durationSec: durationSec,
@@ -263,123 +269,7 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     );
   }
 
-  Widget _buildMessageTimeSection(BuildContext context, String timeStr) {
-    final theme = Theme.of(context);
-    return Text(
-      timeStr,
-      style: theme.textTheme.titleMedium
-          ?.copyWith(color: theme.colorScheme.onSurface),
-      textAlign: TextAlign.center,
-    );
-  }
-
-  Widget _buildLoadingSection(BuildContext context, int durationSec) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final placeholderDuration = Duration(seconds: durationSec);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildProgressTimeRow(
-            theme, colorScheme, Duration.zero, placeholderDuration),
-        const SizedBox(height: 4),
-        _buildProgressSliderPlaceholder(context),
-        const SizedBox(height: 24),
-        _buildPlaybackActionsPlaceholder(context, colorScheme),
-      ],
-    );
-  }
-
-  Widget _buildProgressSliderPlaceholder(BuildContext context) {
-    return Container(
-      height: 4,
-      margin: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(2),
-      ),
-    );
-  }
-
-  Widget _buildPlaybackActionsPlaceholder(
-      BuildContext context, ColorScheme colorScheme) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: colorScheme.primary,
-              ),
-            ),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-            icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
-            onPressed: _onDelete,
-            iconSize: 28,
-            tooltip: 'Delete',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPlaybackErrorSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-        const SizedBox(height: 16),
-        Text(
-          'Playback failed',
-          style: theme.textTheme.bodyLarge
-              ?.copyWith(color: colorScheme.onSurfaceVariant),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: _retryLoadAudio,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Retry'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressTimeRow(
-    ThemeData theme,
-    ColorScheme colorScheme,
-    Duration position,
-    Duration duration,
-  ) {
-    final posSec = position.inSeconds.clamp(0, duration.inSeconds);
-    final positionStr =
-        '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
-    final totalStr =
-        '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
-    final style = theme.textTheme.bodySmall
-        ?.copyWith(color: colorScheme.onSurfaceVariant);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(positionStr, style: style),
-        Text(totalStr, style: style),
-      ],
-    );
-  }
-
-  Future<_VoiceThreadPreview> _loadThreadPreview() async {
+  Future<VoiceThreadPreview> _loadThreadPreview() async {
     final msg = widget.message;
     MessageDBISAR? parent;
     if (msg.replyId.isNotEmpty) {
@@ -387,326 +277,10 @@ class _VoiceMessageDetailPageState extends State<VoiceMessageDetailPage> {
     }
     final replyCount = await Messages.countReplies(msg.messageId);
     final recentReplies = await Messages.loadReplies(msg.messageId, limit: 2);
-    return _VoiceThreadPreview(
+    return VoiceThreadPreview(
       parent: parent,
       replyCount: replyCount,
       recentReplies: recentReplies,
     );
   }
-
-  Widget _buildThreadPreviewSection(
-      BuildContext context, _VoiceThreadPreview preview) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textStyle = theme.textTheme.bodySmall
-        ?.copyWith(color: colorScheme.onSurfaceVariant);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (preview.parent != null)
-            Text(
-              'Replying to: ${MessageDBISAR.getContent(MessageDBISAR.stringtoMessageType(preview.parent!.type), preview.parent!.decryptContent, null)}',
-              style: textStyle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          if (preview.replyCount > 0)
-            Padding(
-              padding: EdgeInsets.only(top: preview.parent == null ? 0 : 6),
-              child: Text(
-                '${preview.replyCount} repl${preview.replyCount == 1 ? 'y' : 'ies'} in this thread',
-                style: textStyle,
-              ),
-            ),
-          if (preview.recentReplies.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            for (final reply in preview.recentReplies)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  MessageDBISAR.getContent(
-                    MessageDBISAR.stringtoMessageType(reply.type),
-                    reply.decryptContent,
-                    null,
-                  ),
-                  style: textStyle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Loads [file] into [player], then builds the progress/play UI when ready.
-class _VoicePlayerSection extends StatefulWidget {
-  final File file;
-  final AudioPlayer player;
-  final int durationSec;
-  final List<int> waveformPeaks;
-  final VoidCallback onReady;
-  final Future<void> Function() onDelete;
-
-  const _VoicePlayerSection({
-    required this.file,
-    required this.player,
-    required this.durationSec,
-    required this.waveformPeaks,
-    required this.onReady,
-    required this.onDelete,
-  });
-
-  @override
-  State<_VoicePlayerSection> createState() => _VoicePlayerSectionState();
-}
-
-class _VoicePlayerSectionState extends State<_VoicePlayerSection> {
-  bool _ready = false;
-  StreamSubscription<ProcessingState>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFile();
-  }
-
-  Future<void> _loadFile() async {
-    try {
-      await widget.player.setFilePath(widget.file.path);
-      if (_player.processingState == ProcessingState.ready ||
-          _player.processingState == ProcessingState.completed) {
-        if (mounted) {
-          setState(() => _ready = true);
-          widget.onReady();
-          _sub = widget.player.processingStateStream.listen(_onProcessingState);
-        }
-        return;
-      }
-      _sub = widget.player.processingStateStream.listen((state) {
-        if (state == ProcessingState.ready ||
-            state == ProcessingState.completed) {
-          _sub?.cancel();
-          if (mounted) {
-            setState(() => _ready = true);
-            widget.onReady();
-            _sub =
-                widget.player.processingStateStream.listen(_onProcessingState);
-          }
-        }
-      });
-      await widget.player.processingStateStream
-          .where((s) =>
-              s == ProcessingState.ready || s == ProcessingState.completed)
-          .first
-          .timeout(const Duration(seconds: 30));
-    } catch (_) {
-      if (mounted) {
-        setState(() => _ready = false);
-        widget.onReady();
-      }
-    }
-  }
-
-  AudioPlayer get _player => widget.player;
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
-
-  void _onProcessingState(ProcessingState state) {
-    if (state != ProcessingState.completed) return;
-    _player.seek(Duration.zero);
-    _player.pause();
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      final theme = Theme.of(context);
-      final colorScheme = theme.colorScheme;
-      final placeholderDuration = Duration(seconds: widget.durationSec);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildProgressTimeRow(
-              theme, colorScheme, Duration.zero, placeholderDuration),
-          const SizedBox(height: 4),
-          Container(
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: Center(
-                  child: SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  icon: Icon(CupertinoIcons.delete, color: colorScheme.primary),
-                  onPressed: widget.onDelete,
-                  iconSize: 28,
-                  tooltip: 'Delete',
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    }
-
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final duration = _player.duration ?? Duration(seconds: widget.durationSec);
-
-    return StreamBuilder<Duration>(
-      stream: _player.positionStream,
-      builder: (context, snapshot) {
-        final position = snapshot.data ?? Duration.zero;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildProgressTimeRow(theme, colorScheme, position, duration),
-            const SizedBox(height: 4),
-            VoiceWaveformBar(
-              peaks: widget.waveformPeaks,
-              progress: duration.inMilliseconds <= 0
-                  ? 0
-                  : (position.inMilliseconds / duration.inMilliseconds)
-                      .clamp(0.0, 1.0),
-              height: 28,
-              maxBars: 40,
-            ),
-            const SizedBox(height: 8),
-            _buildSlider(context, position, duration),
-            const SizedBox(height: 24),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: IconButton(
-                    icon: Icon(
-                      _player.playing
-                          ? CupertinoIcons.pause_fill
-                          : CupertinoIcons.play_fill,
-                      color: colorScheme.primary,
-                    ),
-                    onPressed: () async {
-                      if (_player.playing) {
-                        await _player.pause();
-                      } else {
-                        await _player.play();
-                      }
-                      if (mounted) setState(() {});
-                    },
-                    iconSize: 44,
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                    icon:
-                        Icon(CupertinoIcons.delete, color: colorScheme.primary),
-                    onPressed: widget.onDelete,
-                    iconSize: 28,
-                    tooltip: 'Delete',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildProgressTimeRow(
-    ThemeData theme,
-    ColorScheme colorScheme,
-    Duration position,
-    Duration duration,
-  ) {
-    final posSec = position.inSeconds.clamp(0, duration.inSeconds);
-    final positionStr =
-        '${posSec ~/ 60}:${(posSec % 60).toString().padLeft(2, '0')}';
-    final totalStr =
-        '${duration.inSeconds ~/ 60}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}';
-    final style = theme.textTheme.bodySmall
-        ?.copyWith(color: colorScheme.onSurfaceVariant);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(positionStr, style: style),
-        Text(totalStr, style: style),
-      ],
-    );
-  }
-
-  Widget _buildSlider(
-    BuildContext context,
-    Duration position,
-    Duration duration,
-  ) {
-    final totalMs = duration.inMilliseconds;
-    final positionValue = totalMs > 0
-        ? position.inMilliseconds.toDouble().clamp(0.0, totalMs.toDouble())
-        : 0.0;
-    final durationValue = totalMs > 0 ? totalMs.toDouble() : 1.0;
-    return SliderTheme(
-      data: SliderTheme.of(context).copyWith(
-        trackHeight: 4,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-      ),
-      child: Slider(
-        value: positionValue,
-        max: durationValue,
-        onChanged: (v) => _player.seek(Duration(milliseconds: v.round())),
-      ),
-    );
-  }
-}
-
-class _VoiceThreadPreview {
-  final MessageDBISAR? parent;
-  final int replyCount;
-  final List<MessageDBISAR> recentReplies;
-
-  const _VoiceThreadPreview({
-    required this.parent,
-    required this.replyCount,
-    required this.recentReplies,
-  });
 }
