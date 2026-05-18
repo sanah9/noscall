@@ -204,6 +204,14 @@ class NipAcProtocol {
     return Event.fromJson(map, verify: true);
   }
 
+  static Future<Event?> tryUnwrap(Event wrappedEvent, String myPubkey, String myPrivkey) async {
+    try {
+      return await unwrap(wrappedEvent, myPubkey, myPrivkey);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static NipAcSignaling decodeInner(Event innerEvent, String myPubkey) {
     final kind = NipAcKind.fromValue(innerEvent.kind);
     if (kind == null) {

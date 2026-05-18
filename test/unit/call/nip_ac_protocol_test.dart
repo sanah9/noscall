@@ -116,6 +116,10 @@ void main() {
         () => NipAcProtocol.unwrap(wrapped, receiverPubkey, receiverPrivkey),
         throwsA(anything),
       );
+      expect(
+        await NipAcProtocol.tryUnwrap(wrapped, receiverPubkey, receiverPrivkey),
+        isNull,
+      );
     });
 
     test('reject/hangup map to disconnect signaling state', () async {

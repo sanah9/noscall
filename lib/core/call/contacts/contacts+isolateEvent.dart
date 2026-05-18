@@ -168,8 +168,8 @@ extension IsolateEvent on Contacts {
     final privkey = params['privkey'] ?? '';
     final pubkey = params['pubkey'] ?? '';
     final event = await Event.fromJson(params['event'], verify: false);
-    final innerEvent = await NipAcProtocol.unwrap(event, pubkey, privkey);
-    return innerEvent.toJson();
+    final innerEvent = await NipAcProtocol.tryUnwrap(event, pubkey, privkey);
+    return innerEvent?.toJson();
   }
 
   Future<Event?> decodeNipAcWrapEvent(Event event) async {
