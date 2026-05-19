@@ -8,8 +8,9 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_dependencies.dart';
+import 'connect_subscription_queue.dart';
 import 'event_cache.dart';
-import 'reconnection_state.dart';
+import 'reconnection_scheduler.dart';
 
 import 'connect_types.dart';
 
@@ -45,7 +46,7 @@ class Connect {
 
   static const int timeout = 10;
   static const int connectionTimeout = 10;
-  static const int MAX_SUBSCRIPTIONS_COUNT = 15;
+  static const int maxSubscriptionsCount = 15;
 
   NoticeCallBack? noticeCallBack;
   StreamSubscription? _connectivitySubscription;
@@ -66,10 +67,12 @@ class Connect {
 
   Map<String, List<Future<bool>>> eventCheckerFutures = {};
 
-  Map<String, List<String>> subscriptionsWaitingQueue = {};
+  Map<String, List<String>> get subscriptionsWaitingQueue =>
+      _subscriptionQueue.waitingByRelay;
 
-  final Map<String, Timer> _reconnectionTimers = {};
-  final Map<String, ReconnectionState> _reconnectionStates = {};
+  final ConnectSubscriptionQueue _subscriptionQueue =
+      ConnectSubscriptionQueue(maxInFlight: maxSubscriptionsCount);
+  final ReconnectionScheduler _reconnectionScheduler = ReconnectionScheduler();
   ConnectivityResult? _currentConnectivity;
 
   bool get isInitialized => _isInitialized;
@@ -118,9 +121,7 @@ class Connect {
         .listen((List<ConnectivityResult> results) async {
       _currentConnectivity = results.isNotEmpty ? results.first : null;
       if (results.any((result) => result != ConnectivityResult.none)) {
-        for (var state in _reconnectionStates.values) {
-          state.reset();
-        }
+        _reconnectionScheduler.resetAll();
         resetConnection(force: false);
       }
     });
@@ -223,7 +224,7 @@ class Connect {
       return;
     }
 
-    _reconnectionStates[relay]?.reset();
+    _reconnectionScheduler.resetRelay(relay);
 
     LogUtils.v(() => "connecting... $relay");
     webSockets[relay] = ISocket(null, 0, relayKinds);
@@ -236,7 +237,7 @@ class Connect {
         webSockets[relay] = ISocket(socket, 1, relayKinds);
         LogUtils.v(() => "$relay connection initialized");
         _setConnectStatus(relay, 1);
-        _reconnectionStates[relay]?.recordSuccess();
+        _reconnectionScheduler.recordSuccess(relay);
       }
     } catch (_) {
       _onDisconnected(relay, relayKind);
@@ -288,11 +289,7 @@ class Connect {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
 
-    // Cancel all pending reconnection timers
-    for (var timer in _reconnectionTimers.values) {
-      timer.cancel();
-    }
-    _reconnectionTimers.clear();
+    _reconnectionScheduler.cancelAll();
 
     await Future.forEach(List.from(webSockets.keys), (relay) async {
       await closeConnect(relay);
@@ -303,7 +300,7 @@ class Connect {
     requestsMap.clear();
     auths.clear();
     eventCheckerFutures.clear();
-    subscriptionsWaitingQueue.clear();
+    _subscriptionQueue.clear();
     _currentConnectivity = null;
     _isInitialized = false;
   }
@@ -314,9 +311,7 @@ class Connect {
 
     webSockets.remove(relay);
 
-    _reconnectionTimers[relay]?.cancel();
-    _reconnectionTimers.remove(relay);
-    _reconnectionStates.remove(relay);
+    _reconnectionScheduler.cancelRelay(relay);
 
     await socket?.close();
   }
@@ -377,27 +372,13 @@ class Connect {
   }
 
   void _addSubscriptionToQueue(String subscriptionId, String relay) {
-    var waitingQueue = subscriptionsWaitingQueue[relay] ?? [];
-    if (!waitingQueue.contains(subscriptionId)) {
-      waitingQueue.add(subscriptionId);
-      subscriptionsWaitingQueue[relay] = waitingQueue;
-    }
+    _subscriptionQueue.add(subscriptionId, relay);
     _sendSubscription(relay);
   }
 
   void _sendSubscription(String relay) {
-    var sendingQueue = 0;
-    for (var key in requestsMap.keys) {
-      if (key.contains(relay) &&
-          requestsMap[key]!.relays.contains(relay) &&
-          requestsMap[key]!.requestTime > 0) {
-        ++sendingQueue;
-      }
-    }
-    var waitingQueue = subscriptionsWaitingQueue[relay] ?? [];
-
-    if (sendingQueue < MAX_SUBSCRIPTIONS_COUNT && waitingQueue.isNotEmpty) {
-      String subscriptionId = waitingQueue.removeAt(0);
+    final subscriptionId = _subscriptionQueue.takeNext(relay, requestsMap);
+    if (subscriptionId != null) {
       var request = requestsMap[subscriptionId + relay];
       if (request != null) {
         requestsMap[subscriptionId + relay]!.requestTime =
@@ -405,8 +386,10 @@ class Connect {
         _send(request.subscriptionString, toRelays: [relay]);
       }
     } else {
+      final sendingQueue = _subscriptionQueue.activeCount(relay, requestsMap);
+      final waitingQueue = _subscriptionQueue.waitingCount(relay);
       LogUtils.v(() =>
-          'sendingQueue: $sendingQueue, waitingQueue: ${waitingQueue.length}, $relay');
+          'sendingQueue: $sendingQueue, waitingQueue: $waitingQueue, $relay');
     }
   }
 
@@ -722,46 +705,14 @@ class Connect {
   Future<void> _reConnectToRelay(String relay, RelayKind relayKind) async {
     _setConnectStatus(relay, 3);
 
-    if (!webSockets.containsKey(relay)) {
-      LogUtils.v(
-          () => 'Skipping reconnection for relay no longer managed: $relay');
-      return;
-    }
-
-    final state = _reconnectionStates[relay] ??= ReconnectionState();
-
-    if (state.isReconnecting) {
-      LogUtils.v(() => 'Reconnection already in progress for $relay');
-      return;
-    }
-
-    if (!_hasNetworkConnectivity()) {
-      LogUtils.v(
-          () => 'No network connectivity, skipping reconnection for $relay');
-      return;
-    }
-
-    if (!state.shouldReconnect()) {
-      LogUtils.v(() =>
-          'Reconnection limit reached or in cooldown for $relay (attempts: ${state.attemptCount})');
-      return;
-    }
-
-    state.recordAttempt();
-    final backoffDelay = state.getBackoffDelay();
-
-    LogUtils.v(() =>
-        'Scheduling reconnection for $relay in ${backoffDelay.inSeconds}s (attempt ${state.attemptCount})');
-
-    _reconnectionTimers[relay]?.cancel();
-    _reconnectionTimers[relay] = Timer(backoffDelay, () {
-      _reconnectionTimers.remove(relay);
-      state.isReconnecting = false;
-
-      if (webSockets.containsKey(relay)) {
+    _reconnectionScheduler.schedule(
+      relay: relay,
+      hasNetworkConnectivity: _hasNetworkConnectivity(),
+      isRelayManaged: () => webSockets.containsKey(relay),
+      reconnect: () {
         connect(relay, relayKind: relayKind);
-      }
-    });
+      },
+    );
   }
 
   void _listenEvent(RelaySocket socket, String relay, RelayKind relayKind) {
