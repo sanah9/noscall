@@ -8,7 +8,9 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_dependencies.dart';
+import 'connect_status_notifier.dart';
 import 'connect_subscription_queue.dart';
+import 'connect_timeout_checker.dart';
 import 'event_cache.dart';
 import 'reconnection_scheduler.dart';
 
@@ -58,8 +60,8 @@ class Connect {
   Map<String, Requests> requestsMap = {};
   // send event callback
   Map<String, Sends> sendsMap = {};
-  // ConnectStatus listeners
-  List<ConnectStatusCallBack> connectStatusListeners = [];
+  List<ConnectStatusCallBack> get connectStatusListeners =>
+      _statusNotifier.listeners;
   // for timeout
   Timer? timer;
   // relay AUTH
@@ -70,8 +72,11 @@ class Connect {
   Map<String, List<String>> get subscriptionsWaitingQueue =>
       _subscriptionQueue.waitingByRelay;
 
+  final ConnectStatusNotifier _statusNotifier = ConnectStatusNotifier();
   final ConnectSubscriptionQueue _subscriptionQueue =
       ConnectSubscriptionQueue(maxInFlight: maxSubscriptionsCount);
+  final ConnectTimeoutChecker _timeoutChecker =
+      ConnectTimeoutChecker(timeoutSeconds: timeout);
   final ReconnectionScheduler _reconnectionScheduler = ReconnectionScheduler();
   ConnectivityResult? _currentConnectivity;
 
@@ -139,57 +144,30 @@ class Connect {
   // }
 
   void _checkTimeout() {
-    var now = DateTime.now().millisecondsSinceEpoch;
-    Iterable<String> okMapKeys = List<String>.from(sendsMap.keys);
-    for (var eventId in okMapKeys) {
-      var start = sendsMap[eventId]!.sendsTime;
-      if (now - start > timeout * 1000) {
-        // ok timeout
-        OKEvent ok = OKEvent(eventId, false, 'Time Out');
-        Iterable<String> relays = List<String>.from(sendsMap[eventId]!.relays);
-        for (var relay in relays) {
-          _handleOk(ok, relay);
-        }
-      }
-    }
-    Iterable<String> requestMapKeys = List<String>.from(requestsMap.keys);
-    for (var requestMapKey in requestMapKeys) {
-      var request = requestsMap[requestMapKey];
-      if (request != null) {
-        // call closeSubscription type eoseCallBack only once
-        if (request.closeSubscription == false &&
-            request.eoseCallBack == null) {
-          continue;
-        }
-        var start = request.requestTime;
-        if (start > 0 && now - start > timeout * 1000) {
-          // request timeout
-          String relay = requestMapKey.substring(64);
-          _handleEOSE(jsonEncode([request.requestId]), relay, true);
-        }
-      }
-    }
+    _timeoutChecker.check(
+      sendsMap: sendsMap,
+      requestsMap: requestsMap,
+      onOkTimeout: (ok, relay) => _handleOk(ok, relay),
+      onRequestTimeout: (eose, relay) => _handleEOSE(eose, relay, true),
+    );
   }
 
   void _setConnectStatus(String relay, int status) {
     webSockets[relay]?.connectStatus = status;
-    for (var callBack in connectStatusListeners) {
-      callBack(relay, status, webSockets[relay]?.relayKinds ?? []);
-    }
+    _statusNotifier.notify(
+      relay,
+      status,
+      webSockets[relay]?.relayKinds ?? [],
+    );
   }
 
   ConnectStatusListenerHandle addConnectStatusListener(
       ConnectStatusCallBack callBack) {
-    if (!connectStatusListeners.contains(callBack)) {
-      connectStatusListeners.add(callBack);
-    }
-    return ConnectStatusListenerHandle(callBack, removeConnectStatusListener);
+    return _statusNotifier.add(callBack);
   }
 
   void removeConnectStatusListener(ConnectStatusCallBack callBack) {
-    if (connectStatusListeners.contains(callBack)) {
-      connectStatusListeners.remove(callBack);
-    }
+    _statusNotifier.remove(callBack);
   }
 
   List<String> relays(
