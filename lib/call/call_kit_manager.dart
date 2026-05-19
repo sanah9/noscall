@@ -31,7 +31,8 @@ class CallKitManager with WidgetsBindingObserver {
 
   Completer<CallingController>? activeControllerCmp;
   bool get hasActiveCalling => activeControllerCmp != null;
-  Future<CallingController>? get activeController => activeControllerCmp?.future;
+  Future<CallingController>? get activeController =>
+      activeControllerCmp?.future;
 
   CallingController? waitingShowController;
   Set<String> disconnectOfferId = {};
@@ -45,6 +46,8 @@ class CallKitManager with WidgetsBindingObserver {
       _callHistoryManager ??= CallHistoryManager();
   CallKeepManager? _callKeepManager;
   VoIPPushService? _voipPushService;
+  StreamSubscription<Map<String, dynamic>>? _callKeepEventSubscription;
+  bool _isDisposed = false;
 
   CallType? callType;
   bool get getInCallIng => hasActiveCalling;
@@ -59,7 +62,8 @@ class CallKitManager with WidgetsBindingObserver {
       if (Platform.isWindows || Platform.isLinux) {
         // Desktop platforms rely on OS-level media access and device selection.
         // Do not block call setup with mobile permission APIs.
-        LogUtils.i(() => 'Desktop platform detected, skip mobile permission requests');
+        LogUtils.i(
+            () => 'Desktop platform detected, skip mobile permission requests');
         return true;
       }
 
@@ -93,7 +97,8 @@ class CallKitManager with WidgetsBindingObserver {
         }
       }
 
-      LogUtils.i(() => 'All required permissions granted for ${callType.value} call');
+      LogUtils.i(
+          () => 'All required permissions granted for ${callType.value} call');
       return true;
     } catch (e) {
       LogUtils.e(() => 'Error checking permissions: $e');
@@ -108,6 +113,7 @@ class CallKitManager with WidgetsBindingObserver {
 
   Future<void> initRTC() async {
     try {
+      _isDisposed = false;
       // System call UI integration remains mobile-only for now.
       if (Platform.isIOS) {
         _callKeepManager = CallKeepManager();
@@ -118,10 +124,12 @@ class CallKitManager with WidgetsBindingObserver {
       _setupCallKeepHandlers();
 
       // Setup Nostr call state handler
-      ChatCore.Contacts.sharedInstance.onCallStateChange = nostrCallStateChangeHandler;
+      ChatCore.Contacts.sharedInstance.onCallStateChange =
+          nostrCallStateChangeHandler;
 
       // When user was offline and receives missed call (disconnect before answer), add to history and badge
-      ChatCore.Contacts.sharedInstance.onMissedCallFromRelay = _onMissedCallFromRelay;
+      ChatCore.Contacts.sharedInstance.onMissedCallFromRelay =
+          _onMissedCallFromRelay;
 
       // Initialize VoIP push service (iOS only)
       if (Platform.isIOS) {
@@ -147,7 +155,9 @@ class CallKitManager with WidgetsBindingObserver {
   }
 
   void _setupCallKeepHandlers() {
-    _callKeepManager?.callEventStream.listen((event) {
+    _callKeepEventSubscription?.cancel();
+    _callKeepEventSubscription =
+        _callKeepManager?.callEventStream.listen((event) {
       final action = event['action'] as String;
       final callId = event['callId'] as String;
 
@@ -193,18 +203,21 @@ class CallKitManager with WidgetsBindingObserver {
     try {
       // Check if we can start a new call
       if (!_canStartNewCall()) {
-        LogUtils.e(() => 'Cannot start new call: maximum concurrent calls reached');
+        LogUtils.e(
+            () => 'Cannot start new call: maximum concurrent calls reached');
         throw Exception('Maximum concurrent calls reached');
       }
 
       // Check permissions
       final hasPermissions = await _checkPermissions(callType);
       if (!hasPermissions) {
-        LogUtils.e(() => 'Required permissions not granted for ${callType.value} call');
+        LogUtils.e(() =>
+            'Required permissions not granted for ${callType.value} call');
         throw Exception('Required permissions not granted');
       }
 
-      final user = ChatCore.Account.sharedInstance.getUserNotifier(peerId).value;
+      final user =
+          ChatCore.Account.sharedInstance.getUserNotifier(peerId).value;
       final controller = await openCallModule(
         user: user,
         callType: callType,
@@ -314,7 +327,8 @@ class CallKitManager with WidgetsBindingObserver {
 
       mediaType ??= CallType.audio;
 
-      final user = ChatCore.Account.sharedInstance.getUserNotifier(friend).value;
+      final user =
+          ChatCore.Account.sharedInstance.getUserNotifier(friend).value;
 
       final controller = await openCallModule(
         user: user,
@@ -358,7 +372,8 @@ class CallKitManager with WidgetsBindingObserver {
 
     disconnectOfferId.add(offerId);
     await activeController.hangup(CallEndReason.disconnect, false, false);
-    LogUtils.i(() => 'Handled self echo event, ended local call: state=$state callId=$offerId');
+    LogUtils.i(() =>
+        'Handled self echo event, ended local call: state=$state callId=$offerId');
   }
 
   static bool shouldHandleSelfEchoEvent({
@@ -390,7 +405,8 @@ class CallKitManager with WidgetsBindingObserver {
         content: candidateJson,
       );
     }
-    LogUtils.i(() => 'Flushed buffered ICE candidates: ${queue.length}, callId=$callId');
+    LogUtils.i(() =>
+        'Flushed buffered ICE candidates: ${queue.length}, callId=$callId');
   }
 
   Future<CallingController> openCallModule({
@@ -467,7 +483,8 @@ class CallKitManager with WidgetsBindingObserver {
     final callType = CallTypeEx.fromValue(media) ?? CallType.audio;
     final startTime = DateTime.fromMillisecondsSinceEpoch(startTimeMs);
 
-    manager.addCallRecord(
+    manager
+        .addCallRecord(
       callId: callId,
       peerPubkey: callerPubkey,
       direction: CallDirection.incoming,
@@ -475,7 +492,8 @@ class CallKitManager with WidgetsBindingObserver {
       status: CallStatus.cancelled,
       startTime: startTime,
       duration: null,
-    ).then((added) {
+    )
+        .then((added) {
       if (added) {
         manager.incrementUnreadMissed();
         LogUtils.i(() =>
@@ -491,11 +509,20 @@ class CallKitManager with WidgetsBindingObserver {
   /// Dispose resources. Should be called when the manager is no longer needed,
   /// typically during app shutdown.
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     deviceChangeSubscription?.cancel();
     deviceChangeSubscription = null;
-    isBluetoothHeadsetConnected.dispose();
+    _callKeepEventSubscription?.cancel();
+    _callKeepEventSubscription = null;
     _voipPushService?.dispose();
+    _voipPushService = null;
+    _callKeepManager?.dispose();
+    _callKeepManager = null;
+    _callHistoryManager?.dispose();
+    _callHistoryManager = null;
+    isBluetoothHeadsetConnected.dispose();
     clean();
     LogUtils.i(() => 'CallKitManager disposed');
   }
@@ -522,7 +549,6 @@ class CallKitManager with WidgetsBindingObserver {
 }
 
 extension CallManagerDefaultEx on CallKitManager {
-
   AudioOutputType defaultOutputType(CallType callType) {
     if (isBluetoothHeadsetConnected.value) return AudioOutputType.bluetooth;
 

@@ -21,8 +21,10 @@ class DesktopRecentCallsPage extends StatefulWidget {
 
 class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage>
     with SearchFieldMixin<DesktopRecentCallsPage> {
-  late final CallHistoryManager _manager = CallKitManager.instance.callHistoryManager;
-  final StreamController<String> _searchTextController = StreamController<String>.broadcast();
+  late final CallHistoryManager _manager =
+      CallKitManager.instance.callHistoryManager;
+  final StreamController<String> _searchTextController =
+      StreamController<String>.broadcast();
 
   @override
   void initState() {
@@ -37,18 +39,19 @@ class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage>
 
   @override
   void dispose() {
-    _manager.dispose();
     disposeSearchField();
     _searchTextController.close();
     super.dispose();
   }
 
-  List<CallLogGroup> _filterCallGroups(List<CallLogGroup> groups, String query) {
+  List<CallLogGroup> _filterCallGroups(
+      List<CallLogGroup> groups, String query) {
     if (query.isEmpty) return groups;
 
     final lowerQuery = query.toLowerCase();
     return groups.where((group) {
-      final contact = Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+      final contact =
+          Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
       final name = (contact.name ?? '').toLowerCase();
       final displayName = contact.displayName().toLowerCase();
       return name.contains(lowerQuery) || displayName.contains(lowerQuery);
@@ -96,7 +99,8 @@ class _DesktopRecentCallsPageState extends State<DesktopRecentCallsPage>
             initialData: '',
             builder: (context, searchSnapshot) {
               final searchQuery = searchSnapshot.data ?? '';
-              final filteredGroups = _filterCallGroups(snapshot.data!, searchQuery);
+              final filteredGroups =
+                  _filterCallGroups(snapshot.data!, searchQuery);
 
               if (filteredGroups.isEmpty) {
                 return const Center(
@@ -142,15 +146,15 @@ class _CallLogGroupItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final contact = Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+    final contact =
+        Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
     final displayName = contact.displayName();
 
     final isIncoming = group.direction == CallDirection.incoming;
     final isMissed = !group.isConnected;
 
-    IconData callIcon = isIncoming
-        ? Icons.phone_callback
-        : Icons.phone_forwarded;
+    IconData callIcon =
+        isIncoming ? Icons.phone_callback : Icons.phone_forwarded;
 
     return Material(
       color: Colors.transparent,
@@ -181,13 +185,17 @@ class _CallLogGroupItem extends StatelessWidget {
                         Icon(
                           callIcon,
                           size: 16,
-                          color: isMissed ? colorScheme.error : colorScheme.onSurfaceVariant,
+                          color: isMissed
+                              ? colorScheme.error
+                              : colorScheme.onSurfaceVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           group.type == CallType.video ? 'Video' : 'Audio',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: isMissed ? colorScheme.error : colorScheme.onSurfaceVariant,
+                            color: isMissed
+                                ? colorScheme.error
+                                : colorScheme.onSurfaceVariant,
                           ),
                         ),
                         if (group.callCount > 1) ...[
@@ -195,14 +203,17 @@ class _CallLogGroupItem extends StatelessWidget {
                           Text(
                             '(${group.callCount})',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: isMissed ? colorScheme.error : colorScheme.onSurfaceVariant,
+                              color: isMissed
+                                  ? colorScheme.error
+                                  : colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                         if (isMissed) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: colorScheme.error.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),

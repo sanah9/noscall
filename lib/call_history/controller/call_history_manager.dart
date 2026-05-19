@@ -32,6 +32,7 @@ class CallHistoryManager implements CallHistoryRecorder {
   final ValueNotifier<int> unreadMissedCountNotifier = ValueNotifier(0);
   SharedPreferences? _prefs;
   bool _unreadLoaded = false;
+  bool _isDisposed = false;
 
   Future<void> loadUnreadMissedCount() async {
     if (_unreadLoaded) return;
@@ -62,6 +63,7 @@ class CallHistoryManager implements CallHistoryRecorder {
   }
 
   void _notifyDataChanged() {
+    if (_isDisposed) return;
     _dataChangeController.add(List.unmodifiable(_callLogGroups));
   }
 
@@ -297,6 +299,9 @@ class CallHistoryManager implements CallHistoryRecorder {
   }
 
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     _dataChangeController.close();
+    unreadMissedCountNotifier.dispose();
   }
 }

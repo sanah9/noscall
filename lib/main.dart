@@ -24,19 +24,45 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppLoading.configLoading();
   HttpOverrides.global = CustomHttpOverrides();
-  try {
-    await ThreadPoolManager.sharedInstance.initialize();
-    await AuthService().initialize();
-    await ThemeService().initialize();
-    await FavoriteContactsService().initialize();
-    await NotificationSettingsService().initialize();
-    await ContactRemarkService().initialize();
-    await AccessibilityService().initialize();
-  } catch (e) {
-    debugPrint('Failed to initialize services: $e');
-  }
+  await _initializeServices();
 
   runApp(const MainApp());
+}
+
+Future<void> _initializeServices() async {
+  await _initializeService(
+    'ThreadPoolManager',
+    ThreadPoolManager.sharedInstance.initialize,
+  );
+  await _initializeService('ThemeService', ThemeService().initialize);
+  await _initializeService(
+    'FavoriteContactsService',
+    FavoriteContactsService().initialize,
+  );
+  await _initializeService(
+    'NotificationSettingsService',
+    NotificationSettingsService().initialize,
+  );
+  await _initializeService(
+    'ContactRemarkService',
+    ContactRemarkService().initialize,
+  );
+  await _initializeService(
+    'AccessibilityService',
+    AccessibilityService().initialize,
+  );
+  await _initializeService('AuthService', AuthService().initialize);
+}
+
+Future<void> _initializeService(
+  String name,
+  Future<void> Function() initialize,
+) async {
+  try {
+    await initialize();
+  } catch (e, stack) {
+    debugPrint('Failed to initialize $name: $e\n$stack');
+  }
 }
 
 class MainApp extends StatefulWidget {
@@ -47,34 +73,45 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
+  bool _runtimeServicesDisposed = false;
+  bool _preferenceServicesDisposed = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
   }
 
-  void _disposeServices() {
-    ThreadPoolManager.sharedInstance.dispose();
-    AuthService().dispose();
+  void _disposeRuntimeServices() {
+    if (_runtimeServicesDisposed) return;
+    _runtimeServicesDisposed = true;
     CallKitManager.instance.dispose();
+    AuthService().dispose();
+    ThreadPoolManager.sharedInstance.dispose();
+  }
+
+  void _disposePreferenceServices() {
+    if (_preferenceServicesDisposed) return;
+    _preferenceServicesDisposed = true;
+    AccessibilityService().dispose();
+    ContactRemarkService().dispose();
+    NotificationSettingsService().dispose();
+    FavoriteContactsService().dispose();
+    ThemeService().dispose();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _disposeServices();
-    ThemeService().dispose();
-    FavoriteContactsService().dispose();
-    NotificationSettingsService().dispose();
-    ContactRemarkService().dispose();
-    AccessibilityService().dispose();
+    _disposeRuntimeServices();
+    _disposePreferenceServices();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
-      _disposeServices();
+      _disposeRuntimeServices();
     }
   }
 

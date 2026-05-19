@@ -4,13 +4,14 @@ import 'dart:isolate';
 import 'package:flutter/services.dart';
 
 class ThreadPoolManager {
-  late Isolate _databaseIsolate;
-  late Isolate _algorithmIsolate;
-  late Isolate _otherIsolate;
-  late SendPort _databaseSendPort;
-  late SendPort _algorithmSendPort;
-  late SendPort _otherSendPort;
+  Isolate? _databaseIsolate;
+  Isolate? _algorithmIsolate;
+  Isolate? _otherIsolate;
+  SendPort? _databaseSendPort;
+  SendPort? _algorithmSendPort;
+  SendPort? _otherSendPort;
   final RootIsolateToken _rootIsolateToken;
+  bool _isInitialized = false;
 
   /// singleton
   ThreadPoolManager._internal(this._rootIsolateToken);
@@ -19,6 +20,7 @@ class ThreadPoolManager {
       ThreadPoolManager._internal(RootIsolateToken.instance!);
 
   Future<void> initialize() async {
+    if (_isInitialized) return;
     _databaseSendPort = await _createIsolate((sendPort) {
       _databaseIsolate = sendPort.isolate;
       return sendPort.sendPort;
@@ -31,6 +33,7 @@ class ThreadPoolManager {
       _otherIsolate = sendPort.isolate;
       return sendPort.sendPort;
     });
+    _isInitialized = true;
   }
 
   Future<SendPort> _createIsolate(Function(IsolateConfig) isolateConfig) async {
@@ -54,21 +57,35 @@ class ThreadPoolManager {
   }
 
   Future<dynamic> runDatabaseTask(Future<dynamic> Function() task) {
-    return _runTask(task, _databaseSendPort);
+    return _runTask(task, _requireSendPort(_databaseSendPort, 'database'));
   }
 
   Future<dynamic> runAlgorithmTask(Future<dynamic> Function() task) {
-    return _runTask(task, _algorithmSendPort);
+    return _runTask(task, _requireSendPort(_algorithmSendPort, 'algorithm'));
   }
 
   Future<dynamic> runOtherTask(Future<dynamic> Function() task) {
-    return _runTask(task, _otherSendPort);
+    return _runTask(task, _requireSendPort(_otherSendPort, 'other'));
+  }
+
+  SendPort _requireSendPort(SendPort? sendPort, String name) {
+    if (sendPort == null) {
+      throw StateError('ThreadPoolManager $name isolate is not initialized');
+    }
+    return sendPort;
   }
 
   void dispose() {
-    _databaseIsolate.kill(priority: Isolate.immediate);
-    _algorithmIsolate.kill(priority: Isolate.immediate);
-    _otherIsolate.kill(priority: Isolate.immediate);
+    _databaseIsolate?.kill(priority: Isolate.immediate);
+    _algorithmIsolate?.kill(priority: Isolate.immediate);
+    _otherIsolate?.kill(priority: Isolate.immediate);
+    _databaseIsolate = null;
+    _algorithmIsolate = null;
+    _otherIsolate = null;
+    _databaseSendPort = null;
+    _algorithmSendPort = null;
+    _otherSendPort = null;
+    _isInitialized = false;
   }
 }
 

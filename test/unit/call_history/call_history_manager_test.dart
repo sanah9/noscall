@@ -58,7 +58,9 @@ void main() {
       manager.dispose();
     });
 
-    test('returns true when same peer, direction, type, isConnected and same day', () {
+    test(
+        'returns true when same peer, direction, type, isConnected and same day',
+        () {
       final g = makeCallLogGroup(
         groupId: 'g1',
         callEntryIds: ['c1'],
@@ -244,7 +246,8 @@ void main() {
       expect(prefs.getInt(_kUnreadMissedCallCountKey), 0);
     });
 
-    test('persistUnreadCleared only persists 0 without changing notifier', () async {
+    test('persistUnreadCleared only persists 0 without changing notifier',
+        () async {
       await manager.loadUnreadMissedCount();
       await manager.incrementUnreadMissed();
       expect(manager.unreadMissedCountNotifier.value, 1);
@@ -252,6 +255,11 @@ void main() {
       expect(manager.unreadMissedCountNotifier.value, 1);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_kUnreadMissedCallCountKey), 0);
+    });
+
+    test('dispose is idempotent', () {
+      manager.dispose();
+      expect(manager.dispose, returnsNormally);
     });
   });
 }

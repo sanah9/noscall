@@ -25,12 +25,15 @@ class RecentCallsPage extends StatefulWidget {
 
 class _RecentCallsPageState extends State<RecentCallsPage>
     with SearchFieldMixin<RecentCallsPage> {
-  late final CallHistoryManager _manager = CallKitManager.instance.callHistoryManager;
+  late final CallHistoryManager _manager =
+      CallKitManager.instance.callHistoryManager;
 
-  final StreamController<bool> _showSearchController = StreamController<bool>.broadcast();
+  final StreamController<bool> _showSearchController =
+      StreamController<bool>.broadcast();
   Stream<bool> get _showSearchStream => _showSearchController.stream;
 
-  final StreamController<String> _searchTextController = StreamController<String>.broadcast();
+  final StreamController<String> _searchTextController =
+      StreamController<String>.broadcast();
 
   String? _highlightedGroupId;
 
@@ -54,7 +57,6 @@ class _RecentCallsPageState extends State<RecentCallsPage>
 
   @override
   void dispose() {
-    _manager.dispose();
     disposeSearchField();
     _showSearchController.close();
     _searchTextController.close();
@@ -156,7 +158,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       child: StreamBuilder<List<CallLogGroup>>(
         stream: _manager.dataChangeStream,
         initialData: _manager.callLogGroups,
-        builder: (BuildContext context, AsyncSnapshot<List<CallLogGroup>> snapshot) {
+        builder:
+            (BuildContext context, AsyncSnapshot<List<CallLogGroup>> snapshot) {
           switch ((snapshot.connectionState, snapshot.data)) {
             case (ConnectionState.waiting, _):
               return _buildLoadingState();
@@ -211,7 +214,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
     final isHighlighted = _highlightedGroupId == group.groupId;
 
     return ValueListenableBuilder(
-      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey),
+      valueListenable:
+          ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey),
       builder: (context, user, child) {
         return GestureDetector(
           onTap: () => _callBackFromGroup(group),
@@ -248,7 +252,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
     );
   }
 
-  Widget _buildUserAvatar(UserDBISAR user, CallType callType, Color statusColor) {
+  Widget _buildUserAvatar(
+      UserDBISAR user, CallType callType, Color statusColor) {
     return UserAvatar(
       user: user,
       size: 48,
@@ -269,7 +274,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   Widget _buildCallTypeAndDirection(CallLogGroup group, Color statusColor) {
     final theme = Theme.of(context);
 
-    String directionText = group.direction == CallDirection.incoming ? '↙' : '↗';
+    String directionText =
+        group.direction == CallDirection.incoming ? '↙' : '↗';
     String callTypeText = group.type.isVideo ? 'Video' : 'Audio';
     String fullText = '$directionText $callTypeText';
 
@@ -383,10 +389,11 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   }
 
   Color _getCallStatusColor(CallLogGroup group) {
-    if (!group.isConnected && group.direction == CallDirection.incoming) return errorColor;
+    if (!group.isConnected && group.direction == CallDirection.incoming) {
+      return errorColor;
+    }
     return primary;
   }
-
 
   void _toggleSearch() {
     _showSearchController.add(true);
@@ -413,7 +420,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Clear Call History'),
-        content: const Text('Are you sure you want to clear all call history? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to clear all call history? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -431,7 +439,6 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       await _manager.deleteAllHistory();
     }
   }
-
 
   Future<void> _callBackFromGroup(CallLogGroup group) async {
     _dismissKeyboard();
@@ -452,9 +459,10 @@ class _RecentCallsPageState extends State<RecentCallsPage>
     }
   }
 
-
-  void _showContextMenu(BuildContext context, GlobalKey key, CallLogGroup group) {
-    final RenderBox? renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+  void _showContextMenu(
+      BuildContext context, GlobalKey key, CallLogGroup group) {
+    final RenderBox? renderBox =
+        key.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     setState(() {
@@ -575,12 +583,14 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   }
 
   Future<void> _deleteCallGroup(CallLogGroup group) async {
-    final user = ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+    final user =
+        ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Call History'),
-        content: Text('Are you sure you want to delete call history with ${user.displayName()}? This action cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete call history with ${user.displayName()}? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -598,7 +608,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       try {
         await _manager.deleteCallLogGroup(group.groupId);
         if (mounted) {
-          AppSnackBar.info(context, 'Call history with ${user.displayName()} deleted');
+          AppSnackBar.info(
+              context, 'Call history with ${user.displayName()} deleted');
         }
       } catch (e) {
         if (mounted) {
@@ -621,14 +632,17 @@ class _RecentCallsPageState extends State<RecentCallsPage>
     FocusScope.of(context).unfocus();
   }
 
-  List<CallLogGroup> _filterCallGroups(List<CallLogGroup> groups, String query) {
+  List<CallLogGroup> _filterCallGroups(
+      List<CallLogGroup> groups, String query) {
     if (query.isEmpty) {
       return groups;
     }
 
     final lowercaseQuery = query.toLowerCase();
     return groups.where((group) {
-      final user = ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+      final user = ChatCore.Account.sharedInstance
+          .getUserNotifier(group.peerPubkey)
+          .value;
       final displayName = user.displayName().toLowerCase();
       return displayName.contains(lowercaseQuery);
     }).toList();
@@ -646,7 +660,8 @@ extension _CallLogGroupEx on CallLogGroup {
   String get formattedLastCallTime {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final callDate = DateTime(lastCallTime.year, lastCallTime.month, lastCallTime.day);
+    final callDate =
+        DateTime(lastCallTime.year, lastCallTime.month, lastCallTime.day);
 
     // Today: show time (e.g., "14:04")
     if (callDate == today) {
@@ -676,7 +691,15 @@ extension _CallLogGroupEx on CallLogGroup {
   }
 
   String _getWeekdayName(int weekday) {
-    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
     return weekdays[weekday - 1];
   }
 }

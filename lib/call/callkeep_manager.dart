@@ -20,6 +20,7 @@ class CallKeepManager implements CallKeepActions {
 
   final StreamController<Map<String, dynamic>> _callEventController =
       StreamController<Map<String, dynamic>>.broadcast();
+  bool _isDisposed = false;
 
   String? get currentCallId => _currentCallId;
   String? get currentCallerName => _currentCallerName;
@@ -233,6 +234,8 @@ class CallKeepManager implements CallKeepActions {
   }
 
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     _callEventController.close();
   }
 }
