@@ -299,6 +299,7 @@ class AuthService {
       await _dependencies.runtime.initChatCore(config);
 
       await _dependencies.runtime.initRtc();
+      await _dependencies.runtime.initRelayPush();
 
       isAuthenticated = true;
       LogUtils.i(() =>
@@ -367,13 +368,14 @@ class AuthService {
 
   Future<void> logout() async {
     try {
+      // Clear relay push subscriptions while the account can still sign
+      // NIP-09 deletion events.
+      await _dependencies.runtime.clearPushTokens();
+
       await _logout();
 
       await _dependencies.preferences.remove(_userKey);
       await _dependencies.preferences.remove(_loginMethodKey);
-
-      // Clear VoIP push token data (best practice: clear on logout)
-      await _dependencies.runtime.clearPushTokens();
 
       _currentUserPubkey = null;
       _currentUserNpub = null;

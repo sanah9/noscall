@@ -172,16 +172,19 @@ class NipAcProtocol {
     );
   }
 
-  static Future<Event> wrap(Event innerEvent, String receiver, {String? sealedPrivkey}) async {
+  static Future<Event> wrap(Event innerEvent, String receiver,
+      {String? sealedPrivkey}) async {
     final encodedInner = jsonEncode(innerEvent.toJson());
     final localSealedPrivkey = sealedPrivkey ?? Keychain.generate().private;
     final localSealedPubkey = bip340.getPublicKey(localSealedPrivkey);
-    final content =
-        await Nip44.encryptContent(encodedInner, receiver, localSealedPubkey, localSealedPrivkey);
+    final content = await Nip44.encryptContent(
+        encodedInner, receiver, localSealedPubkey, localSealedPrivkey);
     return Event.from(
       kind: wrapKind,
       tags: [
-        ['p', receiver]
+        ['p', receiver],
+        if (innerEvent.kind == NipAcKind.offer.value)
+          ['k', NipAcKind.offer.value.toString()],
       ],
       content: content,
       pubkey: localSealedPubkey,
@@ -189,7 +192,8 @@ class NipAcProtocol {
     );
   }
 
-  static Future<Event> unwrap(Event wrappedEvent, String myPubkey, String myPrivkey) async {
+  static Future<Event> unwrap(
+      Event wrappedEvent, String myPubkey, String myPrivkey) async {
     if (wrappedEvent.kind != wrapKind) {
       throw Exception('${wrappedEvent.kind} is not nip-ac wrapped event');
     }
@@ -204,7 +208,8 @@ class NipAcProtocol {
     return Event.fromJson(map, verify: true);
   }
 
-  static Future<Event?> tryUnwrap(Event wrappedEvent, String myPubkey, String myPrivkey) async {
+  static Future<Event?> tryUnwrap(
+      Event wrappedEvent, String myPubkey, String myPrivkey) async {
     try {
       return await unwrap(wrappedEvent, myPubkey, myPrivkey);
     } catch (_) {
@@ -220,8 +225,12 @@ class NipAcProtocol {
 
     final receiver = _firstTagValue(innerEvent.tags, 'p');
     final callId = _firstTagValue(innerEvent.tags, 'call-id');
-    final callType = _normalizeCallTypeForIncoming(_firstTagValue(innerEvent.tags, 'call-type'));
-    if (receiver == null || receiver != myPubkey || callId == null || callId.isEmpty) {
+    final callType = _normalizeCallTypeForIncoming(
+        _firstTagValue(innerEvent.tags, 'call-type'));
+    if (receiver == null ||
+        receiver != myPubkey ||
+        callId == null ||
+        callId.isEmpty) {
       throw Exception('invalid nip-ac signaling tags');
     }
     if (kind == NipAcKind.offer && (callType == null || callType.isEmpty)) {

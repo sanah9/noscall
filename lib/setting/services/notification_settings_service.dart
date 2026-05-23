@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/core/common/storage/preferences_store.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 
@@ -25,17 +28,25 @@ class NotificationSettingsService {
   bool get doNotDisturb => doNotDisturbNotifier.value;
 
   Future<void> initialize() async {
-    notificationsEnabledNotifier.value = await _prefs.getBool(_keyEnabled) ?? true;
+    notificationsEnabledNotifier.value =
+        await _prefs.getBool(_keyEnabled) ?? true;
     notificationSoundNotifier.value = await _prefs.getBool(_keySound) ?? true;
-    doNotDisturbNotifier.value = await _prefs.getBool(_keyDoNotDisturb) ?? false;
+    doNotDisturbNotifier.value =
+        await _prefs.getBool(_keyDoNotDisturb) ?? false;
   }
 
   Future<void> setNotificationsEnabled(bool value) async {
     final ok = await _prefs.setBool(_keyEnabled, value);
     if (ok) {
       notificationsEnabledNotifier.value = value;
+      if (value) {
+        unawaited(NostrRelayPushService().syncIfDue(force: true));
+      } else {
+        unawaited(NostrRelayPushService().stopAndDelete());
+      }
     } else {
-      LogUtils.w(() => 'NotificationSettingsService.setNotificationsEnabled failed');
+      LogUtils.w(
+          () => 'NotificationSettingsService.setNotificationsEnabled failed');
     }
   }
 
@@ -44,7 +55,8 @@ class NotificationSettingsService {
     if (ok) {
       notificationSoundNotifier.value = value;
     } else {
-      LogUtils.w(() => 'NotificationSettingsService.setNotificationSound failed');
+      LogUtils.w(
+          () => 'NotificationSettingsService.setNotificationSound failed');
     }
   }
 

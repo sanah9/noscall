@@ -121,6 +121,7 @@ class FakeAuthRuntimeGateway implements AuthRuntimeGateway {
   String documentsPath = '/tmp';
   ChatCoreInitConfig? lastConfig;
   bool initRtcCalled = false;
+  bool initRelayPushCalled = false;
   bool clearPushTokensCalled = false;
   Object? initChatCoreError;
   Object? initRtcError;
@@ -143,6 +144,11 @@ class FakeAuthRuntimeGateway implements AuthRuntimeGateway {
   Future<void> initRtc() async {
     if (initRtcError != null) throw initRtcError!;
     initRtcCalled = true;
+  }
+
+  @override
+  Future<void> initRelayPush() async {
+    initRelayPushCalled = true;
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:nostr_core_dart/nostr.dart';
 
+import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/relayDB_isar.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
@@ -58,6 +59,7 @@ extension AccountRelay on Account {
     me!.lastDMRelayListUpdatedTime = currentUnixTimestampSeconds();
     accountRelayRuntime.connectDMRelays();
     syncMe();
+    unawaited(NostrRelayPushService().syncIfDue(force: true));
     Event event =
         await Nip17.encodeDMRelays(relays, currentPubkey, currentPrivkey);
     return accountRelayRuntime.sendEvent(event);
@@ -171,6 +173,7 @@ extension AccountRelay on Account {
     me!.lastRelayListUpdatedTime = currentUnixTimestampSeconds();
     accountRelayRuntime.connectGeneralRelays();
     syncMe();
+    unawaited(NostrRelayPushService().syncIfDue(force: true));
     return OKEvent('', true, '');
   }
 
@@ -179,6 +182,7 @@ extension AccountRelay on Account {
     me!.lastRelayListUpdatedTime = currentUnixTimestampSeconds();
     accountRelayRuntime.connectInboxOutboxRelays();
     syncMe();
+    unawaited(NostrRelayPushService().syncIfDue(force: true));
     return setInboxOutboxToRelay();
   }
 
@@ -187,6 +191,7 @@ extension AccountRelay on Account {
     me!.lastRelayListUpdatedTime = currentUnixTimestampSeconds();
     accountRelayRuntime.connectInboxOutboxRelays();
     syncMe();
+    unawaited(NostrRelayPushService().syncIfDue(force: true));
     return setInboxOutboxToRelay();
   }
 

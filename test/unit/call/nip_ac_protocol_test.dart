@@ -89,13 +89,47 @@ void main() {
 
       final wrapped = await NipAcProtocol.wrap(candidate, receiverPubkey);
       expect(wrapped.kind, NipAcProtocol.wrapKind);
+      expect(
+        wrapped.tags.any((tag) => tag.length >= 2 && tag[0] == 'k'),
+        isFalse,
+      );
 
-      final unwrapped = await NipAcProtocol.unwrap(wrapped, receiverPubkey, receiverPrivkey);
+      final unwrapped =
+          await NipAcProtocol.unwrap(wrapped, receiverPubkey, receiverPrivkey);
       expect(unwrapped.kind, NipAcKind.candidate.value);
 
       final decoded = NipAcProtocol.decodeInner(unwrapped, receiverPubkey);
       expect(decoded.callId, 'call-002');
       expect(decoded.state, SignalingState.candidate);
+    });
+
+    test('offer wrapper includes NIP-AC offer marker for relay push', () async {
+      final offer = await NipAcProtocol.createOffer(
+        toPubkey: receiverPubkey,
+        callId: 'call-push-001',
+        callType: 'voice',
+        sdp: 'v=0\no=push',
+        pubkey: senderPubkey,
+        privkey: senderPrivkey,
+      );
+
+      final wrapped = await NipAcProtocol.wrap(offer, receiverPubkey);
+
+      expect(
+        wrapped.tags.any(
+          (tag) => tag.length >= 2 && tag[0] == 'p' && tag[1] == receiverPubkey,
+        ),
+        isTrue,
+      );
+      expect(
+        wrapped.tags.any(
+          (tag) =>
+              tag.length >= 2 &&
+              tag[0] == 'k' &&
+              tag[1] == NipAcKind.offer.value.toString(),
+        ),
+        isTrue,
+      );
     });
 
     test('unwrap rejects tampered inner event signature', () async {
@@ -138,8 +172,10 @@ void main() {
         privkey: senderPrivkey,
       );
 
-      expect(NipAcProtocol.decodeInner(reject, receiverPubkey).state, SignalingState.disconnect);
-      expect(NipAcProtocol.decodeInner(hangup, receiverPubkey).state, SignalingState.disconnect);
+      expect(NipAcProtocol.decodeInner(reject, receiverPubkey).state,
+          SignalingState.disconnect);
+      expect(NipAcProtocol.decodeInner(hangup, receiverPubkey).state,
+          SignalingState.disconnect);
     });
   });
 }

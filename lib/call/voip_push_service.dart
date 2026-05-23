@@ -7,10 +7,12 @@ import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'call_kit_manager.dart';
 import 'constant/call_type.dart';
+import 'nostr_push_payload_handler.dart';
+import 'nostr_relay_push_service.dart';
 import 'push_token_service.dart';
 
 /// Service for handling iOS VoIP push notifications
-/// 
+///
 /// This service listens to VoIP push notifications from native layer
 /// and processes incoming call notifications when the app is in background or killed state
 class VoIPPushService {
@@ -66,7 +68,8 @@ class VoIPPushService {
           LogUtils.w(() => 'VoIPPushService: Unknown method: ${call.method}');
       }
     } catch (e, stack) {
-      LogUtils.e(() => 'VoIPPushService: Error handling ${call.method}: $e, $stack');
+      LogUtils.e(
+          () => 'VoIPPushService: Error handling ${call.method}: $e, $stack');
     }
   }
 
@@ -77,12 +80,14 @@ class VoIPPushService {
       return;
     }
 
-    LogUtils.i(() => 'VoIPPushService: VoIP push token updated: ${token.substring(0, 20)}...');
-    
+    LogUtils.i(() =>
+        'VoIPPushService: VoIP push token updated: ${token.substring(0, 20)}...');
+
     // Only upload token when user is authenticated
     final authService = AuthService();
     if (!authService.isAuthenticated) {
-      LogUtils.v(() => 'VoIPPushService: User not authenticated, token upload deferred');
+      LogUtils.v(() =>
+          'VoIPPushService: User not authenticated, token upload deferred');
       return;
     }
 
@@ -91,12 +96,17 @@ class VoIPPushService {
     if (shouldUpload) {
       final success = await PushTokenService().uploadVoIPToken(token);
       if (success) {
-        LogUtils.i(() => 'VoIPPushService: VoIP token uploaded to server successfully');
+        LogUtils.i(() =>
+            'VoIPPushService: VoIP token uploaded to server successfully');
+        await NostrRelayPushService().sync(force: true);
       } else {
-        LogUtils.w(() => 'VoIPPushService: Failed to upload VoIP token to server');
+        LogUtils.w(
+            () => 'VoIPPushService: Failed to upload VoIP token to server');
       }
     } else {
-      LogUtils.v(() => 'VoIPPushService: VoIP token unchanged, skipping upload');
+      LogUtils.v(
+          () => 'VoIPPushService: VoIP token unchanged, skipping upload');
+      await NostrRelayPushService().syncIfDue(force: true);
     }
   }
 
@@ -110,7 +120,7 @@ class VoIPPushService {
 
     try {
       LogUtils.i(() => 'VoIPPushService: Received VoIP push notification');
-      
+
       // Parse payload - the payload structure depends on your server implementation
       // Expected format:
       // {
@@ -119,14 +129,21 @@ class VoIPPushService {
       //   "data": "string",        // JSON string containing call signaling data
       //   "media": "audio" | "video"  // Call type
       // }
-      
+
       Map<String, dynamic> payloadMap;
       if (payload is Map) {
         payloadMap = Map<String, dynamic>.from(payload);
       } else if (payload is String) {
         payloadMap = jsonDecode(payload) as Map<String, dynamic>;
       } else {
-        LogUtils.e(() => 'VoIPPushService: Invalid payload type: ${payload.runtimeType}');
+        LogUtils.e(() =>
+            'VoIPPushService: Invalid payload type: ${payload.runtimeType}');
+        return;
+      }
+
+      final nostrHandler = NostrPushPayloadHandler();
+      if (nostrHandler.isNostrRelayPushPayload(payloadMap)) {
+        await nostrHandler.handle(payloadMap);
         return;
       }
 
@@ -151,7 +168,8 @@ class VoIPPushService {
         return;
       }
 
-      LogUtils.i(() => 'VoIPPushService: Processing incoming call from $peerId, offerId: $offerId');
+      LogUtils.i(() =>
+          'VoIPPushService: Processing incoming call from $peerId, offerId: $offerId');
 
       // Trigger the incoming call flow through CallKitManager
       // This will display the incoming call UI using CallKit
@@ -167,15 +185,15 @@ class VoIPPushService {
         LogUtils.e(() => 'VoIPPushService: CallKitManager is not initialized');
       }
     } catch (e, stack) {
-      LogUtils.e(() => 'VoIPPushService: Error processing VoIP push: $e, $stack');
+      LogUtils.e(
+          () => 'VoIPPushService: Error processing VoIP push: $e, $stack');
     }
   }
 
   /// Handle VoIP push token invalidation
   Future<void> _handleVoIPTokenInvalidated() async {
     LogUtils.w(() => 'VoIPPushService: VoIP push token invalidated');
-    // TODO: Notify server that token is invalid
-    // await yourServerApi.invalidateVoIPToken();
+    await NostrRelayPushService().stopAndDelete();
   }
 
   /// Parse signaling state from payload
@@ -190,7 +208,7 @@ class VoIPPushService {
     if (media == null || media.isEmpty) {
       return null; // Let CallKitManager determine from data
     }
-    
+
     return CallTypeEx.fromValue(media);
   }
 
@@ -204,4 +222,3 @@ class VoIPPushService {
     }
   }
 }
-

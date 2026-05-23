@@ -11,6 +11,7 @@ import 'package:noscall/utils/router.dart';
 import 'package:noscall/utils/loading.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/call/call_kit_manager.dart';
+import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
 import 'package:noscall/contacts/services/contact_remark_service.dart';
 import 'package:noscall/core/ui/status_bar_style.dart';
@@ -112,6 +113,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       _disposeRuntimeServices();
+    } else if (state == AppLifecycleState.resumed &&
+        AuthService().isAuthenticated) {
+      unawaited(NostrRelayPushService().syncIfDue());
     }
   }
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:noscall/call/call_kit_manager.dart';
+import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/call/push_token_service.dart';
 import 'package:noscall/core/common/config/call_core_init_config.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
@@ -121,6 +122,7 @@ abstract class AuthRuntimeGateway {
   Future<String> getApplicationDocumentsPath();
   Future<void> initChatCore(ChatCoreInitConfig config);
   Future<void> initRtc();
+  Future<void> initRelayPush();
   Future<void> clearPushTokens();
 }
 
@@ -129,7 +131,7 @@ class DefaultAuthRuntimeGateway implements AuthRuntimeGateway {
 
   @override
   Future<void> clearPushTokens() async {
-    await PushTokenService().clearVoIPToken();
+    await NostrRelayPushService().stopAndDelete();
   }
 
   @override
@@ -145,6 +147,12 @@ class DefaultAuthRuntimeGateway implements AuthRuntimeGateway {
   @override
   Future<void> initRtc() async {
     await CallKitManager.instance.initRTC();
+  }
+
+  @override
+  Future<void> initRelayPush() async {
+    await PushTokenService().initializePlatformPush();
+    await NostrRelayPushService().syncIfDue(force: true);
   }
 }
 
