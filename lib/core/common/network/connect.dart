@@ -9,6 +9,7 @@ import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
+import 'connect_send_tracker.dart';
 import 'connect_status_notifier.dart';
 import 'connect_subscription_queue.dart';
 import 'connect_timeout_checker.dart';
@@ -59,8 +60,7 @@ class Connect {
 
   // subscriptionId+relay, Requests
   Map<String, Requests> requestsMap = {};
-  // send event callback
-  Map<String, Sends> sendsMap = {};
+  Map<String, Sends> get sendsMap => _sendTracker.sends;
   List<ConnectStatusCallBack> get connectStatusListeners =>
       _statusNotifier.listeners;
   // for timeout
@@ -73,6 +73,7 @@ class Connect {
       _subscriptionQueue.waitingByRelay;
 
   final ConnectAuthState _authState = ConnectAuthState();
+  final ConnectSendTracker _sendTracker = ConnectSendTracker();
   final ConnectStatusNotifier _statusNotifier = ConnectStatusNotifier();
   final ConnectSubscriptionQueue _subscriptionQueue =
       ConnectSubscriptionQueue(maxInFlight: maxSubscriptionsCount);
@@ -275,7 +276,7 @@ class Connect {
     });
 
     // Clear all state
-    sendsMap.clear();
+    _sendTracker.clear();
     requestsMap.clear();
     _authState.clear();
     eventCheckerFutures.clear();
@@ -417,14 +418,12 @@ class Connect {
         : List.from(toRelays);
     LogUtils.v(() =>
         'send event toRelays: ${jsonEncode(rs)}, eventString: $eventString');
-    Sends sends = Sends(
-        generate64RandomHexChars(),
-        rs,
-        DateTime.now().millisecondsSinceEpoch,
-        event.id,
-        sendCallBack,
-        eventString);
-    sendsMap[event.id] = sends;
+    _sendTracker.trackEvent(
+      eventId: event.id,
+      eventString: eventString,
+      relays: rs,
+      okCallBack: sendCallBack,
+    );
     _send(eventString, toRelays: rs);
   }
 
@@ -571,12 +570,7 @@ class Connect {
     LogUtils.v(() => 'receive notice: $notice, $relay');
     String n = jsonDecode(notice)[0];
 
-    List<String> requestsMapKeys =
-        requestsMap.keys.where((element) => element.contains(relay)).toList();
-    for (var requestsMapKey in requestsMapKeys) {
-      _removeRequestsMapRelay(
-          requestsMapKey.replaceAll(relay, ''), relay, true);
-    }
+    _removeRequestsForRelay(relay);
 
     noticeCallBack?.call(n, relay);
   }
@@ -591,35 +585,16 @@ class Connect {
       }
       return;
     }
-    if (sendsMap.containsKey(ok.eventId)) {
-      // check need auth
-      if (!ok.status && Nip42.authRequired(ok.message)) {
-        String eventString = sendsMap[ok.eventId]!.eventString;
-        _authState.queueResend(relay, eventString);
-        _sendAuth(relay);
-        return;
-      }
-      // callback
-      if (sendsMap[ok.eventId]!.okCallBack != null) {
-        var relays = sendsMap[ok.eventId]!.relays;
-        relays.remove(relay);
-        if (ok.status || relays.isEmpty) {
-          sendsMap[ok.eventId]!.okCallBack!(ok, relay);
-          sendsMap.remove(ok.eventId);
-        } else if (!ok.status && ok.eventId.isEmpty) {
-          List<String> requestsMapKeys = requestsMap.keys
-              .where((element) => element.contains(relay))
-              .toList();
-          for (var requestsMapKey in requestsMapKeys) {
-            _removeRequestsMapRelay(
-                requestsMapKey.replaceAll(relay, ''), relay, true);
-          }
-        }
-      } else {
-        var relays = sendsMap[ok.eventId]!.relays;
-        relays.remove(relay);
-        if (relays.isEmpty) sendsMap.remove(ok.eventId);
-      }
+    final sendResult = _sendTracker.handleOk(ok, relay);
+    final authEventString = sendResult.authRequiredEventString;
+    if (authEventString != null) {
+      _authState.queueResend(relay, authEventString);
+      _sendAuth(relay);
+      return;
+    }
+    final failedRelay = sendResult.failedRelayForRequests;
+    if (failedRelay != null) {
+      _removeRequestsForRelay(failedRelay);
     }
   }
 
@@ -649,6 +624,15 @@ class Connect {
     requestsMap[requestsMapKey]?.eoseCallBack = null;
     if (request.closeSubscription) {
       _closeSubscription(subscriptionId, removeRelay);
+    }
+  }
+
+  void _removeRequestsForRelay(String relay) {
+    List<String> requestsMapKeys =
+        requestsMap.keys.where((element) => element.contains(relay)).toList();
+    for (var requestsMapKey in requestsMapKeys) {
+      _removeRequestsMapRelay(
+          requestsMapKey.replaceAll(relay, ''), relay, true);
     }
   }
 
