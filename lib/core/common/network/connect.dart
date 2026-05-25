@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
 import 'connect_status_notifier.dart';
 import 'connect_subscription_queue.dart';
@@ -64,14 +65,14 @@ class Connect {
       _statusNotifier.listeners;
   // for timeout
   Timer? timer;
-  // relay AUTH
-  Map<String, AuthData> auths = {};
+  Map<String, AuthData> get auths => _authState.auths;
 
   Map<String, List<Future<bool>>> eventCheckerFutures = {};
 
   Map<String, List<String>> get subscriptionsWaitingQueue =>
       _subscriptionQueue.waitingByRelay;
 
+  final ConnectAuthState _authState = ConnectAuthState();
   final ConnectStatusNotifier _statusNotifier = ConnectStatusNotifier();
   final ConnectSubscriptionQueue _subscriptionQueue =
       ConnectSubscriptionQueue(maxInFlight: maxSubscriptionsCount);
@@ -276,7 +277,7 @@ class Connect {
     // Clear all state
     sendsMap.clear();
     requestsMap.clear();
-    auths.clear();
+    _authState.clear();
     eventCheckerFutures.clear();
     _subscriptionQueue.clear();
     _currentConnectivity = null;
@@ -558,9 +559,7 @@ class Connect {
       if (Nip42.authRequired(closed.message)) {
         String subscriptionString =
             requestsMap[requestsMapKey]!.subscriptionString;
-        if (auths[relay]?.resendDatas.contains(subscriptionString) == false) {
-          auths[relay]?.resendDatas.add(subscriptionString);
-        }
+        _authState.queueResend(relay, subscriptionString);
         _sendAuth(relay);
         return;
       }
@@ -585,23 +584,18 @@ class Connect {
   Future<void> _handleOk(OKEvent ok, String relay) async {
     LogUtils.v(() => 'receive ok: ${ok.serialize()}, $relay');
     // check auth response
-    if (auths[relay]?.eventId == ok.eventId) {
-      if (ok.status) {
-        for (var data in auths[relay]?.resendDatas ?? []) {
-          LogUtils.v(() => 're-send: $data');
-          _send(data, toRelays: [relay]);
-        }
+    if (_authState.isAuthResponse(ok, relay)) {
+      for (var data in _authState.completeAuthResponse(ok, relay)) {
+        LogUtils.v(() => 're-send: $data');
+        _send(data, toRelays: [relay]);
       }
-      auths.remove(relay);
       return;
     }
     if (sendsMap.containsKey(ok.eventId)) {
       // check need auth
       if (!ok.status && Nip42.authRequired(ok.message)) {
         String eventString = sendsMap[ok.eventId]!.eventString;
-        if (auths[relay]?.resendDatas.contains(eventString) == false) {
-          auths[relay]?.resendDatas.add(eventString);
-        }
+        _authState.queueResend(relay, eventString);
         _sendAuth(relay);
         return;
       }
@@ -631,12 +625,7 @@ class Connect {
 
   void _handleAuth(Auth auth, String relay) {
     LogUtils.v(() => 'receive auth: ${auth.challenge}');
-    if (!auths.containsKey(relay)) {
-      auths[relay] = AuthData(auth.challenge, '', []);
-    } else if (auths[relay]?.challenge != auth.challenge) {
-      auths[relay]?.challenge = auth.challenge;
-      auths[relay]?.eventId = '';
-    }
+    _authState.registerChallenge(auth, relay);
   }
 
   void _removeRequestsMapRelay(
@@ -664,18 +653,16 @@ class Connect {
   }
 
   Future<void> _sendAuth(String relay) async {
-    String? challenge = auths[relay]?.challenge;
+    String? challenge = _authState.challengeFor(relay);
     if (challenge == null || challenge.isEmpty) return;
-    String? eventId = auths[relay]?.eventId;
-    if (eventId?.isNotEmpty == true) return;
-    auths[relay]!.eventId = 'sending...';
+    if (!_authState.markSending(relay)) return;
     Event event = await Nip42.encode(
         challenge,
         relay,
         Account.sharedInstance.currentPubkey,
         Account.sharedInstance.currentPrivkey);
     var authJson = Nip42.authString(event);
-    auths[relay]!.eventId = event.id;
+    _authState.markSent(relay, event.id);
     LogUtils.v(() => 'send auth: $authJson');
     _send(authJson, toRelays: [relay]);
   }

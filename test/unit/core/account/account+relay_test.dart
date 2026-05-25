@@ -6,6 +6,7 @@ import 'package:noscall/core/account/account_dependencies.dart';
 import 'package:noscall/core/account/account_relay_dependencies.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../helpers/test_data.dart';
 import '../../../helpers/test_helpers.dart';
 
@@ -82,6 +83,8 @@ class FakeAccountRelayRuntime implements AccountRelayRuntime {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Account Relay Management', () {
     late Account account;
     late FakeAccountPersistence persistence;
@@ -89,6 +92,7 @@ void main() {
     late Keychain keychain;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       account = Account.sharedInstance;
       persistence = FakeAccountPersistence();
       relayRuntime = FakeAccountRelayRuntime();
