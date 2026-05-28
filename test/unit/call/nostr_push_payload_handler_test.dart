@@ -5,6 +5,7 @@ import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
+import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
 void main() {
@@ -16,6 +17,15 @@ void main() {
       '0000000000000000000000000000000000000000000000000000000000000002';
   const receiverPubkey =
       'c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5';
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await ThreadPoolManager.sharedInstance.initialize();
+  });
+
+  tearDownAll(() {
+    ThreadPoolManager.sharedInstance.dispose();
+  });
 
   setUp(() {
     Account.sharedInstance.currentPubkey = receiverPubkey;

@@ -7,7 +7,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
+import 'connect_request_tracker.dart';
+import 'connect_send_tracker.dart';
 import 'connect_status_notifier.dart';
 import 'connect_subscription_queue.dart';
 import 'connect_timeout_checker.dart';
@@ -56,22 +59,23 @@ class Connect {
   /// sockets
   Map<String, ISocket> webSockets = {};
 
-  // subscriptionId+relay, Requests
-  Map<String, Requests> requestsMap = {};
-  // send event callback
-  Map<String, Sends> sendsMap = {};
+  Map<String, Requests> get requestsMap => _requestTracker.requests;
+  Map<String, Sends> get sendsMap => _sendTracker.sends;
   List<ConnectStatusCallBack> get connectStatusListeners =>
       _statusNotifier.listeners;
   // for timeout
   Timer? timer;
-  // relay AUTH
-  Map<String, AuthData> auths = {};
+  Map<String, AuthData> get auths => _authState.auths;
 
-  Map<String, List<Future<bool>>> eventCheckerFutures = {};
+  Map<String, List<Future<bool>>> get eventCheckerFutures =>
+      _requestTracker.eventChecks;
 
   Map<String, List<String>> get subscriptionsWaitingQueue =>
       _subscriptionQueue.waitingByRelay;
 
+  final ConnectAuthState _authState = ConnectAuthState();
+  final ConnectRequestTracker _requestTracker = ConnectRequestTracker();
+  final ConnectSendTracker _sendTracker = ConnectSendTracker();
   final ConnectStatusNotifier _statusNotifier = ConnectStatusNotifier();
   final ConnectSubscriptionQueue _subscriptionQueue =
       ConnectSubscriptionQueue(maxInFlight: maxSubscriptionsCount);
@@ -274,10 +278,9 @@ class Connect {
     });
 
     // Clear all state
-    sendsMap.clear();
-    requestsMap.clear();
-    auths.clear();
-    eventCheckerFutures.clear();
+    _sendTracker.clear();
+    _requestTracker.clear();
+    _authState.clear();
     _subscriptionQueue.clear();
     _currentConnectivity = null;
     _isInitialized = false;
@@ -329,24 +332,16 @@ class Connect {
       {EventCallBack? eventCallBack,
       EOSECallBack? eoseCallBack,
       bool closeSubscription = true}) {
-    /// Create a subscription message request with one or many filters
-    String requestsId = generate64RandomHexChars();
-    for (String relay in filters.keys) {
-      Request requestWithFilter = Request(requestsId, filters[relay]!);
-      String subscriptionString = requestWithFilter.serialize();
-
-      /// add request to request map
-      Requests requests = Requests(requestsId, filters.keys.toList(), 0, {},
-          eventCallBack, eoseCallBack, subscriptionString, closeSubscription);
-      requests.subscriptions[relay] = requestWithFilter.subscriptionId;
-      requestsMap[requestWithFilter.subscriptionId + relay] = requests;
-
-      /// Send a request message to the WebSocket server
-      _addSubscriptionToQueue(requestsId, relay);
-
-      LogUtils.v(() => '$subscriptionString, $relay');
-    }
-    return requestsId;
+    return _requestTracker.addSubscriptions(
+      filters,
+      eventCallBack: eventCallBack,
+      eoseCallBack: eoseCallBack,
+      closeSubscription: closeSubscription,
+      onSubscription: (requestId, relay, subscriptionString) {
+        _addSubscriptionToQueue(requestId, relay);
+        LogUtils.v(() => '$subscriptionString, $relay');
+      },
+    );
   }
 
   void _addSubscriptionToQueue(String subscriptionId, String relay) {
@@ -357,10 +352,8 @@ class Connect {
   void _sendSubscription(String relay) {
     final subscriptionId = _subscriptionQueue.takeNext(relay, requestsMap);
     if (subscriptionId != null) {
-      var request = requestsMap[subscriptionId + relay];
+      var request = _requestTracker.markSubscriptionSent(subscriptionId, relay);
       if (request != null) {
-        requestsMap[subscriptionId + relay]!.requestTime =
-            DateTime.now().millisecondsSinceEpoch;
         _send(request.subscriptionString, toRelays: [relay]);
       }
     } else {
@@ -376,29 +369,19 @@ class Connect {
     if (subscriptionId.isNotEmpty) {
       _send(Close(subscriptionId).serialize(), toRelays: [relay]);
       // remove the mapping
-      requestsMap.remove(subscriptionId + relay);
+      _requestTracker.removeSubscription(subscriptionId, relay);
       _sendSubscription(relay);
     }
   }
 
   Future closeRequests(String requestId, {String? relay}) async {
-    Iterable<String> requestsMapKeys = List<String>.from(requestsMap.keys);
-    for (var key in requestsMapKeys) {
-      var requests = requestsMap[key];
-      if (requests!.requestId == requestId) {
-        if (relay != null) {
-          if (requests.subscriptions[relay] != null) {
-            await _closeSubscription(requests.subscriptions[relay]!, relay);
-          }
-        } else {
-          for (var relay in relays()) {
-            if (requests.subscriptions[relay] != null) {
-              await _closeSubscription(requests.subscriptions[relay]!, relay);
-            }
-          }
-        }
-        return;
-      }
+    final targets = _requestTracker.closeTargets(
+      requestId,
+      relay: relay,
+      connectedRelays: relays(),
+    );
+    for (final target in targets) {
+      await _closeSubscription(target.subscriptionId, target.relay);
     }
   }
 
@@ -416,14 +399,12 @@ class Connect {
         : List.from(toRelays);
     LogUtils.v(() =>
         'send event toRelays: ${jsonEncode(rs)}, eventString: $eventString');
-    Sends sends = Sends(
-        generate64RandomHexChars(),
-        rs,
-        DateTime.now().millisecondsSinceEpoch,
-        event.id,
-        sendCallBack,
-        eventString);
-    sendsMap[event.id] = sends;
+    _sendTracker.trackEvent(
+      eventId: event.id,
+      eventString: eventString,
+      relays: rs,
+      okCallBack: sendCallBack,
+    );
     _send(eventString, toRelays: rs);
   }
 
@@ -494,27 +475,7 @@ class Connect {
   }
 
   Future<bool> _checkValidEvent(Event event, String relay) async {
-    String? subscriptionId = event.subscriptionId;
-    if (subscriptionId != null) {
-      String requestsMapKey = subscriptionId + relay;
-      if (subscriptionId.isNotEmpty &&
-          requestsMap.containsKey(requestsMapKey)) {
-        // reset requestTime
-        requestsMap[requestsMapKey]!.requestTime =
-            DateTime.now().millisecondsSinceEpoch;
-        EventCallBack? callBack = requestsMap[requestsMapKey]!.eventCallBack;
-        if (callBack != null) {
-          EventCache.sharedInstance.receiveEvent(event, relay);
-          // check sign
-          if (await event.isValid() == false) {
-            return false;
-          }
-          callBack(event, relay);
-          return true;
-        }
-      }
-    }
-    return false;
+    return _requestTracker.checkValidEvent(event, relay);
   }
 
   Future<void> _handleEvent(Event event, String relay) async {
@@ -531,20 +492,15 @@ class Connect {
 
     Future<bool> future = _checkValidEvent(event, relay);
     if (event.subscriptionId != null && event.subscriptionId!.isNotEmpty) {
-      eventCheckerFutures[event.subscriptionId! + relay] ??= [];
-      eventCheckerFutures[event.subscriptionId! + relay]?.add(future);
+      _requestTracker.trackEventCheck(event.subscriptionId!, relay, future);
     }
   }
 
   Future<void> _handleEOSE(String eose, String relay, bool timeout) async {
     LogUtils.v(() => 'receive EOSE: $eose, $relay, timeout: $timeout');
-    String subscriptionId = jsonDecode(eose)[0];
-    String requestsMapKey = subscriptionId + relay;
-    if (subscriptionId.isNotEmpty && requestsMap.containsKey(requestsMapKey)) {
-      if (eventCheckerFutures.containsKey(requestsMapKey)) {
-        await Future.wait(eventCheckerFutures[requestsMapKey]!);
-        eventCheckerFutures.remove(requestsMapKey);
-      }
+    String subscriptionId = _requestTracker.requestIdFromEose(eose);
+    if (_requestTracker.containsSubscription(subscriptionId, relay)) {
+      await _requestTracker.waitForEventChecks(subscriptionId, relay);
       _removeRequestsMapRelay(subscriptionId, relay, timeout);
     }
   }
@@ -552,14 +508,13 @@ class Connect {
   void _handleCLOSED(Closed closed, String relay) {
     LogUtils.v(() => 'receive closed: ${closed.serialize()}, $relay');
     String subscriptionId = closed.subscriptionId;
-    String requestsMapKey = subscriptionId + relay;
-    if (subscriptionId.isNotEmpty && requestsMap.containsKey(requestsMapKey)) {
+    if (_requestTracker.containsSubscription(subscriptionId, relay)) {
       // check auth
       if (Nip42.authRequired(closed.message)) {
-        String subscriptionString =
-            requestsMap[requestsMapKey]!.subscriptionString;
-        if (auths[relay]?.resendDatas.contains(subscriptionString) == false) {
-          auths[relay]?.resendDatas.add(subscriptionString);
+        final subscriptionString =
+            _requestTracker.subscriptionStringFor(subscriptionId, relay);
+        if (subscriptionString != null) {
+          _authState.queueResend(relay, subscriptionString);
         }
         _sendAuth(relay);
         return;
@@ -572,12 +527,7 @@ class Connect {
     LogUtils.v(() => 'receive notice: $notice, $relay');
     String n = jsonDecode(notice)[0];
 
-    List<String> requestsMapKeys =
-        requestsMap.keys.where((element) => element.contains(relay)).toList();
-    for (var requestsMapKey in requestsMapKeys) {
-      _removeRequestsMapRelay(
-          requestsMapKey.replaceAll(relay, ''), relay, true);
-    }
+    _removeRequestsForRelay(relay);
 
     noticeCallBack?.call(n, relay);
   }
@@ -585,97 +535,58 @@ class Connect {
   Future<void> _handleOk(OKEvent ok, String relay) async {
     LogUtils.v(() => 'receive ok: ${ok.serialize()}, $relay');
     // check auth response
-    if (auths[relay]?.eventId == ok.eventId) {
-      if (ok.status) {
-        for (var data in auths[relay]?.resendDatas ?? []) {
-          LogUtils.v(() => 're-send: $data');
-          _send(data, toRelays: [relay]);
-        }
+    if (_authState.isAuthResponse(ok, relay)) {
+      for (var data in _authState.completeAuthResponse(ok, relay)) {
+        LogUtils.v(() => 're-send: $data');
+        _send(data, toRelays: [relay]);
       }
-      auths.remove(relay);
       return;
     }
-    if (sendsMap.containsKey(ok.eventId)) {
-      // check need auth
-      if (!ok.status && Nip42.authRequired(ok.message)) {
-        String eventString = sendsMap[ok.eventId]!.eventString;
-        if (auths[relay]?.resendDatas.contains(eventString) == false) {
-          auths[relay]?.resendDatas.add(eventString);
-        }
-        _sendAuth(relay);
-        return;
-      }
-      // callback
-      if (sendsMap[ok.eventId]!.okCallBack != null) {
-        var relays = sendsMap[ok.eventId]!.relays;
-        relays.remove(relay);
-        if (ok.status || relays.isEmpty) {
-          sendsMap[ok.eventId]!.okCallBack!(ok, relay);
-          sendsMap.remove(ok.eventId);
-        } else if (!ok.status && ok.eventId.isEmpty) {
-          List<String> requestsMapKeys = requestsMap.keys
-              .where((element) => element.contains(relay))
-              .toList();
-          for (var requestsMapKey in requestsMapKeys) {
-            _removeRequestsMapRelay(
-                requestsMapKey.replaceAll(relay, ''), relay, true);
-          }
-        }
-      } else {
-        var relays = sendsMap[ok.eventId]!.relays;
-        relays.remove(relay);
-        if (relays.isEmpty) sendsMap.remove(ok.eventId);
-      }
+    final sendResult = _sendTracker.handleOk(ok, relay);
+    final authEventString = sendResult.authRequiredEventString;
+    if (authEventString != null) {
+      _authState.queueResend(relay, authEventString);
+      _sendAuth(relay);
+      return;
+    }
+    final failedRelay = sendResult.failedRelayForRequests;
+    if (failedRelay != null) {
+      _removeRequestsForRelay(failedRelay);
     }
   }
 
   void _handleAuth(Auth auth, String relay) {
     LogUtils.v(() => 'receive auth: ${auth.challenge}');
-    if (!auths.containsKey(relay)) {
-      auths[relay] = AuthData(auth.challenge, '', []);
-    } else if (auths[relay]?.challenge != auth.challenge) {
-      auths[relay]?.challenge = auth.challenge;
-      auths[relay]?.eventId = '';
-    }
+    _authState.registerChallenge(auth, relay);
   }
 
   void _removeRequestsMapRelay(
       String subscriptionId, String removeRelay, bool error) {
-    var requestsMapKey = subscriptionId + removeRelay;
-    var request = requestsMap[requestsMapKey];
-    if (request == null) return;
-    request.relays.remove(removeRelay);
-    // remove others relay
-    for (var r in requestsMap.values) {
-      if (r.requestId == request.requestId) {
-        r.relays.remove(removeRelay);
-      }
-    }
-    // all relays have EOSE
-    EOSECallBack? callBack = request.eoseCallBack;
-    OKEvent ok = OKEvent(subscriptionId, !error, '');
-    if (callBack != null) {
-      callBack(subscriptionId, ok, removeRelay, request.relays);
-    }
-    requestsMap[requestsMapKey]?.eoseCallBack = null;
-    if (request.closeSubscription) {
+    final closeSubscription =
+        _requestTracker.completeRelay(subscriptionId, removeRelay, error);
+    if (closeSubscription) {
       _closeSubscription(subscriptionId, removeRelay);
     }
   }
 
+  void _removeRequestsForRelay(String relay) {
+    for (final subscriptionId
+        in _requestTracker.subscriptionIdsForRelay(relay)) {
+      _removeRequestsMapRelay(subscriptionId, relay, true);
+    }
+  }
+
   Future<void> _sendAuth(String relay) async {
-    String? challenge = auths[relay]?.challenge;
+    String? challenge = _authState.challengeFor(relay);
     if (challenge == null || challenge.isEmpty) return;
-    String? eventId = auths[relay]?.eventId;
-    if (eventId?.isNotEmpty == true) return;
-    auths[relay]!.eventId = 'sending...';
+    if (!_authState.markSending(relay)) return;
     Event event = await Nip42.encode(
         challenge,
         relay,
         Account.sharedInstance.currentPubkey,
         Account.sharedInstance.currentPrivkey);
     var authJson = Nip42.authString(event);
-    auths[relay]!.eventId = event.id;
+    _authState.markSent(relay, event.id);
     LogUtils.v(() => 'send auth: $authJson');
     _send(authJson, toRelays: [relay]);
   }
