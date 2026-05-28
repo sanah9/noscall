@@ -18,6 +18,7 @@ import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
 import 'package:noscall/core/call/contacts/contacts+calling.dart';
 import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
+import 'package:noscall/call/local_notification_service.dart';
 
 typedef PrivateChatMessageCallBack = void Function(MessageDBISAR);
 typedef ContactUpdatedCallBack = void Function();
@@ -357,6 +358,14 @@ class Contacts {
           privateChatMessageCallBack?.call(messageDB);
           if (messageDB.type ==
               MessageDBISAR.messageTypeToString(MessageType.voice)) {
+            if (messageDB.sender != pubkey) {
+              final sender =
+                  Account.sharedInstance.getUserNotifier(messageDB.sender).value;
+              LocalNotificationService.instance.showVoiceMessage(
+                senderPubkey: messageDB.sender,
+                senderName: sender.displayName(),
+              ).ignore();
+            }
             VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
           }
         }
@@ -382,6 +391,15 @@ class Contacts {
                 privateChatMessageCallBack?.call(messageDB);
                 if (messageDB.type ==
                     MessageDBISAR.messageTypeToString(MessageType.voice)) {
+                  if (messageDB.sender != pubkey) {
+                    final sender = Account.sharedInstance
+                        .getUserNotifier(messageDB.sender)
+                        .value;
+                    LocalNotificationService.instance.showVoiceMessage(
+                      senderPubkey: messageDB.sender,
+                      senderName: sender.displayName(),
+                    ).ignore();
+                  }
                   VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
                 }
               }
