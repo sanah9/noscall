@@ -1,0 +1,28 @@
+name: callkeep
+description: iOS CallKit framework and Android ConnectionService for Flutter.
+version: 0.4.1
+homepage: https://github.com/flutter-webrtc/callkeep
+
+environment:
+  sdk: ">=2.12.0 <4.0.0"
+  flutter: ">=1.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  logger: ^2.0.2+1
+  uuid: ^4.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  import_sorter: ^4.6.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.github.cloudwebrtc.flutter_callkeep
+        pluginClass: FlutterCallkeepPlugin
+      ios:
+        pluginClass: FlutterCallkeepPlugin

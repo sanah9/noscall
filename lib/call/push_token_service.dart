@@ -160,6 +160,10 @@ class PushTokenService {
     _apiClient = HttpPushTokenApiClient();
   }
 
+  /// Registers UnifiedPush callbacks. Call this once at startup (no UI needed).
+  /// To actually receive push you must also call
+  /// [UnifiedPushDistributorService.ensureDistributorSelected] with a
+  /// BuildContext once the UI is ready.
   Future<bool> initializePlatformPush() async {
     if (!Platform.isAndroid) return false;
     if (_androidMessagingInitialized) return true;
@@ -171,7 +175,6 @@ class PushTokenService {
         onRegistrationFailed: _onRegistrationFailed,
         onUnregistered: _onUnregistered,
       );
-      await UnifiedPush.registerApp('default', null);
       _androidMessagingInitialized = true;
       return true;
     } catch (e, stack) {

@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:noscall/call/unified_push_distributor_service.dart';
+import 'package:noscall/call/widgets/push_distributor_picker.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/setting/services/notification_settings_service.dart';
 
@@ -106,8 +110,66 @@ class NotificationSettingsPage extends StatelessWidget {
               );
             },
           ),
+          if (Platform.isAndroid) ...[
+            const Divider(indent: 16, endIndent: 16),
+            _PushDistributorTile(),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _PushDistributorTile extends StatefulWidget {
+  @override
+  State<_PushDistributorTile> createState() => _PushDistributorTileState();
+}
+
+class _PushDistributorTileState extends State<_PushDistributorTile> {
+  String? _distributor;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final d = await UnifiedPushDistributorService().getStoredDistributor();
+    if (mounted) setState(() => _distributor = d);
+  }
+
+  Future<void> _change() async {
+    await UnifiedPushDistributorService().changeDistributor(context);
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final label = _distributor != null
+        ? distributorDisplayName(_distributor!)
+        : 'None (tap to configure)';
+
+    return ListTile(
+      leading: Icon(Icons.send_to_mobile_outlined, color: colorScheme.primary),
+      title: Text(
+        'Push provider',
+        style: theme.textTheme.titleMedium?.copyWith(
+          color: colorScheme.onSurface,
+        ),
+      ),
+      subtitle: Text(
+        label,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: _distributor == null
+              ? colorScheme.error
+              : colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _change,
     );
   }
 }
