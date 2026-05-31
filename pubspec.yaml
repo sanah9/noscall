@@ -28,8 +28,7 @@ dependencies:
   fluttertoast: ^8.2.8
   flutter_easyloading: ^3.0.5
   shared_preferences: ^2.2.2
-  firebase_core: ^3.15.2
-  firebase_messaging: ^15.2.10
+  unifiedpush: ^5.0.2
   flutter_local_notifications: ^18.0.0
   permission_handler: ^11.3.1
   cached_network_image: ^3.4.1
@@ -51,9 +50,7 @@ dependencies:
 
   # calling
   callkeep:
-    git:
-      url: https://github.com/flutter-webrtc/callkeep.git
-      ref: 20eadd73d8727566da14225d5d608f1ef0a9e2f1
+    path: packages/callkeep
   flutter_webrtc: ^0.12.10
 
   nostr_core_dart:

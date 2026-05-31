@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:unifiedpush/unifiedpush.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:noscall/call/nostr_push_payload_handler.dart';
+import 'package:noscall/call/local_notification_service.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/storage/preferences_store.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
@@ -126,11 +126,11 @@ class HttpPushTokenApiClient implements PushTokenApiClient {
   }
 }
 
-/// Service for managing APN VoIP and FCM push notification tokens.
+/// Service for managing APNs VoIP and UnifiedPush notification tokens.
 ///
-/// The token itself is not treated as a durable source of truth. The app only
-/// persists enough registration metadata to detect changes and construct
-/// NIP-9a relay push subscriptions.
+/// On Android, uses UnifiedPush (ntfy, NextPush, etc.) instead of FCM so the
+/// app has no dependency on Google Play Services.
+/// On iOS, continues to use APNs VoIP push via PushKit.
 class PushTokenService {
   static final PushTokenService sharedInstance = PushTokenService._internal();
   PushTokenService._internal();
@@ -150,9 +150,6 @@ class PushTokenService {
   static PushTokenApiClient _apiClient = HttpPushTokenApiClient();
 
   final PreferencesStore _prefs = PreferencesStore.shared;
-  StreamSubscription<RemoteMessage>? _onMessageSubscription;
-  StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
-  StreamSubscription<String>? _tokenRefreshSubscription;
   bool _androidMessagingInitialized = false;
 
   static void setTestOverrides({PushTokenApiClient? apiClient}) {
@@ -168,54 +165,52 @@ class PushTokenService {
     if (_androidMessagingInitialized) return true;
 
     try {
-      await _ensureFirebaseInitialized();
-      await FirebaseMessaging.instance.requestPermission();
-      _onMessageSubscription =
-          FirebaseMessaging.onMessage.listen(_handleRemoteMessage);
-      _onMessageOpenedSubscription =
-          FirebaseMessaging.onMessageOpenedApp.listen(_handleRemoteMessage);
-      _tokenRefreshSubscription =
-          FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-        unawaited(uploadToken(
-          token: token,
-          tokenType: 'fcm',
-          platform: 'android',
-        ));
-      });
-
-      final initialMessage =
-          await FirebaseMessaging.instance.getInitialMessage();
-      if (initialMessage != null) {
-        unawaited(NostrPushPayloadHandler().handle(
-          Map<String, dynamic>.from(initialMessage.data),
-        ));
-      }
-
+      await UnifiedPush.initialize(
+        onNewEndpoint: _onNewEndpoint,
+        onMessage: _onMessage,
+        onRegistrationFailed: _onRegistrationFailed,
+        onUnregistered: _onUnregistered,
+      );
+      await UnifiedPush.registerApp('default', null);
       _androidMessagingInitialized = true;
-      return uploadAndroidFcmTokenIfAvailable();
+      return true;
     } catch (e, stack) {
       LogUtils.w(() =>
-          'PushTokenService: Android FCM initialization skipped: $e, $stack');
+          'PushTokenService: UnifiedPush initialization failed: $e, $stack');
       return false;
     }
   }
 
-  Future<bool> uploadAndroidFcmTokenIfAvailable() async {
-    if (!Platform.isAndroid) return false;
-    try {
-      await _ensureFirebaseInitialized();
-      final token = await FirebaseMessaging.instance.getToken();
-      if (token == null || token.isEmpty) return false;
-      final registration = await uploadToken(
-        token: token,
-        tokenType: 'fcm',
-        platform: 'android',
-      );
-      return registration != null;
-    } catch (e) {
-      LogUtils.w(() => 'PushTokenService: FCM token unavailable: $e');
-      return false;
+  Future<void> _onNewEndpoint(String endpoint, String instance) async {
+    LogUtils.i(
+        () => 'PushTokenService: UnifiedPush new endpoint received');
+    final registration = await uploadToken(
+      token: endpoint,
+      tokenType: 'unifiedpush',
+      platform: 'android',
+    );
+    if (registration == null) {
+      LogUtils.w(() => 'PushTokenService: Failed to register UnifiedPush endpoint');
     }
+  }
+
+  void _onMessage(List<int> message, String instance) {
+    try {
+      final jsonStr = String.fromCharCodes(message);
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      unawaited(NostrPushPayloadHandler().handle(data));
+    } catch (e) {
+      // If not JSON, try showing a generic incoming call notification
+      unawaited(LocalNotificationService.showIncomingCallBackground());
+    }
+  }
+
+  void _onRegistrationFailed(String instance) {
+    LogUtils.w(() => 'PushTokenService: UnifiedPush registration failed for $instance');
+  }
+
+  void _onUnregistered(String instance) {
+    LogUtils.i(() => 'PushTokenService: UnifiedPush unregistered for $instance');
   }
 
   Future<bool> uploadVoIPToken(String token) async {
@@ -299,6 +294,13 @@ class PushTokenService {
   }
 
   Future<bool> unregisterCurrentDevice({bool clearLocal = true}) async {
+    if (Platform.isAndroid) {
+      try {
+        await UnifiedPush.unregister('default');
+      } catch (e) {
+        LogUtils.w(() => 'PushTokenService: UnifiedPush unregister failed: $e');
+      }
+    }
     final registration = await getCurrentRegistration();
     final ok = registration == null
         ? true
@@ -311,17 +313,6 @@ class PushTokenService {
 
   Future<void> clearVoIPToken() async {
     await _clearLocalRegistration();
-  }
-
-  void _handleRemoteMessage(RemoteMessage message) {
-    unawaited(
-      NostrPushPayloadHandler().handle(Map<String, dynamic>.from(message.data)),
-    );
-  }
-
-  Future<void> _ensureFirebaseInitialized() async {
-    if (Firebase.apps.isNotEmpty) return;
-    await Firebase.initializeApp();
   }
 
   Future<String> _getOrCreateDeviceId() async {
@@ -370,12 +361,6 @@ class PushTokenService {
   }
 
   void dispose() {
-    _onMessageSubscription?.cancel();
-    _onMessageSubscription = null;
-    _onMessageOpenedSubscription?.cancel();
-    _onMessageOpenedSubscription = null;
-    _tokenRefreshSubscription?.cancel();
-    _tokenRefreshSubscription = null;
     _androidMessagingInitialized = false;
   }
 }

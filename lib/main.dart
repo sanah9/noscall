@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/navigation/go_router_app_navigator.dart';
@@ -25,46 +22,8 @@ import 'package:noscall/setting/services/accessibility_service.dart';
 
 const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
-/// Runs in a separate isolate when an FCM data message arrives while the app
-/// is in the background or terminated (Android only).
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  if (_isCallOfferPayload(message.data)) {
-    await LocalNotificationService.showIncomingCallBackground();
-  }
-}
-
-/// Returns true if [data] looks like a NIP-AC call offer push payload.
-bool _isCallOfferPayload(Map<String, dynamic> data) {
-  try {
-    final eventRaw = data['event'];
-    final Map<String, dynamic> eventMap;
-    if (eventRaw is Map) {
-      eventMap = Map<String, dynamic>.from(eventRaw);
-    } else if (eventRaw is String) {
-      eventMap = jsonDecode(eventRaw) as Map<String, dynamic>;
-    } else {
-      return false;
-    }
-    if (eventMap['kind'] != 21059) return false;
-    final tags = eventMap['tags'];
-    if (tags is! List) return false;
-    return tags.any((tag) =>
-        tag is List &&
-        tag.length >= 2 &&
-        tag[0] == 'k' &&
-        tag[1] == '25050');
-  } catch (_) {
-    return false;
-  }
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isAndroid) {
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  }
   AppLoading.configLoading();
   HttpOverrides.global = CustomHttpOverrides();
   await _initializeServices();
