@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:unifiedpush/unifiedpush.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:noscall/call/nostr_push_payload_handler.dart';
 import 'package:noscall/call/local_notification_service.dart';
+import 'package:noscall/call/nostr_push_payload_handler.dart';
+import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/storage/preferences_store.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
@@ -185,35 +187,46 @@ class PushTokenService {
   }
 
   Future<void> _onNewEndpoint(String endpoint, String instance) async {
-    LogUtils.i(
-        () => 'PushTokenService: UnifiedPush new endpoint received');
+    LogUtils.i(() => 'PushTokenService: UnifiedPush new endpoint received');
     final registration = await uploadToken(
       token: endpoint,
       tokenType: 'unifiedpush',
       platform: 'android',
     );
-    if (registration == null) {
-      LogUtils.w(() => 'PushTokenService: Failed to register UnifiedPush endpoint');
+    if (registration != null) {
+      // Endpoint registered — update relay push subscriptions immediately.
+      unawaited(NostrRelayPushService().sync(force: true));
+    } else {
+      LogUtils.w(
+          () => 'PushTokenService: Failed to register UnifiedPush endpoint');
     }
   }
 
-  void _onMessage(List<int> message, String instance) {
+  void _onMessage(Uint8List message, String instance) {
     try {
-      final jsonStr = String.fromCharCodes(message);
-      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final data = jsonDecode(String.fromCharCodes(message)) as Map<String, dynamic>;
       unawaited(NostrPushPayloadHandler().handle(data));
     } catch (e) {
-      // If not JSON, try showing a generic incoming call notification
+      // Not a structured push payload — show a generic incoming-call notification.
       unawaited(LocalNotificationService.showIncomingCallBackground());
     }
   }
 
   void _onRegistrationFailed(String instance) {
-    LogUtils.w(() => 'PushTokenService: UnifiedPush registration failed for $instance');
+    LogUtils.w(
+        () => 'PushTokenService: UnifiedPush registration failed for $instance');
   }
 
-  void _onUnregistered(String instance) {
-    LogUtils.i(() => 'PushTokenService: UnifiedPush unregistered for $instance');
+  Future<void> _onUnregistered(String instance) async {
+    LogUtils.i(
+        () => 'PushTokenService: UnifiedPush unregistered ($instance) — clearing registration');
+    // Clear local registration but don't try to call UnifiedPush.unregister
+    // again (we're already inside the unregistered callback).
+    final registration = await getCurrentRegistration();
+    if (registration != null) {
+      await _apiClient.unregisterDevice(registration.deviceRegistrationId);
+    }
+    await _clearLocalRegistration();
   }
 
   Future<bool> uploadVoIPToken(String token) async {
@@ -299,11 +312,15 @@ class PushTokenService {
   Future<bool> unregisterCurrentDevice({bool clearLocal = true}) async {
     if (Platform.isAndroid) {
       try {
+        // Calling unregister() will trigger _onUnregistered, which handles
+        // server-side deregistration and local cleanup automatically.
         await UnifiedPush.unregister('default');
+        return true;
       } catch (e) {
         LogUtils.w(() => 'PushTokenService: UnifiedPush unregister failed: $e');
       }
     }
+    // iOS path (and Android fallback if unregister() threw).
     final registration = await getCurrentRegistration();
     final ok = registration == null
         ? true
