@@ -270,6 +270,7 @@ class NostrRelayPushService {
     final existingRecords = await _loadRecords(pubkey);
     final candidateRelays = _candidateRelays();
     final supportedRelays = <String>{};
+    int relayInfoFailures = 0;
 
     for (final relay in candidateRelays) {
       try {
@@ -278,9 +279,18 @@ class NostrRelayPushService {
           supportedRelays.add(normalizeRelayUrl(relay));
         }
       } catch (e) {
+        relayInfoFailures++;
         LogUtils.w(() =>
             'NostrRelayPushService: failed to load relay info $relay: $e');
       }
+    }
+
+    // If every candidate relay failed to load (likely a network outage),
+    // bail out and keep existing subscriptions intact rather than deleting them.
+    if (supportedRelays.isEmpty && relayInfoFailures == candidateRelays.length && candidateRelays.isNotEmpty) {
+      LogUtils.w(() =>
+          'NostrRelayPushService: all $relayInfoFailures relay info lookups failed — aborting sync to preserve existing subscriptions');
+      return;
     }
 
     final updatedRecords = <String, RelayPushSubscriptionRecord>{};

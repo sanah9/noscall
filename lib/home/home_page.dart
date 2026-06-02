@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/call/unified_push_distributor_service.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/call_history/widget/recent_calls_page.dart';
 import 'package:noscall/contacts/contact_navigator.dart';
 import 'package:noscall/setting/setting_page.dart';
@@ -35,7 +36,13 @@ class _HomePageState extends State<HomePage> with ProfileSyncOnConnectMixin<Home
     if (Platform.isAndroid) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          UnifiedPushDistributorService().ensureDistributorSelected(context);
+          UnifiedPushDistributorService()
+              .ensureDistributorSelected(context)
+              .catchError((Object e, StackTrace s) {
+            LogUtils.e(
+                () => 'HomePage: UnifiedPush distributor selection failed: $e\n$s');
+            return null;
+          });
         }
       });
     }
