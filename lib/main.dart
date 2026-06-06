@@ -24,11 +24,26 @@ const MethodChannel navigatorChannel = MethodChannel('NativeNavigator');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureOrientation();
   AppLoading.configLoading();
   HttpOverrides.global = CustomHttpOverrides();
   await _initializeServices();
 
   runApp(const MainApp());
+}
+
+void _configureOrientation() {
+  final view =
+      WidgetsBinding.instance.platformDispatcher.views.first;
+  final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
+  // Phones (shortest side < 600dp) are locked to portrait.
+  // Tablets and desktops keep all orientations enabled.
+  if (shortestSide < 600) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 }
 
 Future<void> _initializeServices() async {
