@@ -102,7 +102,7 @@ extension AppDelegate: PKPushRegistryDelegate {
             hasVideo: false,
             callerName: nil,
             fromPushKit: true,
-            payload: payloadData as NSDictionary as? [AnyHashable: Any]
+            payload: payloadData
         ) {
             completion()
         }
