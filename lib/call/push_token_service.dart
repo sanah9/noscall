@@ -148,6 +148,8 @@ class PushTokenService {
       'noscall_push_registered_token_type';
   static const String _registeredPlatformKey =
       'noscall_push_registered_platform';
+  static const String _pendingVoIPTokenKey =
+      'noscall_push_pending_voip_token';
 
   static PushTokenApiClient _apiClient = HttpPushTokenApiClient();
 
@@ -227,6 +229,25 @@ class PushTokenService {
       await _apiClient.unregisterDevice(registration.deviceRegistrationId);
     }
     await _clearLocalRegistration();
+  }
+
+  /// Cache an APNs VoIP token that arrived before the user was authenticated.
+  /// Call [uploadPendingVoIPTokenIfNeeded] after login to flush it.
+  Future<void> savePendingVoIPToken(String token) async {
+    await _prefs.setString(_pendingVoIPTokenKey, token);
+  }
+
+  /// Upload a previously cached VoIP token (iOS only).
+  /// Called from [initRelayPush] after login succeeds.
+  Future<void> uploadPendingVoIPTokenIfNeeded() async {
+    if (!Platform.isIOS) return;
+    final token = await _prefs.getString(_pendingVoIPTokenKey);
+    if (token == null || token.isEmpty) return;
+    LogUtils.i(() => 'PushTokenService: Uploading deferred VoIP token');
+    final success = await uploadVoIPToken(token);
+    if (success) {
+      await _prefs.remove(_pendingVoIPTokenKey);
+    }
   }
 
   Future<bool> uploadVoIPToken(String token) async {

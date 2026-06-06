@@ -24,6 +24,7 @@ class VoIPPushService {
 
   bool _isInitialized = false;
   CallKitManager? _callKitManager;
+  String? _pendingVoIPCallUUID;
 
   /// Initialize the VoIP push service
   /// Should be called after CallKitManager is initialized
@@ -83,11 +84,14 @@ class VoIPPushService {
     LogUtils.i(() =>
         'VoIPPushService: VoIP push token updated: ${token.substring(0, 20)}...');
 
-    // Only upload token when user is authenticated
+    // Only upload token when user is authenticated; otherwise cache it so
+    // it can be uploaded once the user logs in (PushKit only fires once per
+    // token, so we must not lose it here).
     final authService = AuthService();
     if (!authService.isAuthenticated) {
       LogUtils.v(() =>
-          'VoIPPushService: User not authenticated, token upload deferred');
+          'VoIPPushService: User not authenticated — caching token for upload after login');
+      await PushTokenService().savePendingVoIPToken(token);
       return;
     }
 
@@ -111,7 +115,6 @@ class VoIPPushService {
   }
 
   /// Handle received VoIP push notification
-  /// This method processes the push payload and triggers the incoming call flow
   Future<void> _handleVoIPPushReceived(dynamic payload) async {
     if (payload == null) {
       LogUtils.w(() => 'VoIPPushService: Received null payload');
@@ -120,15 +123,6 @@ class VoIPPushService {
 
     try {
       LogUtils.i(() => 'VoIPPushService: Received VoIP push notification');
-
-      // Parse payload - the payload structure depends on your server implementation
-      // Expected format:
-      // {
-      //   "peerId": "string",      // The caller's public key or user ID
-      //   "offerId": "string",     // Unique call offer ID
-      //   "data": "string",        // JSON string containing call signaling data
-      //   "media": "audio" | "video"  // Call type
-      // }
 
       Map<String, dynamic> payloadMap;
       if (payload is Map) {
@@ -141,39 +135,45 @@ class VoIPPushService {
         return;
       }
 
+      // Extract the placeholder UUID injected by AppDelegate.  It is removed
+      // from the map so it doesn't interfere with Nostr payload validation.
+      final callUUID = payloadMap.remove('_callUUID') as String?;
+      _pendingVoIPCallUUID = callUUID;
+
       final nostrHandler = NostrPushPayloadHandler();
       if (nostrHandler.isNostrRelayPushPayload(payloadMap)) {
-        await nostrHandler.handle(payloadMap);
+        final handled = await nostrHandler.handle(payloadMap);
+        if (handled) {
+          // The real CallKit call is now being shown via callkeep.  End the
+          // AppDelegate placeholder so the user does not see two incoming calls.
+          await _endPlaceholderCall(callUUID);
+        } else {
+          // Invalid / stale push — dismiss the placeholder immediately.
+          await _endPlaceholderCall(callUUID);
+        }
         return;
       }
 
-      // Extract call information from payload
+      // Legacy push format (peerId / offerId).
       final peerId = payloadMap['peerId'] as String?;
       final offerId = payloadMap['offerId'] as String?;
       final data = payloadMap['data'] as String?;
       final media = payloadMap['media'] as String?;
 
-      if (peerId == null || peerId.isEmpty) {
-        LogUtils.e(() => 'VoIPPushService: Missing peerId in payload');
-        return;
-      }
-
-      if (offerId == null || offerId.isEmpty) {
-        LogUtils.e(() => 'VoIPPushService: Missing offerId in payload');
-        return;
-      }
-
-      if (data == null || data.isEmpty) {
-        LogUtils.e(() => 'VoIPPushService: Missing data in payload');
+      if (peerId == null || peerId.isEmpty ||
+          offerId == null || offerId.isEmpty ||
+          data == null || data.isEmpty) {
+        LogUtils.e(() => 'VoIPPushService: Incomplete legacy push payload');
+        await _endPlaceholderCall(callUUID);
         return;
       }
 
       LogUtils.i(() =>
           'VoIPPushService: Processing incoming call from $peerId, offerId: $offerId');
 
-      // Trigger the incoming call flow through CallKitManager
-      // This will display the incoming call UI using CallKit
       if (_callKitManager != null) {
+        // Real call flow takes over; end the placeholder first.
+        await _endPlaceholderCall(callUUID);
         _callKitManager!.callStateChangeHandler(
           friend: peerId,
           state: _parseSignalingState(payloadMap),
@@ -183,10 +183,22 @@ class VoIPPushService {
         );
       } else {
         LogUtils.e(() => 'VoIPPushService: CallKitManager is not initialized');
+        await _endPlaceholderCall(callUUID);
       }
     } catch (e, stack) {
       LogUtils.e(
           () => 'VoIPPushService: Error processing VoIP push: $e, $stack');
+      await _endPlaceholderCall(_pendingVoIPCallUUID);
+    }
+  }
+
+  Future<void> _endPlaceholderCall(String? uuid) async {
+    if (uuid == null) return;
+    if (_pendingVoIPCallUUID == uuid) _pendingVoIPCallUUID = null;
+    try {
+      await _channel.invokeMethod('endVoIPPlaceholderCall', uuid);
+    } catch (e) {
+      LogUtils.w(() => 'VoIPPushService: endVoIPPlaceholderCall failed: $e');
     }
   }
 

@@ -40,9 +40,13 @@ import PushKit
             binaryMessenger: controller.binaryMessenger
         )
         
-        voipPushChannel?.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
-            // Handle any method calls from Flutter if needed in the future
-            result(FlutterMethodNotImplemented)
+        voipPushChannel?.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+            if call.method == "endVoIPPlaceholderCall", let uuid = call.arguments as? String {
+                // Flutter determined the push was invalid/stale — dismiss the
+                // placeholder call that was reported to satisfy Apple's requirement.
+                CallKeep.endCall(withUUID: uuid, reason: 1) // 1 = unanswered
+            }
+            result(nil)
         }
     }
     
@@ -76,36 +80,46 @@ import PushKit
 // MARK: - PKPushRegistryDelegate
 extension AppDelegate: PKPushRegistryDelegate {
     func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
-        // Convert push token to hex string
         let tokenParts = pushCredentials.token.map { data in String(format: "%02.2hhx", data) }
         let token = tokenParts.joined()
-        
         print("VoIP Push Token: \(token)")
-        
-        // Send token to Flutter layer
         voipPushChannel?.invokeMethod("onVoIPTokenUpdated", arguments: token)
     }
-    
+
     func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
         print("Received VoIP push notification")
-        
-        // Extract payload data
+        let callUUID = UUID().uuidString
         let payloadData = payload.dictionaryPayload
-        
-        // Send push notification data to Flutter layer
-        voipPushChannel?.invokeMethod("onVoIPPushReceived", arguments: payloadData) { (result: Any?) in
+
+        // iOS 13+ requires reportNewIncomingCall before calling completion().
+        // Failure to do so causes the system to stop delivering VoIP pushes.
+        // CallKeep's shared CXProvider handles the report; completion() is called
+        // inside its own completion handler, guaranteeing correct ordering.
+        CallKeep.reportNewIncomingCall(
+            callUUID,
+            handle: "Incoming Call",
+            handleType: "generic",
+            hasVideo: false,
+            callerName: nil,
+            fromPushKit: true,
+            payload: payloadData as NSDictionary as? [AnyHashable: Any]
+        ) {
+            completion()
+        }
+
+        // Tell Flutter the payload AND the UUID so it can end the placeholder
+        // call once it knows whether the event is valid.
+        var args = payloadData as [AnyHashable: Any]
+        args["_callUUID"] = callUUID
+        voipPushChannel?.invokeMethod("onVoIPPushReceived", arguments: args) { (result: Any?) in
             if let error = result as? FlutterError {
-                print("Error sending VoIP push to Flutter: \(error)")
+                print("Error forwarding VoIP push to Flutter: \(error)")
             }
         }
-        
-        // Call completion handler
-        completion()
     }
-    
+
     func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
         print("VoIP push token invalidated")
-        // Notify Flutter layer
         voipPushChannel?.invokeMethod("onVoIPTokenInvalidated", arguments: nil)
     }
 }
