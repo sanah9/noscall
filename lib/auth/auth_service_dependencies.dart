@@ -152,6 +152,8 @@ class DefaultAuthRuntimeGateway implements AuthRuntimeGateway {
   @override
   Future<void> initRelayPush() async {
     await PushTokenService().initializePlatformPush();
+    // iOS: upload any standard APNs token that arrived before login.
+    await PushTokenService().uploadPendingStandardAPNsTokenIfNeeded();
     // iOS: upload any VoIP token that arrived before the user logged in.
     // PushKit only fires onVoIPTokenUpdated once per token lifetime, so we
     // must not rely on it firing again after login.

@@ -1,45 +1,84 @@
 import UIKit
 import Flutter
 import PushKit
+import UserNotifications
+import callkeep
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
     var voipRegistry: PKPushRegistry?
     var voipPushChannel: FlutterMethodChannel?
-    
+    var standardPushChannel: FlutterMethodChannel?
+    var standardAPNsToken: String?
+
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         let window = UIWindow(frame: UIScreen.main.bounds)
         let controller = FlutterViewController()
-        
+
         GeneratedPluginRegistrant.register(with: controller)
         registerCustomPlugins(with: controller)
-        
+
+        // Register standard APNs push notifications so the device token is
+        // available in the Xcode console for direct APNs testing.
+        setupStandardPushNotification(application: application, controller: controller)
+
         // Setup VoIP push notification
         setupVoIPPushNotification(controller: controller)
-        
+
         window.rootViewController = controller
         window.makeKeyAndVisible()
-        
+
         self.window = window;
-        
+
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
-    
+
+    private func setupStandardPushNotification(application: UIApplication, controller: FlutterViewController) {
+        standardPushChannel = FlutterMethodChannel(
+            name: "sh.noscall.standard_push",
+            binaryMessenger: controller.binaryMessenger
+        )
+
+        standardPushChannel?.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
+            switch call.method {
+            case "getStandardAPNsToken":
+                result(self?.standardAPNsToken)
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
+
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(
+            options: [.alert, .badge, .sound]
+        ) { granted, error in
+            if let error = error {
+                print("[APNs Standard] Authorization request failed: \(error.localizedDescription)")
+            }
+            print("[APNs Standard] Authorization granted: \(granted)")
+
+            DispatchQueue.main.async {
+                application.registerForRemoteNotifications()
+                print("[APNs Standard] registerForRemoteNotifications requested")
+            }
+        }
+    }
+
     private func setupVoIPPushNotification(controller: FlutterViewController) {
         // Initialize VoIP push registry
         voipRegistry = PKPushRegistry(queue: DispatchQueue.main)
         voipRegistry?.delegate = self
         voipRegistry?.desiredPushTypes = [.voIP]
-        
+
         // Setup method channel for VoIP push communication
         voipPushChannel = FlutterMethodChannel(
             name: "sh.noscall.voip_push",
             binaryMessenger: controller.binaryMessenger
         )
-        
+
         voipPushChannel?.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
             if call.method == "endVoIPPlaceholderCall", let uuid = call.arguments as? String {
                 // Flutter determined the push was invalid/stale — dismiss the
@@ -49,7 +88,7 @@ import PushKit
             result(nil)
         }
     }
-    
+
     private func registerCustomPlugins(with controller: FlutterViewController) {
         // Register NativeMethodHandler
         if let registrar = controller.registrar(forPlugin: "NativeMethodHandler") {
@@ -57,7 +96,7 @@ import PushKit
         } else {
             print("Failed to get registrar for NativeMethodHandler")
         }
-        
+
         // Register WebRTCPiPPlugin
         if #available(iOS 15.0, *) {
             if let registrar = controller.registrar(forPlugin: "WebRTCPiPPlugin") {
@@ -67,27 +106,86 @@ import PushKit
             }
         }
     }
-    
+
     override func applicationDidBecomeActive(_ application: UIApplication) {
         signal(SIGPIPE, SIG_IGN)
     }
-    
+
     override func applicationWillEnterForeground(_ application: UIApplication) {
         signal(SIGPIPE, SIG_IGN)
+    }
+
+    override func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        let token = hexString(from: deviceToken)
+        standardAPNsToken = token
+        print("[APNs Standard] Device Token: \(token)")
+        standardPushChannel?.invokeMethod("onStandardAPNsTokenUpdated", arguments: token)
+        super.application(
+            application,
+            didRegisterForRemoteNotificationsWithDeviceToken: deviceToken
+        )
+    }
+
+    override func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        print("[APNs Standard] Registration failed: \(error.localizedDescription)")
+        super.application(
+            application,
+            didFailToRegisterForRemoteNotificationsWithError: error
+        )
+    }
+
+    override func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        print("[APNs Standard] Received remote notification: \(userInfo)")
+        completionHandler(.newData)
+    }
+
+    override func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        print("[APNs Standard] Will present notification: \(notification.request.content.userInfo)")
+        if #available(iOS 14.0, *) {
+            completionHandler([.banner, .list, .badge, .sound])
+        } else {
+            completionHandler([.alert, .badge, .sound])
+        }
+    }
+
+    override func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        print("[APNs Standard] Notification response: \(response.notification.request.content.userInfo)")
+        completionHandler()
+    }
+
+    private func hexString(from data: Data) -> String {
+        data.map { String(format: "%02.2hhx", $0) }.joined()
     }
 }
 
 // MARK: - PKPushRegistryDelegate
 extension AppDelegate: PKPushRegistryDelegate {
     func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
-        let tokenParts = pushCredentials.token.map { data in String(format: "%02.2hhx", data) }
-        let token = tokenParts.joined()
-        print("VoIP Push Token: \(token)")
+        let token = hexString(from: pushCredentials.token)
+        print("[APNs VoIP] Device Token: \(token)")
         voipPushChannel?.invokeMethod("onVoIPTokenUpdated", arguments: token)
     }
 
     func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
-        print("Received VoIP push notification")
+        print("[APNs VoIP] Received push payload: \(payload.dictionaryPayload)")
         let callUUID = UUID().uuidString
         let payloadData = payload.dictionaryPayload
 
@@ -119,7 +217,7 @@ extension AppDelegate: PKPushRegistryDelegate {
     }
 
     func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
-        print("VoIP push token invalidated")
+        print("[APNs VoIP] Token invalidated")
         voipPushChannel?.invokeMethod("onVoIPTokenInvalidated", arguments: nil)
     }
 }

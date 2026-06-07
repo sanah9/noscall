@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:unifiedpush/unifiedpush.dart';
@@ -140,6 +140,11 @@ class PushTokenService {
 
   static const String _lastUploadedTokenKey =
       'noscall_voip_last_uploaded_token';
+  static const String _standardAPNsLastUploadedTokenKey =
+      'noscall_apns_last_uploaded_token';
+  static const String _standardAPNsDeviceRegistrationIdKey =
+      'noscall_apns_device_registration_id';
+  static const String _standardAPNsCallbackUrlKey = 'noscall_apns_callback_url';
   static const String _deviceRegistrationIdKey =
       'noscall_push_device_registration_id';
   static const String _callbackUrlKey = 'noscall_push_callback_url';
@@ -148,13 +153,18 @@ class PushTokenService {
       'noscall_push_registered_token_type';
   static const String _registeredPlatformKey =
       'noscall_push_registered_platform';
-  static const String _pendingVoIPTokenKey =
-      'noscall_push_pending_voip_token';
+  static const String _pendingVoIPTokenKey = 'noscall_push_pending_voip_token';
+  static const String _pendingStandardAPNsTokenKey =
+      'noscall_push_pending_apns_token';
+
+  static const MethodChannel _standardAPNsChannel =
+      MethodChannel('sh.noscall.standard_push');
 
   static PushTokenApiClient _apiClient = HttpPushTokenApiClient();
 
   final PreferencesStore _prefs = PreferencesStore.shared;
   bool _androidMessagingInitialized = false;
+  bool _standardAPNsInitialized = false;
 
   static void setTestOverrides({PushTokenApiClient? apiClient}) {
     _apiClient = apiClient ?? HttpPushTokenApiClient();
@@ -164,11 +174,12 @@ class PushTokenService {
     _apiClient = HttpPushTokenApiClient();
   }
 
-  /// Registers UnifiedPush callbacks. Call this once at startup (no UI needed).
-  /// To actually receive push you must also call
-  /// [UnifiedPushDistributorService.ensureDistributorSelected] with a
-  /// BuildContext once the UI is ready.
+  /// Registers platform push callbacks. Call this once after login.
+  ///
+  /// Android uses UnifiedPush. iOS listens for the standard APNs token from
+  /// native code and uploads it with tokenType `apns`.
   Future<bool> initializePlatformPush() async {
+    if (Platform.isIOS) return _initializeStandardAPNsPush();
     if (!Platform.isAndroid) return false;
     if (_androidMessagingInitialized) return true;
 
@@ -185,6 +196,38 @@ class PushTokenService {
       LogUtils.w(() =>
           'PushTokenService: UnifiedPush initialization failed: $e, $stack');
       return false;
+    }
+  }
+
+  Future<bool> _initializeStandardAPNsPush() async {
+    if (_standardAPNsInitialized) return true;
+
+    try {
+      _standardAPNsChannel.setMethodCallHandler(_handleStandardAPNsMethodCall);
+      _standardAPNsInitialized = true;
+
+      final token = await _standardAPNsChannel
+          .invokeMethod<String>('getStandardAPNsToken');
+      if (token != null && token.isNotEmpty) {
+        await _handleStandardAPNsTokenUpdated(token);
+      }
+      return true;
+    } catch (e, stack) {
+      LogUtils.w(() =>
+          'PushTokenService: standard APNs initialization failed: $e, $stack');
+      return false;
+    }
+  }
+
+  Future<dynamic> _handleStandardAPNsMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'onStandardAPNsTokenUpdated':
+        await _handleStandardAPNsTokenUpdated(call.arguments as String?);
+        return null;
+      default:
+        LogUtils.w(() =>
+            'PushTokenService: unknown standard APNs method ${call.method}');
+        return null;
     }
   }
 
@@ -206,7 +249,8 @@ class PushTokenService {
 
   void _onMessage(Uint8List message, String instance) {
     try {
-      final data = jsonDecode(String.fromCharCodes(message)) as Map<String, dynamic>;
+      final data =
+          jsonDecode(String.fromCharCodes(message)) as Map<String, dynamic>;
       unawaited(NostrPushPayloadHandler().handle(data));
     } catch (e) {
       // Not a structured push payload — show a generic incoming-call notification.
@@ -215,13 +259,13 @@ class PushTokenService {
   }
 
   void _onRegistrationFailed(String instance) {
-    LogUtils.w(
-        () => 'PushTokenService: UnifiedPush registration failed for $instance');
+    LogUtils.w(() =>
+        'PushTokenService: UnifiedPush registration failed for $instance');
   }
 
   Future<void> _onUnregistered(String instance) async {
-    LogUtils.i(
-        () => 'PushTokenService: UnifiedPush unregistered ($instance) — clearing registration');
+    LogUtils.i(() =>
+        'PushTokenService: UnifiedPush unregistered ($instance) — clearing registration');
     // Clear local registration but don't try to call UnifiedPush.unregister
     // again (we're already inside the unregistered callback).
     final registration = await getCurrentRegistration();
@@ -229,6 +273,55 @@ class PushTokenService {
       await _apiClient.unregisterDevice(registration.deviceRegistrationId);
     }
     await _clearLocalRegistration();
+  }
+
+  Future<void> _handleStandardAPNsTokenUpdated(String? token) async {
+    if (token == null || token.isEmpty) {
+      LogUtils.w(() => 'PushTokenService: Received empty standard APNs token');
+      return;
+    }
+
+    final previewLength = token.length < 20 ? token.length : 20;
+    LogUtils.i(() =>
+        'PushTokenService: standard APNs token updated: ${token.substring(0, previewLength)}...');
+
+    if (Account.sharedInstance.currentPubkey.isEmpty) {
+      LogUtils.v(() =>
+          'PushTokenService: User not authenticated, caching standard APNs token');
+      await savePendingStandardAPNsToken(token);
+      return;
+    }
+
+    if (await shouldUploadStandardAPNsToken(token)) {
+      final success = await uploadStandardAPNsToken(token);
+      if (!success) {
+        LogUtils.w(
+            () => 'PushTokenService: Failed to upload standard APNs token');
+        await savePendingStandardAPNsToken(token);
+      }
+    } else {
+      LogUtils.v(() =>
+          'PushTokenService: standard APNs token unchanged, skipping upload');
+    }
+  }
+
+  /// Cache a standard APNs token that arrived before the user was authenticated.
+  Future<void> savePendingStandardAPNsToken(String token) async {
+    await _prefs.setString(_pendingStandardAPNsTokenKey, token);
+  }
+
+  /// Upload a previously cached standard APNs token (iOS only).
+  Future<void> uploadPendingStandardAPNsTokenIfNeeded() async {
+    if (!Platform.isIOS) return;
+    final token = await _prefs.getString(_pendingStandardAPNsTokenKey);
+    if (token == null || token.isEmpty) return;
+
+    LogUtils.i(
+        () => 'PushTokenService: Uploading deferred standard APNs token');
+    final success = await uploadStandardAPNsToken(token);
+    if (success) {
+      await _prefs.remove(_pendingStandardAPNsTokenKey);
+    }
   }
 
   /// Cache an APNs VoIP token that arrived before the user was authenticated.
@@ -257,6 +350,51 @@ class PushTokenService {
       platform: Platform.isIOS ? 'ios' : Platform.operatingSystem,
     );
     return registration != null;
+  }
+
+  /// Temporary registration path for standard APNs notifications.
+  ///
+  /// The server endpoint is the existing `POST /push/devices`; the temporary
+  /// tokenType is `apns`. Standard APNs registration is persisted separately so
+  /// it does not replace the VoIP registration used by relay call pushes.
+  Future<bool> uploadStandardAPNsToken(String token) async {
+    if (token.isEmpty) {
+      LogUtils.w(() => 'PushTokenService: Cannot upload empty APNs token');
+      return false;
+    }
+
+    final currentPubkey = Account.sharedInstance.currentPubkey;
+    if (currentPubkey.isEmpty) {
+      LogUtils.v(() =>
+          'PushTokenService: User not authenticated, standard APNs upload deferred');
+      await savePendingStandardAPNsToken(token);
+      return false;
+    }
+
+    try {
+      final registration = await _apiClient.registerDevice(
+        PushTokenRegistrationRequest(
+          pubkey: currentPubkey,
+          platform: 'ios',
+          tokenType: 'apns',
+          token: token,
+          deviceId: await _getOrCreateDeviceId(),
+          appVersion: await _appVersion(),
+        ),
+      );
+      if (registration == null) return false;
+
+      await _persistStandardAPNsRegistration(
+        token: token,
+        registration: registration,
+      );
+      LogUtils.i(() => 'PushTokenService: standard APNs token uploaded');
+      return true;
+    } catch (e, stack) {
+      LogUtils.e(() =>
+          'PushTokenService: Error uploading standard APNs token: $e, $stack');
+      return false;
+    }
   }
 
   Future<PushTokenRegistration?> uploadToken({
@@ -323,11 +461,34 @@ class PushTokenService {
     return _prefs.getString(_lastUploadedTokenKey);
   }
 
+  Future<String?> getLastUploadedStandardAPNsToken() async {
+    return _prefs.getString(_standardAPNsLastUploadedTokenKey);
+  }
+
   Future<bool> shouldUploadVoIPToken(String newToken) async {
     final lastUploadedToken = await getLastUploadedToken();
     final registration = await getCurrentRegistration();
     if (lastUploadedToken == null || registration == null) return true;
     return lastUploadedToken != newToken;
+  }
+
+  Future<bool> shouldUploadStandardAPNsToken(String newToken) async {
+    final lastUploadedToken = await getLastUploadedStandardAPNsToken();
+    final registration = await getStandardAPNsRegistration();
+    if (lastUploadedToken == null || registration == null) return true;
+    return lastUploadedToken != newToken;
+  }
+
+  Future<PushTokenRegistration?> getStandardAPNsRegistration() async {
+    final deviceRegistrationId =
+        await _prefs.getString(_standardAPNsDeviceRegistrationIdKey) ?? '';
+    final callbackUrl =
+        await _prefs.getString(_standardAPNsCallbackUrlKey) ?? '';
+    if (deviceRegistrationId.isEmpty || callbackUrl.isEmpty) return null;
+    return PushTokenRegistration(
+      deviceRegistrationId: deviceRegistrationId,
+      callbackUrl: callbackUrl,
+    );
   }
 
   Future<bool> unregisterCurrentDevice({bool clearLocal = true}) async {
@@ -343,17 +504,28 @@ class PushTokenService {
     }
     // iOS path (and Android fallback if unregister() threw).
     final registration = await getCurrentRegistration();
-    final ok = registration == null
+    final standardRegistration = await getStandardAPNsRegistration();
+    final relayOk = registration == null
         ? true
         : await _apiClient.unregisterDevice(registration.deviceRegistrationId);
+    final standardOk = standardRegistration == null
+        ? true
+        : await _apiClient
+            .unregisterDevice(standardRegistration.deviceRegistrationId);
+    final ok = relayOk && standardOk;
     if (clearLocal && ok) {
       await _clearLocalRegistration();
+      await _clearStandardAPNsRegistration();
     }
     return ok;
   }
 
   Future<void> clearVoIPToken() async {
     await _clearLocalRegistration();
+  }
+
+  Future<void> clearStandardAPNsToken() async {
+    await _clearStandardAPNsRegistration();
   }
 
   Future<String> _getOrCreateDeviceId() async {
@@ -391,6 +563,20 @@ class PushTokenService {
     ]);
   }
 
+  Future<void> _persistStandardAPNsRegistration({
+    required String token,
+    required PushTokenRegistration registration,
+  }) async {
+    await Future.wait([
+      _prefs.setString(_standardAPNsLastUploadedTokenKey, token),
+      _prefs.setString(
+        _standardAPNsDeviceRegistrationIdKey,
+        registration.deviceRegistrationId,
+      ),
+      _prefs.setString(_standardAPNsCallbackUrlKey, registration.callbackUrl),
+    ]);
+  }
+
   Future<void> _clearLocalRegistration() async {
     await Future.wait([
       _prefs.remove(_lastUploadedTokenKey),
@@ -401,7 +587,20 @@ class PushTokenService {
     ]);
   }
 
+  Future<void> _clearStandardAPNsRegistration() async {
+    await Future.wait([
+      _prefs.remove(_standardAPNsLastUploadedTokenKey),
+      _prefs.remove(_standardAPNsDeviceRegistrationIdKey),
+      _prefs.remove(_standardAPNsCallbackUrlKey),
+      _prefs.remove(_pendingStandardAPNsTokenKey),
+    ]);
+  }
+
   void dispose() {
     _androidMessagingInitialized = false;
+    if (_standardAPNsInitialized) {
+      _standardAPNsChannel.setMethodCallHandler(null);
+      _standardAPNsInitialized = false;
+    }
   }
 }
