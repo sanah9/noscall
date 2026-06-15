@@ -128,6 +128,28 @@ class HttpPushTokenApiClient implements PushTokenApiClient {
   }
 }
 
+/// Persistence key set for one push registration channel.
+///
+/// VoIP/relay registrations also persist the token type and platform; the
+/// standard APNs channel leaves [tokenTypeKey]/[platformKey] null.
+class _PushChannel {
+  const _PushChannel({
+    required this.lastUploadedTokenKey,
+    required this.deviceRegistrationIdKey,
+    required this.callbackUrlKey,
+    required this.pendingTokenKey,
+    this.tokenTypeKey,
+    this.platformKey,
+  });
+
+  final String lastUploadedTokenKey;
+  final String deviceRegistrationIdKey;
+  final String callbackUrlKey;
+  final String pendingTokenKey;
+  final String? tokenTypeKey;
+  final String? platformKey;
+}
+
 /// Service for managing APNs VoIP and UnifiedPush notification tokens.
 ///
 /// On Android, uses UnifiedPush (ntfy, NextPush, etc.) instead of FCM so the
@@ -138,24 +160,27 @@ class PushTokenService {
   PushTokenService._internal();
   factory PushTokenService() => sharedInstance;
 
-  static const String _lastUploadedTokenKey =
-      'noscall_voip_last_uploaded_token';
-  static const String _standardAPNsLastUploadedTokenKey =
-      'noscall_apns_last_uploaded_token';
-  static const String _standardAPNsDeviceRegistrationIdKey =
-      'noscall_apns_device_registration_id';
-  static const String _standardAPNsCallbackUrlKey = 'noscall_apns_callback_url';
-  static const String _deviceRegistrationIdKey =
-      'noscall_push_device_registration_id';
-  static const String _callbackUrlKey = 'noscall_push_callback_url';
+  /// Relay/VoIP push channel — APNs VoIP token on iOS, UnifiedPush endpoint on
+  /// Android. This registration drives the Nostr relay call pushes.
+  static const _PushChannel _relayPushChannel = _PushChannel(
+    lastUploadedTokenKey: 'noscall_voip_last_uploaded_token',
+    deviceRegistrationIdKey: 'noscall_push_device_registration_id',
+    callbackUrlKey: 'noscall_push_callback_url',
+    pendingTokenKey: 'noscall_push_pending_voip_token',
+    tokenTypeKey: 'noscall_push_registered_token_type',
+    platformKey: 'noscall_push_registered_platform',
+  );
+
+  /// Standard APNs push channel (iOS). Persisted separately so it never
+  /// replaces the VoIP registration used by relay call pushes.
+  static const _PushChannel _standardAPNsPushChannel = _PushChannel(
+    lastUploadedTokenKey: 'noscall_apns_last_uploaded_token',
+    deviceRegistrationIdKey: 'noscall_apns_device_registration_id',
+    callbackUrlKey: 'noscall_apns_callback_url',
+    pendingTokenKey: 'noscall_push_pending_apns_token',
+  );
+
   static const String _deviceIdKey = 'noscall_push_device_id';
-  static const String _registeredTokenTypeKey =
-      'noscall_push_registered_token_type';
-  static const String _registeredPlatformKey =
-      'noscall_push_registered_platform';
-  static const String _pendingVoIPTokenKey = 'noscall_push_pending_voip_token';
-  static const String _pendingStandardAPNsTokenKey =
-      'noscall_push_pending_apns_token';
 
   static const MethodChannel _standardAPNsChannel =
       MethodChannel('sh.noscall.standard_push');
@@ -307,39 +332,40 @@ class PushTokenService {
 
   /// Cache a standard APNs token that arrived before the user was authenticated.
   Future<void> savePendingStandardAPNsToken(String token) async {
-    await _prefs.setString(_pendingStandardAPNsTokenKey, token);
+    await _prefs.setString(_standardAPNsPushChannel.pendingTokenKey, token);
   }
 
   /// Upload a previously cached standard APNs token (iOS only).
   Future<void> uploadPendingStandardAPNsTokenIfNeeded() async {
     if (!Platform.isIOS) return;
-    final token = await _prefs.getString(_pendingStandardAPNsTokenKey);
+    final token =
+        await _prefs.getString(_standardAPNsPushChannel.pendingTokenKey);
     if (token == null || token.isEmpty) return;
 
     LogUtils.i(
         () => 'PushTokenService: Uploading deferred standard APNs token');
     final success = await uploadStandardAPNsToken(token);
     if (success) {
-      await _prefs.remove(_pendingStandardAPNsTokenKey);
+      await _prefs.remove(_standardAPNsPushChannel.pendingTokenKey);
     }
   }
 
   /// Cache an APNs VoIP token that arrived before the user was authenticated.
   /// Call [uploadPendingVoIPTokenIfNeeded] after login to flush it.
   Future<void> savePendingVoIPToken(String token) async {
-    await _prefs.setString(_pendingVoIPTokenKey, token);
+    await _prefs.setString(_relayPushChannel.pendingTokenKey, token);
   }
 
   /// Upload a previously cached VoIP token (iOS only).
   /// Called from [initRelayPush] after login succeeds.
   Future<void> uploadPendingVoIPTokenIfNeeded() async {
     if (!Platform.isIOS) return;
-    final token = await _prefs.getString(_pendingVoIPTokenKey);
+    final token = await _prefs.getString(_relayPushChannel.pendingTokenKey);
     if (token == null || token.isEmpty) return;
     LogUtils.i(() => 'PushTokenService: Uploading deferred VoIP token');
     final success = await uploadVoIPToken(token);
     if (success) {
-      await _prefs.remove(_pendingVoIPTokenKey);
+      await _prefs.remove(_relayPushChannel.pendingTokenKey);
     }
   }
 
@@ -358,43 +384,14 @@ class PushTokenService {
   /// tokenType is `apns`. Standard APNs registration is persisted separately so
   /// it does not replace the VoIP registration used by relay call pushes.
   Future<bool> uploadStandardAPNsToken(String token) async {
-    if (token.isEmpty) {
-      LogUtils.w(() => 'PushTokenService: Cannot upload empty APNs token');
-      return false;
-    }
-
-    final currentPubkey = Account.sharedInstance.currentPubkey;
-    if (currentPubkey.isEmpty) {
-      LogUtils.v(() =>
-          'PushTokenService: User not authenticated, standard APNs upload deferred');
-      await savePendingStandardAPNsToken(token);
-      return false;
-    }
-
-    try {
-      final registration = await _apiClient.registerDevice(
-        PushTokenRegistrationRequest(
-          pubkey: currentPubkey,
-          platform: 'ios',
-          tokenType: 'apns',
-          token: token,
-          deviceId: await _getOrCreateDeviceId(),
-          appVersion: await _appVersion(),
-        ),
-      );
-      if (registration == null) return false;
-
-      await _persistStandardAPNsRegistration(
-        token: token,
-        registration: registration,
-      );
-      LogUtils.i(() => 'PushTokenService: standard APNs token uploaded');
-      return true;
-    } catch (e, stack) {
-      LogUtils.e(() =>
-          'PushTokenService: Error uploading standard APNs token: $e, $stack');
-      return false;
-    }
+    final registration = await _uploadToChannel(
+      _standardAPNsPushChannel,
+      token: token,
+      tokenType: 'apns',
+      platform: 'ios',
+      savePendingOnUnauthenticated: true,
+    );
+    return registration != null;
   }
 
   Future<PushTokenRegistration?> uploadToken({
@@ -402,6 +399,25 @@ class PushTokenService {
     required String tokenType,
     required String platform,
     String? pubkey,
+  }) {
+    return _uploadToChannel(
+      _relayPushChannel,
+      token: token,
+      tokenType: tokenType,
+      platform: platform,
+      pubkey: pubkey,
+    );
+  }
+
+  /// Registers [token] with the server and persists the resulting registration
+  /// into [channel]. Shared by the relay/VoIP and standard APNs paths.
+  Future<PushTokenRegistration?> _uploadToChannel(
+    _PushChannel channel, {
+    required String token,
+    required String tokenType,
+    required String platform,
+    String? pubkey,
+    bool savePendingOnUnauthenticated = false,
   }) async {
     if (token.isEmpty) {
       LogUtils.w(() => 'PushTokenService: Cannot upload empty push token');
@@ -411,7 +427,10 @@ class PushTokenService {
     final currentPubkey = pubkey ?? Account.sharedInstance.currentPubkey;
     if (currentPubkey.isEmpty) {
       LogUtils.v(() =>
-          'PushTokenService: User not authenticated, token upload deferred');
+          'PushTokenService: User not authenticated, $tokenType token upload deferred');
+      if (savePendingOnUnauthenticated) {
+        await _prefs.setString(channel.pendingTokenKey, token);
+      }
       return null;
     }
 
@@ -433,63 +452,38 @@ class PushTokenService {
       if (registration == null) return null;
 
       await _persistRegistration(
+        channel,
         token: token,
         tokenType: tokenType,
         platform: platform,
         registration: registration,
       );
-      LogUtils.i(() => 'PushTokenService: Push token uploaded successfully');
+      LogUtils.i(() => 'PushTokenService: $tokenType token uploaded');
       return registration;
     } catch (e, stack) {
-      LogUtils.e(() => 'PushTokenService: Error uploading token: $e, $stack');
+      LogUtils.e(
+          () => 'PushTokenService: Error uploading $tokenType token: $e, $stack');
       return null;
     }
   }
 
-  Future<PushTokenRegistration?> getCurrentRegistration() async {
-    final deviceRegistrationId =
-        await _prefs.getString(_deviceRegistrationIdKey) ?? '';
-    final callbackUrl = await _prefs.getString(_callbackUrlKey) ?? '';
-    if (deviceRegistrationId.isEmpty || callbackUrl.isEmpty) return null;
-    return PushTokenRegistration(
-      deviceRegistrationId: deviceRegistrationId,
-      callbackUrl: callbackUrl,
-    );
-  }
+  Future<PushTokenRegistration?> getCurrentRegistration() =>
+      _getRegistration(_relayPushChannel);
 
-  Future<String?> getLastUploadedToken() async {
-    return _prefs.getString(_lastUploadedTokenKey);
-  }
+  Future<String?> getLastUploadedToken() =>
+      _prefs.getString(_relayPushChannel.lastUploadedTokenKey);
 
-  Future<String?> getLastUploadedStandardAPNsToken() async {
-    return _prefs.getString(_standardAPNsLastUploadedTokenKey);
-  }
+  Future<String?> getLastUploadedStandardAPNsToken() =>
+      _prefs.getString(_standardAPNsPushChannel.lastUploadedTokenKey);
 
-  Future<bool> shouldUploadVoIPToken(String newToken) async {
-    final lastUploadedToken = await getLastUploadedToken();
-    final registration = await getCurrentRegistration();
-    if (lastUploadedToken == null || registration == null) return true;
-    return lastUploadedToken != newToken;
-  }
+  Future<bool> shouldUploadVoIPToken(String newToken) =>
+      _shouldUpload(_relayPushChannel, newToken);
 
-  Future<bool> shouldUploadStandardAPNsToken(String newToken) async {
-    final lastUploadedToken = await getLastUploadedStandardAPNsToken();
-    final registration = await getStandardAPNsRegistration();
-    if (lastUploadedToken == null || registration == null) return true;
-    return lastUploadedToken != newToken;
-  }
+  Future<bool> shouldUploadStandardAPNsToken(String newToken) =>
+      _shouldUpload(_standardAPNsPushChannel, newToken);
 
-  Future<PushTokenRegistration?> getStandardAPNsRegistration() async {
-    final deviceRegistrationId =
-        await _prefs.getString(_standardAPNsDeviceRegistrationIdKey) ?? '';
-    final callbackUrl =
-        await _prefs.getString(_standardAPNsCallbackUrlKey) ?? '';
-    if (deviceRegistrationId.isEmpty || callbackUrl.isEmpty) return null;
-    return PushTokenRegistration(
-      deviceRegistrationId: deviceRegistrationId,
-      callbackUrl: callbackUrl,
-    );
-  }
+  Future<PushTokenRegistration?> getStandardAPNsRegistration() =>
+      _getRegistration(_standardAPNsPushChannel);
 
   Future<bool> unregisterCurrentDevice({bool clearLocal = true}) async {
     if (Platform.isAndroid) {
@@ -545,54 +539,65 @@ class PushTokenService {
     }
   }
 
-  Future<void> _persistRegistration({
+  Future<PushTokenRegistration?> _getRegistration(_PushChannel channel) async {
+    final deviceRegistrationId =
+        await _prefs.getString(channel.deviceRegistrationIdKey) ?? '';
+    final callbackUrl = await _prefs.getString(channel.callbackUrlKey) ?? '';
+    if (deviceRegistrationId.isEmpty || callbackUrl.isEmpty) return null;
+    return PushTokenRegistration(
+      deviceRegistrationId: deviceRegistrationId,
+      callbackUrl: callbackUrl,
+    );
+  }
+
+  Future<bool> _shouldUpload(_PushChannel channel, String newToken) async {
+    final lastUploadedToken =
+        await _prefs.getString(channel.lastUploadedTokenKey);
+    final registration = await _getRegistration(channel);
+    if (lastUploadedToken == null || registration == null) return true;
+    return lastUploadedToken != newToken;
+  }
+
+  Future<void> _persistRegistration(
+    _PushChannel channel, {
     required String token,
     required String tokenType,
     required String platform,
     required PushTokenRegistration registration,
   }) async {
+    final tokenTypeKey = channel.tokenTypeKey;
+    final platformKey = channel.platformKey;
     await Future.wait([
-      _prefs.setString(_lastUploadedTokenKey, token),
+      _prefs.setString(channel.lastUploadedTokenKey, token),
       _prefs.setString(
-        _deviceRegistrationIdKey,
+        channel.deviceRegistrationIdKey,
         registration.deviceRegistrationId,
       ),
-      _prefs.setString(_callbackUrlKey, registration.callbackUrl),
-      _prefs.setString(_registeredTokenTypeKey, tokenType),
-      _prefs.setString(_registeredPlatformKey, platform),
+      _prefs.setString(channel.callbackUrlKey, registration.callbackUrl),
+      if (tokenTypeKey != null) _prefs.setString(tokenTypeKey, tokenType),
+      if (platformKey != null) _prefs.setString(platformKey, platform),
     ]);
   }
 
-  Future<void> _persistStandardAPNsRegistration({
-    required String token,
-    required PushTokenRegistration registration,
-  }) async {
-    await Future.wait([
-      _prefs.setString(_standardAPNsLastUploadedTokenKey, token),
-      _prefs.setString(
-        _standardAPNsDeviceRegistrationIdKey,
-        registration.deviceRegistrationId,
-      ),
-      _prefs.setString(_standardAPNsCallbackUrlKey, registration.callbackUrl),
-    ]);
-  }
+  /// Clears the relay/VoIP registration. The pending VoIP token is intentionally
+  /// left in place so a token cached pre-login survives a logout/unregister.
+  Future<void> _clearLocalRegistration() => _clearRegistration(_relayPushChannel);
 
-  Future<void> _clearLocalRegistration() async {
-    await Future.wait([
-      _prefs.remove(_lastUploadedTokenKey),
-      _prefs.remove(_deviceRegistrationIdKey),
-      _prefs.remove(_callbackUrlKey),
-      _prefs.remove(_registeredTokenTypeKey),
-      _prefs.remove(_registeredPlatformKey),
-    ]);
-  }
-
+  /// Clears the standard APNs registration along with any pending token.
   Future<void> _clearStandardAPNsRegistration() async {
+    await _clearRegistration(_standardAPNsPushChannel);
+    await _prefs.remove(_standardAPNsPushChannel.pendingTokenKey);
+  }
+
+  Future<void> _clearRegistration(_PushChannel channel) async {
+    final tokenTypeKey = channel.tokenTypeKey;
+    final platformKey = channel.platformKey;
     await Future.wait([
-      _prefs.remove(_standardAPNsLastUploadedTokenKey),
-      _prefs.remove(_standardAPNsDeviceRegistrationIdKey),
-      _prefs.remove(_standardAPNsCallbackUrlKey),
-      _prefs.remove(_pendingStandardAPNsTokenKey),
+      _prefs.remove(channel.lastUploadedTokenKey),
+      _prefs.remove(channel.deviceRegistrationIdKey),
+      _prefs.remove(channel.callbackUrlKey),
+      if (tokenTypeKey != null) _prefs.remove(tokenTypeKey),
+      if (platformKey != null) _prefs.remove(platformKey),
     ]);
   }
 

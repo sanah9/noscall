@@ -269,81 +269,106 @@ class NostrRelayPushService {
     final privkey = account.currentPrivkey;
     final existingRecords = await _loadRecords(pubkey);
     final candidateRelays = _candidateRelays();
+
+    // Look up relay info concurrently — each lookup is an independent network
+    // call, so doing them sequentially serializes N round-trips needlessly.
+    final relayInfoResults = await Future.wait(
+      candidateRelays.map((relay) async {
+        try {
+          final relayInfo = await _relayInfoProvider.getRelayDetails(relay);
+          return (relay: relay, supported: relayInfo?.supportsNip9a == true);
+        } catch (e) {
+          LogUtils.w(() =>
+              'NostrRelayPushService: failed to load relay info $relay: $e');
+          return (relay: relay, supported: null);
+        }
+      }),
+    );
+
     final supportedRelays = <String>{};
     int relayInfoFailures = 0;
-
-    for (final relay in candidateRelays) {
-      try {
-        final relayInfo = await _relayInfoProvider.getRelayDetails(relay);
-        if (relayInfo?.supportsNip9a == true) {
-          supportedRelays.add(normalizeRelayUrl(relay));
-        }
-      } catch (e) {
+    for (final result in relayInfoResults) {
+      if (result.supported == null) {
         relayInfoFailures++;
-        LogUtils.w(() =>
-            'NostrRelayPushService: failed to load relay info $relay: $e');
+      } else if (result.supported == true) {
+        supportedRelays.add(normalizeRelayUrl(result.relay));
       }
     }
 
     // If every candidate relay failed to load (likely a network outage),
     // bail out and keep existing subscriptions intact rather than deleting them.
-    if (supportedRelays.isEmpty && relayInfoFailures == candidateRelays.length && candidateRelays.isNotEmpty) {
+    if (supportedRelays.isEmpty &&
+        relayInfoFailures == candidateRelays.length &&
+        candidateRelays.isNotEmpty) {
       LogUtils.w(() =>
           'NostrRelayPushService: all $relayInfoFailures relay info lookups failed — aborting sync to preserve existing subscriptions');
       return;
     }
 
-    final updatedRecords = <String, RelayPushSubscriptionRecord>{};
-    for (final relay in supportedRelays) {
-      final previous = existingRecords[relay];
-      final d = previous?.d ?? generate64RandomHexChars();
-      try {
-        final event = await buildSubscriptionEvent(
-          pubkey: pubkey,
-          privkey: privkey,
-          relay: relay,
-          callbackUrl: registration.callbackUrl,
-          d: d,
-        );
-        final ok = await _eventSender.send(event, relay);
-        if (ok.status) {
-          updatedRecords[relay] = RelayPushSubscriptionRecord(
+    // Send subscription events concurrently — each relay send blocks up to the
+    // connection timeout, so serializing them multiplies the worst-case wait.
+    final subscriptionResults = await Future.wait(
+      supportedRelays.map((relay) async {
+        final previous = existingRecords[relay];
+        final d = previous?.d ?? generate64RandomHexChars();
+        try {
+          final event = await buildSubscriptionEvent(
+            pubkey: pubkey,
+            privkey: privkey,
             relay: relay,
-            d: d,
-            eventId: event.id,
             callbackUrl: registration.callbackUrl,
-            createdAt: event.createdAt,
+            d: d,
           );
-        } else {
+          final ok = await _eventSender.send(event, relay);
+          if (ok.status) {
+            return MapEntry(
+              relay,
+              RelayPushSubscriptionRecord(
+                relay: relay,
+                d: d,
+                eventId: event.id,
+                callbackUrl: registration.callbackUrl,
+                createdAt: event.createdAt,
+              ),
+            );
+          }
           LogUtils.w(() =>
               'NostrRelayPushService: subscription rejected by $relay: ${ok.message}');
-          if (previous != null) updatedRecords[relay] = previous;
+        } catch (e, stack) {
+          LogUtils.e(() =>
+              'NostrRelayPushService: subscription error for $relay: $e, $stack');
         }
-      } catch (e, stack) {
-        LogUtils.e(() =>
-            'NostrRelayPushService: subscription error for $relay: $e, $stack');
-        if (previous != null) updatedRecords[relay] = previous;
-      }
-    }
+        // On rejection or error, retain the previous record if one exists.
+        return previous == null ? null : MapEntry(relay, previous);
+      }),
+    );
 
+    final updatedRecords = <String, RelayPushSubscriptionRecord>{
+      for (final entry in subscriptionResults)
+        if (entry != null) entry.key: entry.value,
+    };
+
+    // Delete stale subscriptions concurrently.
     final staleRelays = existingRecords.keys
         .where((relay) => !supportedRelays.contains(relay))
         .toList();
-    for (final relay in staleRelays) {
-      final record = existingRecords[relay];
-      if (record == null) continue;
-      try {
-        final event = await buildDeletionEvent(
-          pubkey: pubkey,
-          privkey: privkey,
-          record: record,
-        );
-        await _eventSender.send(event, relay);
-      } catch (e) {
-        LogUtils.w(() =>
-            'NostrRelayPushService: failed to delete stale subscription $relay: $e');
-      }
-    }
+    await Future.wait(
+      staleRelays.map((relay) async {
+        final record = existingRecords[relay];
+        if (record == null) return;
+        try {
+          final event = await buildDeletionEvent(
+            pubkey: pubkey,
+            privkey: privkey,
+            record: record,
+          );
+          await _eventSender.send(event, relay);
+        } catch (e) {
+          LogUtils.w(() =>
+              'NostrRelayPushService: failed to delete stale subscription $relay: $e');
+        }
+      }),
+    );
 
     await _saveRecords(pubkey, updatedRecords);
     await _prefs.setInt(
