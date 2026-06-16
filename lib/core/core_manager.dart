@@ -27,11 +27,7 @@ class ChatCoreManager {
 
   /// Initialize core components with configuration
   Future<void> _initCoreComponentsWithConfig(ChatCoreInitConfig config) async {
-    // Initialize core components in parallel for better performance
-    await Future.wait([
-      Future(() => Contacts.sharedInstance
-          .init(callBack: config.contactUpdatedCallBack)),
-    ]);
+    await Contacts.sharedInstance.init(callBack: config.contactUpdatedCallBack);
   }
 
   List<int> myProfileKinds() {
@@ -40,10 +36,5 @@ class ChatCoreManager {
 
   List<int> userProfileKinds() {
     return [0, 10002, 10050, 30008];
-  }
-
-  bool isAcceptedEventKind(int kind) {
-    final accepted = [];
-    return accepted.isEmpty || accepted.contains(kind);
   }
 }

@@ -8,7 +8,6 @@ import 'package:noscall/core/account/model/relayDB_isar.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
-import 'package:noscall/core/core_manager.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
@@ -345,7 +344,6 @@ class Contacts {
     friendMessageSubscription = Connect.sharedInstance
         .addSubscriptions(subscriptions, closeSubscription: false,
             eventCallBack: (event, relay) async {
-      if (!ChatCoreManager().isAcceptedEventKind(event.kind)) return;
       if (event.kind == 4 || event.kind == 44) {
         if (EventCache.sharedInstance.cacheIds.contains(event.id)) return;
         if (inBlockList(event.pubkey)) return;
@@ -378,8 +376,7 @@ class Contacts {
           return;
         }
         EventCache.sharedInstance.receiveEvent(innerEvent, relay);
-        if (!inBlockList(innerEvent.pubkey) &&
-            ChatCoreManager().isAcceptedEventKind(innerEvent.kind)) {
+        if (!inBlockList(innerEvent.pubkey)) {
           updateFriendMessageTime(innerEvent.createdAt, relay);
           switch (innerEvent.kind) {
             case 4:
