@@ -1,10 +1,8 @@
 
 allprojects {
     repositories {
-        gradlePluginPortal()
         google()
         mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" }
         jcenter()
     }
 
@@ -22,6 +20,25 @@ allprojects {
 
 rootProject.buildDir = '../build'
 subprojects {
+    // Some plugins still declare their own legacy buildscript tool versions.
+    // Keep every Android subproject on the versions selected by this app so a
+    // plugin cannot downgrade AGP/Kotlin or pull a second compiler toolchain.
+    buildscript {
+        configurations.configureEach {
+            resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == 'com.android.tools.build' &&
+                        details.requested.name == 'gradle') {
+                    details.useVersion '8.8.0'
+                    details.because 'Use the Android Gradle Plugin selected by the app'
+                }
+                if (details.requested.group == 'org.jetbrains.kotlin' &&
+                        details.requested.name == 'kotlin-gradle-plugin') {
+                    details.useVersion '2.1.0'
+                    details.because 'Use the Kotlin Gradle Plugin selected by the app'
+                }
+            }
+        }
+    }
     project.buildDir = "${rootProject.buildDir}/${project.name}"
     afterEvaluate {
         if (it.hasProperty('android')) {
