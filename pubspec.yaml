@@ -58,6 +58,11 @@ dependencies:
       url: https://github.com/sanah9/nostr-dart
       ref: 71cc545e54565c2df6d8ab347cf54fcae646e770
 
+  # Cashu protocol engine. Keep this pinned until upgrades pass the wallet
+  # compatibility and mobile build test matrix.
+  cdk:
+    path: packages/cdk
+
 dependency_overrides:
   record_linux: ^1.3.0
 

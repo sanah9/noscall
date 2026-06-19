@@ -1,0 +1,35 @@
+[package]
+name = "cdk-ffi-dart"
+edition = "2021"
+rust-version = "1.85.0"
+license = "MIT"
+homepage = "https://github.com/cashubtc/cdk"
+repository = "https://github.com/cashubtc/cdk.git"
+version = "0.17.1"
+readme = "README.md"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+name = "cdk_ffi_dart"
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+cdk-ffi = { version = "=0.17.1", default-features = false, features = ["npubcash", "bip353"] }
+uniffi = { version = "0.30", features = ["cli"] }
+uniffi-dart = { git = "https://github.com/Uniffi-Dart/uniffi-dart", tag = "v0.1.0+v0.30.0"  }
+camino = "1.2"
+
+[build-dependencies]
+uniffi = { version = "0.30", features = ["build"] }
+uniffi-dart = { git = "https://github.com/Uniffi-Dart/uniffi-dart", features = ["build"], tag = "v0.1.0+v0.30.0"  }
+
+[lints]
+
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
