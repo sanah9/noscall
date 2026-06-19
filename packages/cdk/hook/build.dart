@@ -78,7 +78,15 @@ String _targetTriple(CodeConfig config) {
     (OS.android, Architecture.arm64) => 'aarch64-linux-android',
     (OS.android, Architecture.arm) => 'armv7-linux-androideabi',
     (OS.android, Architecture.x64) => 'x86_64-linux-android',
-    (OS.iOS, Architecture.arm64) => 'aarch64-apple-ios',
+    (OS.iOS, Architecture.arm64)
+        when config.iOS.targetSdk == IOSSdk.iPhoneSimulator =>
+      'aarch64-apple-ios-sim',
+    (OS.iOS, Architecture.arm64)
+        when config.iOS.targetSdk == IOSSdk.iPhoneOS =>
+      'aarch64-apple-ios',
+    (OS.iOS, Architecture.x64)
+        when config.iOS.targetSdk == IOSSdk.iPhoneSimulator =>
+      'x86_64-apple-ios',
     (OS.windows, Architecture.x64) => 'x86_64-pc-windows-msvc',
     (OS.linux, Architecture.arm64) => 'aarch64-unknown-linux-gnu',
     (OS.linux, Architecture.x64) => 'x86_64-unknown-linux-gnu',
