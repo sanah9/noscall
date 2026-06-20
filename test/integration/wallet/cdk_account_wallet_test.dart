@@ -72,6 +72,20 @@ void main() {
     expect(await reopened.totalBalanceSats(), 0);
   });
 
+  test(
+    'reconciles an empty account wallet without inventing operations',
+    () async {
+      final account = CashuAccountId.fromNostrPubkey('f' * 64);
+      final created = await factory.createNew(account);
+      addTearDown(created.wallet.close);
+
+      final result = await created.wallet.reconcilePendingOperations();
+
+      expect(result.recoveredOperations, 0);
+      expect(result.pendingOperations, 0);
+    },
+  );
+
   test('requires explicit opt-in for the development seed store', () async {
     final guardedFactory = CdkAccountWalletFactory(
       walletsRoot: Directory('${temporaryDirectory.path}/guarded-wallets'),

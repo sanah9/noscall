@@ -2,11 +2,12 @@ import 'dart:io';
 
 import 'package:cdk/cdk.dart' as cdk;
 
+import '../../domain/account_wallet.dart';
 import '../../domain/cashu_account_id.dart';
 import '../../domain/cashu_models.dart';
 import '../../domain/wallet_key_store.dart';
 
-final class CdkAccountWalletFactory {
+final class CdkAccountWalletFactory implements AccountWalletFactory {
   CdkAccountWalletFactory({
     required this.walletsRoot,
     required this.keyStore,
@@ -17,7 +18,16 @@ final class CdkAccountWalletFactory {
   final WalletKeyStore keyStore;
   final bool allowInsecureDevelopmentStore;
 
-  Future<CdkWalletCreation> createNew(CashuAccountId accountId) async {
+  @override
+  Future<bool> exists(CashuAccountId accountId) async {
+    _validateKeyStore();
+    return await keyStore.readMnemonic(accountId.seedReference) != null;
+  }
+
+  @override
+  Future<AccountWalletCreation<CdkAccountWallet>> createNew(
+    CashuAccountId accountId,
+  ) async {
     _validateKeyStore();
     final reference = accountId.seedReference;
     if (await keyStore.readMnemonic(reference) != null) {
@@ -31,9 +41,10 @@ final class CdkAccountWalletFactory {
     // the same seed remains available and openExisting can safely retry.
     await keyStore.writeMnemonic(reference, mnemonic);
     final wallet = await _open(accountId, mnemonic);
-    return CdkWalletCreation(wallet: wallet, mnemonic: mnemonic);
+    return AccountWalletCreation(wallet: wallet, mnemonic: mnemonic);
   }
 
+  @override
   Future<CdkAccountWallet> openExisting(CashuAccountId accountId) async {
     _validateKeyStore();
     final mnemonic = await keyStore.readMnemonic(accountId.seedReference);
@@ -81,23 +92,14 @@ final class CdkAccountWalletFactory {
   }
 }
 
-final class CdkWalletCreation {
-  const CdkWalletCreation({required this.wallet, required this.mnemonic});
-
-  final CdkAccountWallet wallet;
-
-  /// Returned once so the future backup UI can display it to the user.
-  /// This value must never be logged or persisted outside WalletKeyStore.
-  final String mnemonic;
-}
-
-final class CdkAccountWallet {
+final class CdkAccountWallet implements AccountWalletSession {
   CdkAccountWallet._({
     required this.accountId,
     required this.databaseFile,
     required cdk.WalletRepository repository,
   }) : _repository = repository;
 
+  @override
   final CashuAccountId accountId;
   final File databaseFile;
   final cdk.WalletRepository _repository;
@@ -132,6 +134,7 @@ final class CdkAccountWallet {
     return wallet;
   }
 
+  @override
   Future<int> totalBalanceSats() async {
     _ensureOpen();
     final balances = await _repository.getBalances();
@@ -141,6 +144,39 @@ final class CdkAccountWallet {
     );
   }
 
+  @override
+  Future<CashuReconciliationResult> reconcilePendingOperations() async {
+    _ensureOpen();
+    var recovered = 0;
+    var pending = 0;
+    final wallets = await _repository.getWallets();
+    try {
+      for (final wallet in wallets) {
+        final report = await wallet.recoverIncompleteSagas();
+        recovered += report.recovered + report.compensated;
+
+        await wallet.checkAllPendingProofs();
+        final pendingSends = await wallet.getPendingSends();
+        for (final operationId in pendingSends) {
+          await wallet.checkSendStatus(operationId: operationId);
+        }
+        pending +=
+            (await wallet.getPendingSends()).length +
+            report.skipped +
+            report.failed;
+      }
+    } finally {
+      for (final wallet in wallets) {
+        wallet.dispose();
+      }
+    }
+    return CashuReconciliationResult(
+      recoveredOperations: recovered,
+      pendingOperations: pending,
+    );
+  }
+
+  @override
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
