@@ -12,6 +12,7 @@ import 'package:noscall/core/account/model/relayDB_isar.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/common/network/eventDB_isar.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'package:noscall/wallet/infrastructure/database/wallet_configuration_isar.dart';
 
 class DBISAR {
   static final DBISAR sharedInstance = DBISAR._internal();
@@ -36,6 +37,8 @@ class DBISAR {
     CallLogGroupSchema,
     ContactGroupSchema,
     ContactGroupMemberSchema,
+    CashuWalletConfigurationRecordSchema,
+    CashuMintConfigurationRecordSchema,
   ];
 
   // Store encryption key after first open so subsequent opens re-use it.

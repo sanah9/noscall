@@ -38,10 +38,14 @@ final class WalletSessionState {
 /// Operations are serialized so rapid account changes cannot leave two CDK
 /// repositories open or attach one account's session to another account.
 final class WalletSessionManager {
-  WalletSessionManager({required AccountWalletFactory factory})
-    : _factory = factory;
+  WalletSessionManager({
+    required AccountWalletFactory factory,
+    PendingOperationRecoveryService? recoveryService,
+  }) : _factory = factory,
+       _recoveryService = recoveryService ?? PendingOperationRecoveryService();
 
   final AccountWalletFactory _factory;
+  final PendingOperationRecoveryService _recoveryService;
   Future<void> _operationQueue = Future<void>.value();
   WalletSessionState? _activeState;
   bool _disposed = false;
@@ -60,6 +64,12 @@ final class WalletSessionManager {
       }
 
       final wallet = await _factory.openExisting(accountId);
+      try {
+        await _recoveryService.recover(wallet);
+      } catch (_) {
+        await wallet.close();
+        rethrow;
+      }
       return _activeState = WalletSessionState.ready(wallet);
     });
   }

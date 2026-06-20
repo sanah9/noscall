@@ -41,6 +41,20 @@ void main() {
     expect(walletB.closeCalls, 0);
     expect(stateB.accountId, accountB);
     expect(stateB.wallet, same(walletB));
+    expect(walletA.recoveryCalls, 1);
+    expect(walletB.recoveryCalls, 1);
+  });
+
+  test('does not expose a wallet when startup recovery fails', () async {
+    final account = _account('e');
+    final wallet = factory.addExisting(account);
+    wallet.recoveryError = StateError('recovery failed');
+
+    final activation = manager.activate(account);
+
+    await expectLater(activation, throwsStateError);
+    expect(wallet.closeCalls, 1);
+    expect(manager.activeState, isNull);
   });
 
   test('rapid account changes remain serialized and isolated', () async {
@@ -155,19 +169,20 @@ final class _FakeAccountWallet implements AccountWalletSession {
   int closeCalls = 0;
   int recoveryCalls = 0;
   Completer<CashuReconciliationResult>? recoveryResult;
+  Object? recoveryError;
 
   @override
   Future<void> close() async => closeCalls++;
 
   @override
-  Future<CashuReconciliationResult> reconcilePendingOperations() {
+  Future<CashuReconciliationResult> reconcilePendingOperations() async {
     recoveryCalls++;
-    return recoveryResult?.future ??
-        Future.value(
-          const CashuReconciliationResult(
-            recoveredOperations: 0,
-            pendingOperations: 0,
-          ),
+    final error = recoveryError;
+    if (error != null) throw error;
+    return await recoveryResult?.future ??
+        const CashuReconciliationResult(
+          recoveredOperations: 0,
+          pendingOperations: 0,
         );
   }
 
