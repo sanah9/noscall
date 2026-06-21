@@ -17,6 +17,7 @@ void main() {
     account = CashuAccountId.fromNostrPubkey('a' * 64);
     walletFactory = _FakeWalletFactory();
     repository = _MemoryWalletConfigurationRepository();
+    final mintRepository = _MemoryMintConfigurationRepository();
     controller = AccountWalletLandingController(
       accountId: account,
       sessionManager: WalletSessionManager(factory: walletFactory),
@@ -24,6 +25,7 @@ void main() {
         repository: repository,
         clock: () => DateTime.utc(2026, 6, 21),
       ),
+      mintRepository: mintRepository,
       isDevelopmentOnly: true,
     );
   });
@@ -118,4 +120,22 @@ final class _MemoryWalletConfigurationRepository
   Future<void> save(WalletConfiguration configuration) async {
     values[configuration.owner] = configuration;
   }
+}
+
+final class _MemoryMintConfigurationRepository
+    implements MintConfigurationRepository {
+  @override
+  Future<void> delete(CashuAccountId owner, CashuMintUrl url) async {}
+
+  @override
+  Future<MintConfiguration?> find(
+    CashuAccountId owner,
+    CashuMintUrl url,
+  ) async => null;
+
+  @override
+  Future<List<MintConfiguration>> list(CashuAccountId owner) async => const [];
+
+  @override
+  Future<void> save(MintConfiguration configuration) async {}
 }

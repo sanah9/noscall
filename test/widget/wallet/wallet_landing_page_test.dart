@@ -104,6 +104,8 @@ final class _FakeLandingController implements WalletLandingController {
     return WalletLandingSnapshot.ready(
       balanceSats: 0,
       backupStatus: backupStatus ?? WalletBackupStatus.notShown,
+      mintCount: 0,
+      enabledMintCount: 0,
     );
   }
 

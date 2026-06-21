@@ -47,6 +47,9 @@ final class MobileWalletControllerFactory {
       accountId: accountId,
       sessionManager: sessionManager,
       configurationService: configurationService,
+      mintRepository: IsarMintConfigurationRepository(
+        DBISAR.sharedInstance.isar,
+      ),
       isDevelopmentOnly: true,
     );
   }

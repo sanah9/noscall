@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../wallet/pages/wallet_backup_page.dart';
 import '../../wallet/pages/wallet_landing_page.dart';
+import '../../wallet/pages/mint_management_page.dart';
 
 List<RouteBase> get walletRoutes => [
   GoRoute(
@@ -26,9 +27,6 @@ List<RouteBase> get walletRoutes => [
   GoRoute(
     path: '/wallet/mints',
     name: 'wallet-mints',
-    builder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('Mints')),
-      body: const Center(child: Text('Mint management UI is coming next.')),
-    ),
+    builder: (context, state) => const MintManagementPage(),
   ),
 ];

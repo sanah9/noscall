@@ -134,6 +134,11 @@ final class MintRegistryService {
     return updated;
   }
 
+  Future<void> remove(CashuAccountId owner, CashuMintUrl url) async {
+    await _requireExisting(owner, url);
+    await _repository.delete(owner, url);
+  }
+
   Future<MintRegistrationPreview> _validate({
     required CashuAccountId owner,
     required CashuMintUrl url,

@@ -192,12 +192,21 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
           Card(
             child: ListTile(
               leading: const Icon(Icons.hub_outlined),
-              title: const Text('No Mint configured'),
-              subtitle: const Text(
-                'Add a Mint you trust before receiving or sending Cashu.',
+              title: Text(
+                snapshot.mintCount == 0
+                    ? 'No Mint configured'
+                    : '${snapshot.enabledMintCount} of ${snapshot.mintCount} Mints enabled',
+              ),
+              subtitle: Text(
+                snapshot.mintCount == 0
+                    ? 'Add a Mint you trust before receiving or sending Cashu.'
+                    : 'Review, refresh, enable, or remove configured Mints.',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/wallet/mints'),
+              onTap: () async {
+                await context.push('/wallet/mints');
+                await _reload();
+              },
             ),
           ),
         ],

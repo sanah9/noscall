@@ -107,6 +107,23 @@ void main() {
     expect(enabled.enabled, isTrue);
     expect(inspector.calls, callsBeforeEnable + 1);
   });
+
+  test('removes only an existing account-scoped Mint', () async {
+    final owner = _account('e');
+    final otherOwner = _account('f');
+    final url = CashuMintUrl.parse('https://mint.example.com');
+    inspector.snapshots[url] = _supportedSnapshot(url);
+    await service.confirm(await service.validateManual(owner, url.toString()));
+    await service.confirm(
+      await service.validateManual(otherOwner, url.toString()),
+    );
+
+    await service.remove(owner, url);
+
+    expect(await repository.find(owner, url), isNull);
+    expect(await repository.find(otherOwner, url), isNotNull);
+    await expectLater(service.remove(owner, url), throwsStateError);
+  });
 }
 
 Set<CashuNut> get _requiredNuts => {

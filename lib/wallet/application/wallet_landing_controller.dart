@@ -10,6 +10,8 @@ final class WalletLandingSnapshot {
     required this.status,
     required this.balanceSats,
     required this.backupStatus,
+    required this.mintCount,
+    required this.enabledMintCount,
     this.unavailableReason,
   });
 
@@ -18,6 +20,8 @@ final class WalletLandingSnapshot {
         status: WalletLandingStatus.absent,
         balanceSats: 0,
         backupStatus: null,
+        mintCount: 0,
+        enabledMintCount: 0,
       );
 
   const WalletLandingSnapshot.unavailable(String reason)
@@ -25,21 +29,29 @@ final class WalletLandingSnapshot {
         status: WalletLandingStatus.unavailable,
         balanceSats: 0,
         backupStatus: null,
+        mintCount: 0,
+        enabledMintCount: 0,
         unavailableReason: reason,
       );
 
   const WalletLandingSnapshot.ready({
     required int balanceSats,
     required WalletBackupStatus backupStatus,
+    required int mintCount,
+    required int enabledMintCount,
   }) : this._(
          status: WalletLandingStatus.ready,
          balanceSats: balanceSats,
          backupStatus: backupStatus,
+         mintCount: mintCount,
+         enabledMintCount: enabledMintCount,
        );
 
   final WalletLandingStatus status;
   final int balanceSats;
   final WalletBackupStatus? backupStatus;
+  final int mintCount;
+  final int enabledMintCount;
   final String? unavailableReason;
 }
 
@@ -60,14 +72,17 @@ final class AccountWalletLandingController implements WalletLandingController {
     required CashuAccountId accountId,
     required WalletSessionManager sessionManager,
     required WalletConfigurationService configurationService,
+    required MintConfigurationRepository mintRepository,
     required this.isDevelopmentOnly,
   }) : _accountId = accountId,
        _sessionManager = sessionManager,
-       _configurationService = configurationService;
+       _configurationService = configurationService,
+       _mintRepository = mintRepository;
 
   final CashuAccountId _accountId;
   final WalletSessionManager _sessionManager;
   final WalletConfigurationService _configurationService;
+  final MintConfigurationRepository _mintRepository;
 
   @override
   final bool isDevelopmentOnly;
@@ -79,9 +94,12 @@ final class AccountWalletLandingController implements WalletLandingController {
     if (wallet == null) return const WalletLandingSnapshot.absent();
 
     final configuration = await _configurationService.ensure(_accountId);
+    final mints = await _mintRepository.list(_accountId);
     return WalletLandingSnapshot.ready(
       balanceSats: await wallet.totalBalanceSats(),
       backupStatus: configuration.backupStatus,
+      mintCount: mints.length,
+      enabledMintCount: mints.where((mint) => mint.enabled).length,
     );
   }
 
