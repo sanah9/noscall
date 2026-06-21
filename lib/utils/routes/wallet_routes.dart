@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../wallet/pages/wallet_backup_page.dart';
 import '../../wallet/pages/wallet_landing_page.dart';
 import '../../wallet/pages/mint_management_page.dart';
+import '../../wallet/pages/wallet_recovery_page.dart';
 
 List<RouteBase> get walletRoutes => [
   GoRoute(
@@ -23,6 +24,11 @@ List<RouteBase> get walletRoutes => [
       }
       return WalletBackupPage(mnemonic: arguments.mnemonic);
     },
+  ),
+  GoRoute(
+    path: '/wallet/restore',
+    name: 'wallet-restore',
+    builder: (context, state) => const WalletRecoveryPage(),
   ),
   GoRoute(
     path: '/wallet/mints',

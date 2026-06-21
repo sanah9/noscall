@@ -19,6 +19,7 @@ void main() {
 
     expect(find.text('Development wallet'), findsOneWidget);
     expect(find.text('Create wallet'), findsOneWidget);
+    expect(find.text('Restore wallet'), findsOneWidget);
     expect(
       find.textContaining('does not provide a default Mint'),
       findsOneWidget,

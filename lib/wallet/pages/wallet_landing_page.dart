@@ -143,9 +143,9 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
           label: const Text('Create wallet'),
         ),
         const SizedBox(height: 12),
-        const OutlinedButton(
-          onPressed: null,
-          child: Text('Restore wallet — coming next'),
+        OutlinedButton(
+          onPressed: () => context.push('/wallet/restore'),
+          child: const Text('Restore wallet'),
         ),
       ],
     );
