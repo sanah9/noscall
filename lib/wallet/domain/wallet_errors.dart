@@ -24,3 +24,9 @@ final class UnsupportedMintException implements Exception {
   @override
   String toString() => 'UnsupportedMintException: Mint capabilities rejected';
 }
+
+final class MintHasBalanceException implements Exception {
+  const MintHasBalanceException(this.balanceSats);
+
+  final int balanceSats;
+}

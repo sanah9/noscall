@@ -204,6 +204,8 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
+                await _controller?.closeSession();
+                if (!context.mounted) return;
                 await context.push('/wallet/mints');
                 await _reload();
               },

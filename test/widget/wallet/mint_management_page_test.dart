@@ -59,10 +59,38 @@ void main() {
     expect(controller.removeCalls, 1);
     expect(find.text('No Mint configured'), findsOneWidget);
   });
+
+  testWidgets('shows local Mint balance and disables removal while nonzero', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = _FakeMintManagementController(
+      withMint: true,
+      balanceSats: 42,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MintManagementPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('42 sat'), findsOneWidget);
+    final removeButton = tester.widget<TextButton>(
+      find.ancestor(
+        of: find.text('Empty balance to remove'),
+        matching: find.byWidgetPredicate((widget) => widget is TextButton),
+      ),
+    );
+    expect(removeButton.onPressed, isNull);
+  });
 }
 
 final class _FakeMintManagementController implements MintManagementController {
-  _FakeMintManagementController({bool withMint = false})
+  _FakeMintManagementController({bool withMint = false, this.balanceSats = 0})
     : _mints = withMint ? [_configuration(enabled: true)] : [];
 
   List<MintConfiguration> _mints;
@@ -70,9 +98,13 @@ final class _FakeMintManagementController implements MintManagementController {
   int confirmCalls = 0;
   int removeCalls = 0;
   final List<bool> enabledChanges = [];
+  final int balanceSats;
 
-  MintManagementSnapshot get _snapshot =>
-      MintManagementSnapshot(mints: _mints, suggestions: const []);
+  MintManagementSnapshot get _snapshot => MintManagementSnapshot(
+    mints: _mints,
+    suggestions: const [],
+    balancesSats: {_url: balanceSats},
+  );
 
   @override
   Future<MintManagementSnapshot> load() async => _snapshot;

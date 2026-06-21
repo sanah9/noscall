@@ -136,12 +136,21 @@ final class CdkAccountWallet implements AccountWalletSession {
 
   @override
   Future<int> totalBalanceSats() async {
+    final balances = await balancesByMintSats();
+    return balances.values.fold<int>(0, (total, amount) => total + amount);
+  }
+
+  @override
+  Future<Map<CashuMintUrl, int>> balancesByMintSats() async {
     _ensureOpen();
     final balances = await _repository.getBalances();
-    return balances.values.fold<int>(
-      0,
-      (total, amount) => total + amount.value,
-    );
+    final result = <CashuMintUrl, int>{};
+    for (final entry in balances.entries) {
+      if (entry.key.unit is! cdk.SatCurrencyUnit) continue;
+      final url = CashuMintUrl.parse(entry.key.mintUrl.url);
+      result[url] = (result[url] ?? 0) + entry.value.value;
+    }
+    return Map.unmodifiable(result);
   }
 
   @override

@@ -7,6 +7,8 @@ abstract interface class AccountWalletSession {
 
   Future<int> totalBalanceSats();
 
+  Future<Map<CashuMintUrl, int>> balancesByMintSats();
+
   Future<CashuReconciliationResult> reconcilePendingOperations();
 
   Future<void> close();

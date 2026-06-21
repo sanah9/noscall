@@ -188,4 +188,7 @@ final class _FakeAccountWallet implements AccountWalletSession {
 
   @override
   Future<int> totalBalanceSats() async => 0;
+
+  @override
+  Future<Map<CashuMintUrl, int>> balancesByMintSats() async => const {};
 }

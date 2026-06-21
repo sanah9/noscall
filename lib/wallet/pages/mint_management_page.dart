@@ -175,7 +175,9 @@ final class _MintManagementPageState extends State<MintManagementPage> {
   }
 
   Widget _buildMint(MintConfiguration mint) {
+    final balanceSats = _snapshot!.balanceFor(mint.url);
     final subtitle = [
+      '$balanceSats sat',
       mint.url.toString(),
       if (mint.lastError != null) 'Last check failed: ${mint.lastError}',
     ].join('\n');
@@ -200,9 +202,13 @@ final class _MintManagementPageState extends State<MintManagementPage> {
                 label: const Text('Refresh'),
               ),
               TextButton.icon(
-                onPressed: _mutating ? null : () => _remove(mint),
+                onPressed: _mutating || balanceSats > 0
+                    ? null
+                    : () => _remove(mint),
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Remove'),
+                label: Text(
+                  balanceSats > 0 ? 'Empty balance to remove' : 'Remove',
+                ),
               ),
             ],
           ),
@@ -366,6 +372,8 @@ final class _MintManagementPageState extends State<MintManagementPage> {
         supportsSat
             ? 'Mint is missing required NUTs: ${missingNutNumbers.toList()..sort()}.'
             : 'Mint does not provide a usable sat keyset.',
+      MintHasBalanceException(:final balanceSats) =>
+        'Move or spend the remaining $balanceSats sat before removing this Mint.',
       _ => 'Mint operation failed. Please try again.',
     };
     ScaffoldMessenger.of(

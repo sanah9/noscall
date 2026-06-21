@@ -2,17 +2,24 @@ import '../domain/cashu_account_id.dart';
 import '../domain/cashu_models.dart';
 import '../domain/mint_configuration.dart';
 import '../domain/wallet_configuration.dart';
+import '../domain/wallet_errors.dart';
+import 'account_wallet_balance_service.dart';
 import 'mint_registry_service.dart';
 
 final class MintManagementSnapshot {
   MintManagementSnapshot({
     required Iterable<MintConfiguration> mints,
     required Iterable<DefaultMintSuggestion> suggestions,
+    required Map<CashuMintUrl, int> balancesSats,
   }) : mints = List.unmodifiable(mints),
-       suggestions = List.unmodifiable(suggestions);
+       suggestions = List.unmodifiable(suggestions),
+       balancesSats = Map.unmodifiable(balancesSats);
 
   final List<MintConfiguration> mints;
   final List<DefaultMintSuggestion> suggestions;
+  final Map<CashuMintUrl, int> balancesSats;
+
+  int balanceFor(CashuMintUrl url) => balancesSats[url] ?? 0;
 }
 
 abstract interface class MintManagementController {
@@ -40,13 +47,16 @@ final class AccountMintManagementController
   AccountMintManagementController({
     required CashuAccountId accountId,
     required MintRegistryService registry,
+    required AccountWalletBalanceService balanceService,
     Future<void> Function()? onDispose,
   }) : _accountId = accountId,
        _registry = registry,
+       _balanceService = balanceService,
        _onDispose = onDispose;
 
   final CashuAccountId _accountId;
   final MintRegistryService _registry;
+  final AccountWalletBalanceService _balanceService;
   final Future<void> Function()? _onDispose;
   bool _disposed = false;
 
@@ -57,7 +67,11 @@ final class AccountMintManagementController
     final suggestions = (await _registry.loadConfiguredSuggestions()).where(
       (suggestion) => !configuredUrls.contains(suggestion.url),
     );
-    return MintManagementSnapshot(mints: mints, suggestions: suggestions);
+    return MintManagementSnapshot(
+      mints: mints,
+      suggestions: suggestions,
+      balancesSats: await _balanceService.load(),
+    );
   }
 
   @override
@@ -94,6 +108,8 @@ final class AccountMintManagementController
 
   @override
   Future<MintManagementSnapshot> remove(CashuMintUrl url) async {
+    final balance = (await _balanceService.load())[url] ?? 0;
+    if (balance > 0) throw MintHasBalanceException(balance);
     await _registry.remove(_accountId, url);
     return load();
   }
@@ -102,6 +118,10 @@ final class AccountMintManagementController
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    await _onDispose?.call();
+    try {
+      await _balanceService.dispose();
+    } finally {
+      await _onDispose?.call();
+    }
   }
 }

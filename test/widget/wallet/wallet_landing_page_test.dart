@@ -100,6 +100,9 @@ final class _FakeLandingController implements WalletLandingController {
   Future<void> dispose() async {}
 
   @override
+  Future<void> closeSession() async {}
+
+  @override
   Future<WalletLandingSnapshot> load() async {
     if (!created) return const WalletLandingSnapshot.absent();
     return WalletLandingSnapshot.ready(

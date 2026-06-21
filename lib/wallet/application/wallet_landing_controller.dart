@@ -64,6 +64,8 @@ abstract interface class WalletLandingController {
 
   Future<WalletLandingSnapshot> updateBackupStatus(WalletBackupStatus status);
 
+  Future<void> closeSession();
+
   Future<void> dispose();
 }
 
@@ -119,6 +121,9 @@ final class AccountWalletLandingController implements WalletLandingController {
   }
 
   @override
+  Future<void> closeSession() => _sessionManager.closeActive();
+
+  @override
   Future<void> dispose() => _sessionManager.dispose();
 }
 
@@ -141,6 +146,9 @@ final class UnavailableWalletLandingController
   @override
   Future<WalletLandingSnapshot> updateBackupStatus(WalletBackupStatus status) =>
       Future.error(StateError(reason));
+
+  @override
+  Future<void> closeSession() async {}
 
   @override
   Future<void> dispose() async {}

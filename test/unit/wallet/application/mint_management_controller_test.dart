@@ -1,10 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:noscall/wallet/application/account_wallet_balance_service.dart';
 import 'package:noscall/wallet/application/mint_management_controller.dart';
 import 'package:noscall/wallet/application/mint_registry_service.dart';
+import 'package:noscall/wallet/application/wallet_session_manager.dart';
+import 'package:noscall/wallet/domain/account_wallet.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_engine.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 import 'package:noscall/wallet/domain/wallet_configuration.dart';
+import 'package:noscall/wallet/domain/wallet_errors.dart';
 
 void main() {
   test('validates, confirms, toggles, and removes an account Mint', () async {
@@ -18,6 +22,7 @@ void main() {
     final controller = AccountMintManagementController(
       accountId: owner,
       registry: registry,
+      balanceService: _balanceService(owner),
     );
 
     expect((await controller.load()).mints, isEmpty);
@@ -40,6 +45,7 @@ void main() {
         inspector: _Inspector(),
         repository: _Repository(),
       ),
+      balanceService: _balanceService(CashuAccountId.fromNostrPubkey('b' * 64)),
       onDispose: () async => disposeCalls++,
     );
 
@@ -48,6 +54,92 @@ void main() {
 
     expect(disposeCalls, 1);
   });
+
+  test('does not remove a Mint that still has a local balance', () async {
+    final owner = CashuAccountId.fromNostrPubkey('c' * 64);
+    final inspector = _Inspector();
+    final repository = _Repository();
+    final registry = MintRegistryService(
+      inspector: inspector,
+      repository: repository,
+    );
+    final url = CashuMintUrl.parse('https://mint.example.com');
+    await registry.confirm(
+      await registry.validateManual(owner, url.toString()),
+    );
+    final controller = AccountMintManagementController(
+      accountId: owner,
+      registry: registry,
+      balanceService: _balanceService(owner, balances: {url: 42}),
+    );
+
+    final snapshot = await controller.load();
+    expect(snapshot.balanceFor(url), 42);
+    await expectLater(
+      controller.remove(url),
+      throwsA(
+        isA<MintHasBalanceException>().having(
+          (error) => error.balanceSats,
+          'balance',
+          42,
+        ),
+      ),
+    );
+    expect(await repository.find(owner, url), isNotNull);
+  });
+}
+
+AccountWalletBalanceService _balanceService(
+  CashuAccountId owner, {
+  Map<CashuMintUrl, int> balances = const {},
+}) => AccountWalletBalanceService(
+  accountId: owner,
+  sessionManager: WalletSessionManager(
+    factory: _BalanceWalletFactory(_BalanceWallet(owner, balances)),
+  ),
+);
+
+final class _BalanceWalletFactory implements AccountWalletFactory {
+  const _BalanceWalletFactory(this.wallet);
+
+  final _BalanceWallet wallet;
+
+  @override
+  Future<bool> exists(CashuAccountId accountId) async => true;
+
+  @override
+  Future<AccountWalletSession> openExisting(CashuAccountId accountId) async =>
+      wallet;
+
+  @override
+  Future<AccountWalletCreation<AccountWalletSession>> createNew(
+    CashuAccountId accountId,
+  ) => throw UnimplementedError();
+}
+
+final class _BalanceWallet implements AccountWalletSession {
+  _BalanceWallet(this.accountId, this.balances);
+
+  @override
+  final CashuAccountId accountId;
+  final Map<CashuMintUrl, int> balances;
+
+  @override
+  Future<Map<CashuMintUrl, int>> balancesByMintSats() async => balances;
+
+  @override
+  Future<int> totalBalanceSats() async =>
+      balances.values.fold<int>(0, (total, balance) => total + balance);
+
+  @override
+  Future<CashuReconciliationResult> reconcilePendingOperations() async =>
+      const CashuReconciliationResult(
+        recoveredOperations: 0,
+        pendingOperations: 0,
+      );
+
+  @override
+  Future<void> close() async {}
 }
 
 Set<CashuNut> get _requiredNuts => {

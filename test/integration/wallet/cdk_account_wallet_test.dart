@@ -49,6 +49,7 @@ void main() {
     expect(await createdB.wallet.databaseFile.exists(), isTrue);
     expect(await createdA.wallet.totalBalanceSats(), 0);
     expect(await createdB.wallet.totalBalanceSats(), 0);
+    expect(await createdA.wallet.balancesByMintSats(), isEmpty);
     expect(
       await createdA.wallet.hasMint(
         CashuMintUrl.parse('https://mint.example.com'),
