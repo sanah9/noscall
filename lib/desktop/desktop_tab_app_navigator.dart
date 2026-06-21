@@ -29,6 +29,7 @@ class DesktopTabAppNavigator extends AppNavigator {
   static const _routeRelay = '/relay-management';
   static const _routeIce = '/ice-server-management';
   static const _routeTheme = '/settings/theme';
+  static const _routeWallet = '/wallet';
 
   bool _useTab(NavigationScope scope, String routePath) {
     final effective = NavigationScopeDefaults.resolve(
@@ -175,5 +176,13 @@ class DesktopTabAppNavigator extends AppNavigator {
     } else {
       context.push(_routeTheme);
     }
+  }
+
+  @override
+  void pushWallet(
+    BuildContext context, {
+    NavigationScope scope = NavigationScope.automatic,
+  }) {
+    context.push(_routeWallet);
   }
 }

@@ -68,6 +68,7 @@ void main() {
 
     expect(find.text('Network'), findsOneWidget);
     expect(find.text('WiFi'), findsOneWidget);
+    expect(find.text('Wallet'), findsOneWidget);
     expect(find.text('Account & Security'), findsOneWidget);
     expect(find.text('Connection'), findsOneWidget);
     expect(find.text('Appearance & Notifications'), findsOneWidget);

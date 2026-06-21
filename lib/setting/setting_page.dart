@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
@@ -211,6 +212,13 @@ class _SettingPageState extends State<SettingPage> {
 
   Widget _buildProfileContent(BuildContext context) {
     final menuItems = [
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android)
+        SettingMenuItem(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Wallet',
+          onTap: () => AppNavigatorScope.requireOf(context).pushWallet(context),
+        ),
       SettingMenuItem(
         icon: Icons.security,
         title: 'Account & Security',

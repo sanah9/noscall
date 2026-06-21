@@ -84,4 +84,12 @@ class GoRouterAppNavigator extends AppNavigator {
   }) {
     context.push('/settings/theme');
   }
+
+  @override
+  void pushWallet(
+    BuildContext context, {
+    NavigationScope scope = NavigationScope.automatic,
+  }) {
+    context.push('/wallet');
+  }
 }

@@ -73,4 +73,9 @@ abstract class AppNavigator {
     BuildContext context, {
     NavigationScope scope = NavigationScope.automatic,
   });
+
+  void pushWallet(
+    BuildContext context, {
+    NavigationScope scope = NavigationScope.automatic,
+  });
 }
