@@ -126,11 +126,13 @@ final class CashuMintSnapshot {
     required this.supportsBolt11Mint,
     required this.supportsBolt11Melt,
     this.name,
+    this.description,
     this.version,
   }) : supportedNuts = UnmodifiableSetView(Set.of(supportedNuts));
 
   final CashuMintUrl url;
   final String? name;
+  final String? description;
   final String? version;
   final Set<CashuNut> supportedNuts;
   final bool supportsSat;

@@ -12,9 +12,13 @@ void main() {
 
     test('configured provider can be added without hard-coded URLs', () async {
       final mint = CashuMintUrl.parse('https://mint.example.com');
-      final provider = ConfiguredDefaultMintProvider([mint, mint]);
+      final suggestion = DefaultMintSuggestion(
+        url: mint,
+        displayName: 'Configured Mint',
+      );
+      final provider = ConfiguredDefaultMintProvider([suggestion, suggestion]);
 
-      expect(await provider.load(), [mint]);
+      expect(await provider.load(), [suggestion]);
     });
   });
 

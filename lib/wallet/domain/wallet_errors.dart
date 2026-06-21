@@ -11,3 +11,16 @@ final class CashuProtocolException implements Exception {
   @override
   String toString() => 'CashuProtocolException($code): $message';
 }
+
+final class UnsupportedMintException implements Exception {
+  UnsupportedMintException({
+    required this.supportsSat,
+    required Set<int> missingNutNumbers,
+  }) : missingNutNumbers = Set.unmodifiable(missingNutNumbers);
+
+  final bool supportsSat;
+  final Set<int> missingNutNumbers;
+
+  @override
+  String toString() => 'UnsupportedMintException: Mint capabilities rejected';
+}

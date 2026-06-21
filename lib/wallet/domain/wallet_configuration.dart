@@ -70,6 +70,30 @@ final class MintConfiguration {
   final List<String> units;
   final DateTime lastSyncAt;
   final String? lastError;
+
+  MintConfiguration copyWith({
+    bool? enabled,
+    Set<CashuNut>? supportedNuts,
+    Iterable<String>? units,
+    DateTime? lastSyncAt,
+    String? name,
+    String? description,
+    String? lastError,
+    bool clearLastError = false,
+  }) {
+    return MintConfiguration(
+      owner: owner,
+      url: url,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      enabled: enabled ?? this.enabled,
+      source: source,
+      supportedNuts: supportedNuts ?? this.supportedNuts,
+      units: units ?? this.units,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      lastError: clearLastError ? null : lastError ?? this.lastError,
+    );
+  }
 }
 
 abstract interface class MintConfigurationRepository {

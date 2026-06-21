@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:cdk/cdk.dart' as cdk;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 import 'package:noscall/wallet/domain/wallet_errors.dart';
 import 'package:noscall/wallet/infrastructure/cdk/cdk_protocol_adapter.dart';
@@ -65,6 +69,7 @@ void main() {
           nut09: true,
           nut12: true,
         ),
+        hasUsableSatKeyset: true,
       );
 
       expect(snapshot.supportsSat, isTrue);
@@ -89,6 +94,7 @@ void main() {
       final snapshot = CdkMintInfoMapper.toSnapshot(
         mintUrl: CashuMintUrl.parse('https://mint.example.com'),
         info: _mintInfo(mintDisabled: true, meltDisabled: true),
+        hasUsableSatKeyset: true,
       );
 
       expect(snapshot.supportsBolt11Mint, isFalse);
@@ -96,6 +102,92 @@ void main() {
       expect(snapshot.supportedNuts, isNot(contains(CashuNut.nut04)));
       expect(snapshot.supportedNuts, isNot(contains(CashuNut.nut05)));
       expect(snapshot.supportedNuts, isNot(contains(CashuNut.nut23)));
+    });
+  });
+
+  group('CdkHttpMintInspector', () {
+    test('requires an active sat keyset with public keys', () async {
+      final info = _mintInfo(
+        mintDisabled: false,
+        meltDisabled: false,
+        nut07: true,
+        nut08: true,
+        nut09: true,
+      );
+      final client = MockClient((request) async {
+        if (request.url.path == '/v1/info') {
+          return http.Response(cdk.encodeMintInfo(info: info), 200);
+        }
+        if (request.url.path == '/v1/keysets') {
+          return http.Response(
+            jsonEncode({
+              'keysets': [
+                {'id': '009a1f293253e41e', 'unit': 'sat', 'active': true},
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/v1/keys/009a1f293253e41e') {
+          return http.Response(
+            jsonEncode({
+              'keysets': [
+                {
+                  'id': '009a1f293253e41e',
+                  'unit': 'sat',
+                  'keys': {'1': '02abcdef'},
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('', 404);
+      });
+      final inspector = CdkHttpMintInspector(client: client);
+
+      final snapshot = await inspector.inspectMint(
+        CashuMintUrl.parse('https://mint.example.com'),
+      );
+
+      expect(snapshot.supportsSat, isTrue);
+      expect(snapshot.name, 'Test Mint');
+    });
+
+    test('does not accept sat support advertised without keys', () async {
+      final info = _mintInfo(mintDisabled: false, meltDisabled: false);
+      final client = MockClient((request) async {
+        if (request.url.path == '/v1/info') {
+          return http.Response(cdk.encodeMintInfo(info: info), 200);
+        }
+        return http.Response(jsonEncode({'keysets': []}), 200);
+      });
+      final inspector = CdkHttpMintInspector(client: client);
+
+      final snapshot = await inspector.inspectMint(
+        CashuMintUrl.parse('https://mint.example.com'),
+      );
+
+      expect(snapshot.supportsSat, isFalse);
+    });
+
+    test('exposes a safe error when metadata request is rejected', () async {
+      final inspector = CdkHttpMintInspector(
+        client: MockClient((_) async => http.Response('secret body', 503)),
+      );
+
+      await expectLater(
+        inspector.inspectMint(CashuMintUrl.parse('https://mint.example.com')),
+        throwsA(
+          isA<CashuProtocolException>()
+              .having((error) => error.code, 'code', 'mint_http_error')
+              .having(
+                (error) => error.toString(),
+                'message',
+                isNot(contains('secret body')),
+              ),
+        ),
+      );
     });
   });
 }

@@ -7,25 +7,41 @@ import 'cashu_models.dart';
 /// Production currently uses [EmptyDefaultMintProvider]. A configured provider
 /// can be injected later without changing wallet creation or Mint UI code.
 abstract interface class DefaultMintProvider {
-  Future<List<CashuMintUrl>> load();
+  Future<List<DefaultMintSuggestion>> load();
+}
+
+final class DefaultMintSuggestion {
+  const DefaultMintSuggestion({
+    required this.url,
+    this.displayName,
+    this.enabled = true,
+  });
+
+  final CashuMintUrl url;
+  final String? displayName;
+  final bool enabled;
 }
 
 final class EmptyDefaultMintProvider implements DefaultMintProvider {
   const EmptyDefaultMintProvider();
 
   @override
-  Future<List<CashuMintUrl>> load() async => const [];
+  Future<List<DefaultMintSuggestion>> load() async => const [];
 }
 
 /// Configuration-backed implementation with no built-in URLs.
 final class ConfiguredDefaultMintProvider implements DefaultMintProvider {
-  ConfiguredDefaultMintProvider(Iterable<CashuMintUrl> mintUrls)
-    : _mintUrls = List.unmodifiable(LinkedHashSet.of(mintUrls));
+  ConfiguredDefaultMintProvider(Iterable<DefaultMintSuggestion> suggestions)
+    : _suggestions = List.unmodifiable(
+        LinkedHashMap<CashuMintUrl, DefaultMintSuggestion>.fromEntries(
+          suggestions.map((suggestion) => MapEntry(suggestion.url, suggestion)),
+        ).values,
+      );
 
-  final List<CashuMintUrl> _mintUrls;
+  final List<DefaultMintSuggestion> _suggestions;
 
   @override
-  Future<List<CashuMintUrl>> load() async => _mintUrls;
+  Future<List<DefaultMintSuggestion>> load() async => _suggestions;
 }
 
 final class MintCapabilityDecision {
