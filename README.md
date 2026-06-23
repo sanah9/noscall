@@ -38,8 +38,8 @@ flutter run -d android
 
 ### Tech Stack
 
-- **Flutter**: 3.19+
-- **Dart**: 3.0+
+- **Flutter**: 3.38.10+
+- **Dart**: 3.10.9+
 - **WebRTC**: flutter_webrtc for real-time communication
 - **Nostr**: nostr_core_dart for protocol implementation
 

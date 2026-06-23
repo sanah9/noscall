@@ -5,6 +5,7 @@ import 'package:noscall/utils/routes/call_routes.dart';
 import 'package:noscall/utils/routes/contacts_routes.dart';
 import 'package:noscall/utils/routes/settings_routes.dart';
 import 'package:noscall/utils/routes/voice_routes.dart';
+import 'package:noscall/utils/routes/wallet_routes.dart';
 
 export 'router_utils.dart';
 
@@ -17,6 +18,7 @@ class AppRouter {
       ...contactsRoutes,
       ...settingsRoutes,
       ...voiceRoutes,
+      ...walletRoutes,
     ],
   );
 
