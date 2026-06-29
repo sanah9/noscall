@@ -49,6 +49,14 @@ void main() {
           path: '/wallet/mints',
           builder: (context, state) => const SizedBox.shrink(),
         ),
+        GoRoute(
+          path: '/wallet/receive-token',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: '/wallet/send-token',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -77,14 +85,47 @@ void main() {
     expect(find.text('No Mint configured'), findsOneWidget);
     expect(find.text('Wallet backup is not complete'), findsOneWidget);
   });
+
+  testWidgets('shows token actions for a funded wallet with enabled Mint', (
+    tester,
+  ) async {
+    final controller = _FakeLandingController(
+      created: true,
+      backupStatus: WalletBackupStatus.confirmed,
+      balanceSats: 50,
+      mintCount: 1,
+      enabledMintCount: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WalletLandingPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Receive token'), findsOneWidget);
+    expect(find.text('Send token'), findsOneWidget);
+  });
 }
 
 final class _FakeLandingController implements WalletLandingController {
   static const mnemonic =
       'abandon ability able about above absent absorb abstract absurd abuse access accident';
 
-  bool created = false;
+  _FakeLandingController({
+    this.created = false,
+    this.backupStatus,
+    this.balanceSats = 0,
+    this.mintCount = 0,
+    this.enabledMintCount = 0,
+  });
+
+  bool created;
   WalletBackupStatus? backupStatus;
+  final int balanceSats;
+  final int mintCount;
+  final int enabledMintCount;
   final List<WalletBackupStatus> backupStatuses = [];
 
   @override
@@ -106,10 +147,10 @@ final class _FakeLandingController implements WalletLandingController {
   Future<WalletLandingSnapshot> load() async {
     if (!created) return const WalletLandingSnapshot.absent();
     return WalletLandingSnapshot.ready(
-      balanceSats: 0,
+      balanceSats: balanceSats,
       backupStatus: backupStatus ?? WalletBackupStatus.notShown,
-      mintCount: 0,
-      enabledMintCount: 0,
+      mintCount: mintCount,
+      enabledMintCount: enabledMintCount,
     );
   }
 

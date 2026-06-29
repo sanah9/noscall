@@ -189,6 +189,32 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
             style: Theme.of(context).textTheme.displaySmall,
           ),
           const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: snapshot.enabledMintCount == 0
+                      ? null
+                      : () => _openWalletOperation('/wallet/receive-token'),
+                  icon: const Icon(Icons.download),
+                  label: const Text('Receive token'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      snapshot.enabledMintCount == 0 ||
+                          snapshot.balanceSats == 0
+                      ? null
+                      : () => _openWalletOperation('/wallet/send-token'),
+                  icon: const Icon(Icons.upload),
+                  label: const Text('Send token'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Card(
             child: ListTile(
               leading: const Icon(Icons.hub_outlined),
@@ -203,17 +229,19 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
                     : 'Review, refresh, enable, or remove configured Mints.',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                await _controller?.closeSession();
-                if (!context.mounted) return;
-                await context.push('/wallet/mints');
-                await _reload();
-              },
+              onTap: () => _openWalletOperation('/wallet/mints'),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openWalletOperation(String path) async {
+    await _controller?.closeSession();
+    if (!mounted) return;
+    await context.push(path);
+    await _reload();
   }
 
   Future<void> _createWallet() async {

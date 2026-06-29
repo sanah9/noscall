@@ -6,7 +6,16 @@ import '../domain/wallet_configuration.dart';
 import '../domain/wallet_errors.dart';
 import 'wallet_session_manager.dart';
 
+final class CashuTokenMintOption {
+  const CashuTokenMintOption({required this.mint, required this.balanceSats});
+
+  final MintConfiguration mint;
+  final int balanceSats;
+}
+
 abstract interface class CashuTokenController {
+  Future<List<CashuTokenMintOption>> loadSendOptions();
+
   Future<CashuTokenSummary> previewReceive(String encodedToken);
 
   Future<CashuReceiveResult> receive(String encodedToken);
@@ -43,6 +52,23 @@ final class AccountCashuTokenController implements CashuTokenController {
   final WalletSessionManager _sessionManager;
   final MintConfigurationRepository _mintRepository;
   final CashuTokenCodec _tokenCodec;
+
+  @override
+  Future<List<CashuTokenMintOption>> loadSendOptions() async {
+    final wallet = await _requireWallet();
+    final balances = await wallet.balancesByMintSats();
+    final mints = await _mintRepository.list(_accountId);
+    return List.unmodifiable(
+      mints
+          .where((mint) => mint.enabled)
+          .map(
+            (mint) => CashuTokenMintOption(
+              mint: mint,
+              balanceSats: balances[mint.url] ?? 0,
+            ),
+          ),
+    );
+  }
 
   @override
   Future<CashuTokenSummary> previewReceive(String encodedToken) async {
