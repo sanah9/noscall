@@ -191,4 +191,24 @@ final class _FakeAccountWallet implements AccountWalletSession {
 
   @override
   Future<Map<CashuMintUrl, int>> balancesByMintSats() async => const {};
+
+  @override
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
 }

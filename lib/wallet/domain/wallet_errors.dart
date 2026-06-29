@@ -1,3 +1,5 @@
+import 'cashu_models.dart';
+
 /// Safe error exposed above the Cashu SDK boundary.
 ///
 /// It deliberately stores neither the original SDK exception nor user input,
@@ -29,4 +31,30 @@ final class MintHasBalanceException implements Exception {
   const MintHasBalanceException(this.balanceSats);
 
   final int balanceSats;
+}
+
+final class WalletNotReadyException implements Exception {
+  const WalletNotReadyException();
+}
+
+final class UnknownMintException implements Exception {
+  const UnknownMintException(this.mintUrl);
+
+  final CashuMintUrl mintUrl;
+}
+
+final class DisabledMintException implements Exception {
+  const DisabledMintException(this.mintUrl);
+
+  final CashuMintUrl mintUrl;
+}
+
+final class InsufficientCashuBalanceException implements Exception {
+  const InsufficientCashuBalanceException({
+    required this.availableSats,
+    required this.requestedSats,
+  });
+
+  final int availableSats;
+  final int requestedSats;
 }

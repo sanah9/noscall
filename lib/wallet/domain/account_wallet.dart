@@ -9,6 +9,20 @@ abstract interface class AccountWalletSession {
 
   Future<Map<CashuMintUrl, int>> balancesByMintSats();
 
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request);
+
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request);
+
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  });
+
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  });
+
   Future<CashuReconciliationResult> reconcilePendingOperations();
 
   Future<void> close();

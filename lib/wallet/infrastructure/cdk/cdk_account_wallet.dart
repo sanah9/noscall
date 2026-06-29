@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:cdk/cdk.dart' as cdk;
+import 'package:crypto/crypto.dart';
 
 import '../../domain/account_wallet.dart';
 import '../../domain/cashu_account_id.dart';
 import '../../domain/cashu_models.dart';
 import '../../domain/wallet_key_store.dart';
+import '../../domain/wallet_errors.dart';
 
 final class CdkAccountWalletFactory implements AccountWalletFactory {
   CdkAccountWalletFactory({
@@ -154,6 +156,118 @@ final class CdkAccountWallet implements AccountWalletSession {
   }
 
   @override
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request) async {
+    _ensureOpen();
+    cdk.Token? token;
+    try {
+      final encodedToken = request.encodedToken.trim();
+      token = cdk.Token.decode(encodedToken: encodedToken);
+      if (token.unit() is! cdk.SatCurrencyUnit) {
+        throw const CashuProtocolException(
+          'unsupported_unit',
+          'Only sat-denominated Cashu tokens are supported',
+        );
+      }
+      final mintUrl = CashuMintUrl.parse(token.mintUrl().url);
+      final wallet = await addOrOpenMint(mintUrl);
+      final amount = await wallet.receive(
+        token: token,
+        options: _receiveOptions(),
+      );
+      return CashuReceiveResult(
+        operationId: _localReceiveOperationId(encodedToken),
+        amount: CashuAmount.positiveSats(amount.value),
+      );
+    } on CashuProtocolException {
+      rethrow;
+    } on FormatException {
+      throw const CashuProtocolException(
+        'invalid_mint_url',
+        'The token contains an invalid or insecure Mint URL',
+      );
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'receive_failed',
+        'The Cashu token could not be received',
+      );
+    } finally {
+      token?.dispose();
+    }
+  }
+
+  @override
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request) async {
+    _ensureOpen();
+    if (request.amount.value <= 0) {
+      throw ArgumentError.value(
+        request.amount.value,
+        'amount',
+        'Send amount must be positive',
+      );
+    }
+    cdk.PreparedSend? prepared;
+    cdk.Token? token;
+    try {
+      final wallet = await addOrOpenMint(request.mintUrl);
+      prepared = await wallet.prepareSend(
+        amount: cdk.Amount(value: request.amount.value),
+        options: _sendOptions(request.memo),
+      );
+      final operationId = prepared.operationId();
+      token = await prepared.confirm(memo: _normalizedMemo(request.memo));
+      return CashuPreparedSend(
+        operationId: operationId,
+        token: token.encode(),
+        amount: CashuAmount.positiveSats(prepared.amount().value),
+      );
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'send_failed',
+        'The Cashu token could not be prepared',
+      );
+    } finally {
+      token?.dispose();
+      prepared?.dispose();
+    }
+  }
+
+  @override
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final claimed = await wallet.checkSendStatus(operationId: operationId);
+      return claimed ? CashuSendState.claimed : CashuSendState.recoverable;
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'send_status_failed',
+        'The Cashu send status could not be checked',
+      );
+    }
+  }
+
+  @override
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final amount = await wallet.revokeSend(operationId: operationId);
+      return CashuAmount.sats(amount.value);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'reclaim_failed',
+        'The Cashu send could not be reclaimed',
+      );
+    }
+  }
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async {
     _ensureOpen();
     var recovered = 0;
@@ -198,5 +312,40 @@ final class CdkAccountWallet implements AccountWalletSession {
 
   void _ensureOpen() {
     if (_closed) throw StateError('Cashu wallet session is closed');
+  }
+
+  cdk.ReceiveOptions _receiveOptions() => cdk.ReceiveOptions(
+    amountSplitTarget: cdk.NoneSplitTarget(),
+    p2pkSigningKeys: const [],
+    preimages: const [],
+    metadata: const {},
+  );
+
+  cdk.SendOptions _sendOptions(String? memo) {
+    final normalizedMemo = _normalizedMemo(memo);
+    return cdk.SendOptions(
+      memo: normalizedMemo == null
+          ? null
+          : cdk.SendMemo(memo: normalizedMemo, includeMemo: true),
+      conditions: null,
+      amountSplitTarget: cdk.NoneSplitTarget(),
+      sendKind: cdk.OnlineExactSendKind(),
+      includeFee: true,
+      useP2bk: false,
+      maxProofs: null,
+      metadata: const {},
+      p2pkSigningKeys: const [],
+      p2pkLockedProofSendMode: cdk.P2pkLockedProofSendMode.swap,
+    );
+  }
+
+  String? _normalizedMemo(String? memo) {
+    final trimmed = memo?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _localReceiveOperationId(String encodedToken) {
+    final digest = sha256.convert(encodedToken.codeUnits).toString();
+    return 'receive:${digest.substring(0, 16)}';
   }
 }
