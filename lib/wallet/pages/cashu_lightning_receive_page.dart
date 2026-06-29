@@ -9,9 +9,14 @@ import '../domain/wallet_errors.dart';
 import '../infrastructure/mobile/mobile_cashu_lightning_receive_controller_factory.dart';
 
 final class CashuLightningReceivePage extends StatefulWidget {
-  const CashuLightningReceivePage({super.key, this.controllerFactory});
+  const CashuLightningReceivePage({
+    super.key,
+    this.controllerFactory,
+    this.pollInterval = const Duration(seconds: 15),
+  });
 
   final CashuLightningReceiveControllerFactory? controllerFactory;
+  final Duration pollInterval;
 
   @override
   State<CashuLightningReceivePage> createState() =>
@@ -26,8 +31,11 @@ final class _CashuLightningReceivePageState
   List<CashuLightningReceiveQuoteRecord> _quoteRecords = const [];
   CashuMintUrl? _selectedMintUrl;
   CashuMintQuote? _quote;
+  Timer? _pollTimer;
+  final Set<String> _paidNotifications = {};
   bool _loading = true;
   bool _mutating = false;
+  bool _polling = false;
   String? _errorMessage;
 
   @override
@@ -38,6 +46,7 @@ final class _CashuLightningReceivePageState
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _amountController.dispose();
     super.dispose();
   }
@@ -63,6 +72,7 @@ final class _CashuLightningReceivePageState
         _quote = null;
         _loading = false;
       });
+      _startPolling();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -70,6 +80,14 @@ final class _CashuLightningReceivePageState
         _errorMessage = 'Lightning receive is unavailable.';
       });
     }
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      widget.pollInterval,
+      (_) => unawaited(_pollPendingQuotes()),
+    );
   }
 
   @override
@@ -154,6 +172,23 @@ final class _CashuLightningReceivePageState
               : const Icon(Icons.bolt),
           label: const Text('Create invoice'),
         ),
+        if (_hasPollableQuote) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              SizedBox.square(
+                dimension: 16,
+                child: _polling
+                    ? const CircularProgressIndicator(strokeWidth: 2)
+                    : const Icon(Icons.sync, size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Checking unpaid invoices automatically.'),
+              ),
+            ],
+          ),
+        ],
         if (_quote case final quote?) ...[
           const SizedBox(height: 20),
           _QuoteCard(
@@ -192,6 +227,11 @@ final class _CashuLightningReceivePageState
       _quoteRecords
           .where((record) => record.quoteId != _quote?.quoteId)
           .toList(growable: false);
+
+  bool get _hasPollableQuote {
+    if (_quote case final quote? when _isPollable(quote.state)) return true;
+    return _quoteRecords.any((record) => _isPollable(record.state));
+  }
 
   Future<void> _createQuote() async {
     final mintUrl = _selectedMintUrl;
@@ -307,6 +347,58 @@ final class _CashuLightningReceivePageState
     _showSnackBar('Invoice copied.');
   }
 
+  Future<void> _pollPendingQuotes() async {
+    if (!mounted ||
+        _controller == null ||
+        _loading ||
+        _mutating ||
+        _polling ||
+        !_hasPollableQuote) {
+      return;
+    }
+
+    setState(() => _polling = true);
+    final targets = <String, CashuMintQuote>{};
+    final quote = _quote;
+    if (quote != null && _isPollable(quote.state)) {
+      targets[quote.quoteId] = quote;
+    }
+    for (final record in _quoteRecords) {
+      if (!_isPollable(record.state)) continue;
+      targets[record.quoteId] = _quoteFromRecord(record);
+    }
+
+    final updates = <String, CashuMintQuote>{};
+    for (final target in targets.values) {
+      try {
+        final updated = await _controller!.checkQuote(
+          mintUrl: target.mintUrl,
+          quoteId: target.quoteId,
+        );
+        updates[target.quoteId] = updated;
+        if (updated.state == CashuQuoteState.paid &&
+            _paidNotifications.add(updated.quoteId)) {
+          _showSnackBar('Invoice is paid. You can mint it now.');
+        }
+      } catch (_) {
+        // Background polling stays quiet; manual checks still surface errors.
+      }
+    }
+
+    try {
+      final records = await _controller!.loadQuoteRecords();
+      if (!mounted) return;
+      setState(() {
+        if (_quote case final current?) {
+          _quote = updates[current.quoteId] ?? current;
+        }
+        _quoteRecords = records;
+      });
+    } finally {
+      if (mounted) setState(() => _polling = false);
+    }
+  }
+
   CashuMintQuote _quoteFromRecord(CashuLightningReceiveQuoteRecord record) {
     return CashuMintQuote(
       quoteId: record.quoteId,
@@ -350,6 +442,9 @@ final class _CashuLightningReceivePageState
       CashuQuoteState.unknown => 'Invoice status is unknown.',
     };
   }
+
+  bool _isPollable(CashuQuoteState state) =>
+      state == CashuQuoteState.unpaid || state == CashuQuoteState.pending;
 }
 
 final class _QuoteCard extends StatelessWidget {

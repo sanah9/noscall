@@ -27,6 +27,8 @@ void main() {
     expect(find.text('lnbc210n1test'), findsOneWidget);
     expect(find.textContaining('Status: unpaid'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Check payment'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Check payment'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Status: paid'), findsOneWidget);
@@ -76,6 +78,33 @@ void main() {
 
     expect(controller.checkedQuoteIds, ['quote-1']);
     expect(controller.mintedQuoteIds, ['quote-1']);
+  });
+
+  testWidgets('automatically checks a persisted Lightning invoice', (
+    tester,
+  ) async {
+    final controller = _FakeLightningReceiveController()
+      ..records.add(_FakeLightningReceiveController.quoteRecordForTest());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CashuLightningReceivePage(
+          controllerFactory: () async => controller,
+          pollInterval: const Duration(milliseconds: 50),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent invoices'), findsOneWidget);
+    expect(find.text('lnbc210n1test'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Status: paid'), findsOneWidget);
+    expect(find.text('Invoice is paid. You can mint it now.'), findsOneWidget);
+    expect(controller.checkedQuoteIds, ['quote-1']);
   });
 }
 
