@@ -13,6 +13,7 @@ void main() {
   late CashuMintUrl mintUrl;
   late _TokenCodec codec;
   late _MintRepository mintRepository;
+  late _SendRepository sendRepository;
   late _Wallet wallet;
   late AccountCashuTokenController controller;
 
@@ -21,12 +22,15 @@ void main() {
     mintUrl = CashuMintUrl.parse('https://mint.example.com');
     codec = _TokenCodec(mintUrl);
     mintRepository = _MintRepository();
+    sendRepository = _SendRepository();
     wallet = _Wallet(account, balances: {mintUrl: 100});
     controller = AccountCashuTokenController(
       accountId: account,
       sessionManager: WalletSessionManager(factory: _WalletFactory(wallet)),
       mintRepository: mintRepository,
+      sendRepository: sendRepository,
       tokenCodec: codec,
+      clock: () => DateTime.utc(2026, 6, 29, 12),
     );
   });
 
@@ -113,6 +117,11 @@ void main() {
     expect(wallet.sentRequests.single.memo, ' lunch ');
     expect(status, CashuSendState.recoverable);
     expect(reclaimed, CashuAmount.sats(42));
+    expect(
+      (await sendRepository.find(account, 'send-1'))?.state,
+      CashuSendState.reclaimed,
+    );
+    expect((await sendRepository.find(account, 'send-1'))?.memo, 'lunch');
   });
 }
 
@@ -187,6 +196,30 @@ final class _MintRepository implements MintConfigurationRepository {
   @override
   Future<void> save(MintConfiguration configuration) async =>
       put(configuration);
+}
+
+final class _SendRepository implements CashuTokenSendRepository {
+  final Map<String, CashuTokenSendRecord> values = {};
+
+  String _key(CashuAccountId owner, String operationId) =>
+      '${owner.value}|$operationId';
+
+  @override
+  Future<CashuTokenSendRecord?> find(
+    CashuAccountId owner,
+    String operationId,
+  ) async => values[_key(owner, operationId)];
+
+  @override
+  Future<List<CashuTokenSendRecord>> list(CashuAccountId owner) async => values
+      .values
+      .where((record) => record.owner == owner)
+      .toList(growable: false);
+
+  @override
+  Future<void> save(CashuTokenSendRecord record) async {
+    values[_key(record.owner, record.operationId)] = record;
+  }
 }
 
 final class _WalletFactory implements AccountWalletFactory {

@@ -43,6 +43,7 @@ final class MobileCashuTokenControllerFactory {
       mintRepository: IsarMintConfigurationRepository(
         DBISAR.sharedInstance.isar,
       ),
+      sendRepository: IsarCashuTokenSendRepository(DBISAR.sharedInstance.isar),
       tokenCodec: const CdkTokenCodec(),
     );
   }

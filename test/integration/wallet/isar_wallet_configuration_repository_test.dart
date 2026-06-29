@@ -14,6 +14,7 @@ void main() {
   Isar? isar;
   late IsarWalletConfigurationRepository walletRepository;
   late IsarMintConfigurationRepository mintRepository;
+  late IsarCashuTokenSendRepository sendRepository;
 
   setUpAll(_initializeIsarForTests);
 
@@ -23,12 +24,14 @@ void main() {
       [
         CashuWalletConfigurationRecordSchema,
         CashuMintConfigurationRecordSchema,
+        CashuTokenSendOperationRecordSchema,
       ],
       directory: directory.path,
       name: 'wallet_configuration_test',
     );
     walletRepository = IsarWalletConfigurationRepository(database);
     mintRepository = IsarMintConfigurationRepository(database);
+    sendRepository = IsarCashuTokenSendRepository(database);
   });
 
   tearDown(() async {
@@ -85,6 +88,51 @@ void main() {
     expect(await mintRepository.list(ownerA), isEmpty);
     expect(await mintRepository.list(ownerB), hasLength(1));
   });
+
+  test('upserts and isolates token send records by Nostr account', () async {
+    final ownerA = _account('a');
+    final ownerB = _account('b');
+    final url = CashuMintUrl.parse('https://mint.example.com');
+    final now = DateTime.utc(2026, 6, 29);
+
+    await sendRepository.save(
+      _send(
+        owner: ownerA,
+        url: url,
+        operationId: 'send-1',
+        state: CashuSendState.recoverable,
+        now: now,
+      ),
+    );
+    await sendRepository.save(
+      _send(
+        owner: ownerB,
+        url: url,
+        operationId: 'send-1',
+        state: CashuSendState.claimed,
+        now: now,
+      ),
+    );
+    await sendRepository.save(
+      _send(
+        owner: ownerA,
+        url: url,
+        operationId: 'send-1',
+        state: CashuSendState.reclaimed,
+        now: now.add(const Duration(minutes: 1)),
+      ),
+    );
+
+    expect(
+      (await sendRepository.find(ownerA, 'send-1'))?.state,
+      CashuSendState.reclaimed,
+    );
+    expect(
+      (await sendRepository.find(ownerB, 'send-1'))?.state,
+      CashuSendState.claimed,
+    );
+    expect(await sendRepository.list(ownerA), hasLength(1));
+  });
 }
 
 Future<void> _initializeIsarForTests() async {
@@ -124,5 +172,24 @@ MintConfiguration _mint({
     supportedNuts: {CashuNut.nut00, CashuNut.nut01},
     units: const ['sat'],
     lastSyncAt: now,
+  );
+}
+
+CashuTokenSendRecord _send({
+  required CashuAccountId owner,
+  required CashuMintUrl url,
+  required String operationId,
+  required CashuSendState state,
+  required DateTime now,
+}) {
+  return CashuTokenSendRecord(
+    owner: owner,
+    operationId: operationId,
+    mintUrl: url,
+    amount: CashuAmount.sats(42),
+    state: state,
+    createdAt: now,
+    updatedAt: now,
+    memo: 'memo',
   );
 }

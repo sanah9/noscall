@@ -39,6 +39,7 @@ class DBISAR {
     ContactGroupMemberSchema,
     CashuWalletConfigurationRecordSchema,
     CashuMintConfigurationRecordSchema,
+    CashuTokenSendOperationRecordSchema,
   ];
 
   // Store encryption key after first open so subsequent opens re-use it.
@@ -55,7 +56,9 @@ class DBISAR {
   /// Get database directory path
   Future<String> _getDatabaseDirectory() async {
     bool isOS = Platform.isIOS || Platform.isMacOS;
-    Directory directory = isOS ? await getLibraryDirectory() : await getApplicationDocumentsDirectory();
+    Directory directory = isOS
+        ? await getLibraryDirectory()
+        : await getApplicationDocumentsDirectory();
     return directory.path;
   }
 
@@ -66,10 +69,17 @@ class DBISAR {
     return '$dbDir/$dbName.isar';
   }
 
-  Future open(String pubkey, {String? circleId, String? dbPath, String? encryptionKey}) async {
+  Future open(
+    String pubkey, {
+    String? circleId,
+    String? dbPath,
+    String? encryptionKey,
+  }) async {
     final dbName = _getDatabaseName(pubkey, circleId: circleId);
     dbPath ??= await _getDatabaseDirectory();
-    LogUtils.v(() => 'DBISAR open: $dbPath, pubkey: $pubkey, circleId: $circleId');
+    LogUtils.v(
+      () => 'DBISAR open: $dbPath, pubkey: $pubkey, circleId: $circleId',
+    );
 
     // Store current circle ID
     _currentCircleId = circleId;
@@ -79,11 +89,7 @@ class DBISAR {
       _sharedEncKey = encryptionKey;
     }
 
-    isar = await Isar.open(
-      schemas,
-      directory: dbPath,
-      name: dbName,
-    );
+    isar = await Isar.open(schemas, directory: dbPath, name: dbName);
   }
 
   /// Check if database exists

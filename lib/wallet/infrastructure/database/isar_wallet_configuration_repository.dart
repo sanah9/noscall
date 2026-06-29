@@ -74,6 +74,41 @@ final class IsarMintConfigurationRepository
   }
 }
 
+final class IsarCashuTokenSendRepository implements CashuTokenSendRepository {
+  const IsarCashuTokenSendRepository(this._isar);
+
+  final Isar _isar;
+
+  @override
+  Future<CashuTokenSendRecord?> find(
+    CashuAccountId owner,
+    String operationId,
+  ) async {
+    final record = await _isar.cashuTokenSendOperationRecords
+        .where()
+        .ownerPubkeyOperationIdEqualTo(owner.value, operationId)
+        .findFirst();
+    return record == null ? null : _sendFromRecord(record);
+  }
+
+  @override
+  Future<List<CashuTokenSendRecord>> list(CashuAccountId owner) async {
+    final records = await _isar.cashuTokenSendOperationRecords
+        .filter()
+        .ownerPubkeyEqualTo(owner.value)
+        .findAll();
+    records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List.unmodifiable(records.map(_sendFromRecord));
+  }
+
+  @override
+  Future<void> save(CashuTokenSendRecord record) async {
+    await _isar.writeTxn(
+      () => _isar.cashuTokenSendOperationRecords.put(_sendToRecord(record)),
+    );
+  }
+}
+
 CashuWalletConfigurationRecord _walletToRecord(
   WalletConfiguration configuration,
 ) {
@@ -129,5 +164,30 @@ MintConfiguration _mintFromRecord(CashuMintConfigurationRecord record) {
     units: record.units,
     lastSyncAt: DateTime.fromMillisecondsSinceEpoch(record.lastSyncAt),
     lastError: record.lastError,
+  );
+}
+
+CashuTokenSendOperationRecord _sendToRecord(CashuTokenSendRecord record) {
+  return CashuTokenSendOperationRecord()
+    ..ownerPubkey = record.owner.value
+    ..operationId = record.operationId
+    ..mintUrl = record.mintUrl.toString()
+    ..amountSats = record.amount.value
+    ..state = record.state.name
+    ..memo = record.memo
+    ..createdAt = record.createdAt.millisecondsSinceEpoch
+    ..updatedAt = record.updatedAt.millisecondsSinceEpoch;
+}
+
+CashuTokenSendRecord _sendFromRecord(CashuTokenSendOperationRecord record) {
+  return CashuTokenSendRecord(
+    owner: CashuAccountId.fromNostrPubkey(record.ownerPubkey),
+    operationId: record.operationId,
+    mintUrl: CashuMintUrl.parse(record.mintUrl),
+    amount: CashuAmount.sats(record.amountSats),
+    state: CashuSendState.values.byName(record.state),
+    memo: record.memo,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(record.createdAt),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(record.updatedAt),
   );
 }

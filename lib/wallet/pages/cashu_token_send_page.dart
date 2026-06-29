@@ -22,6 +22,7 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
   final TextEditingController _memoController = TextEditingController();
   CashuTokenController? _controller;
   List<CashuTokenMintOption> _mintOptions = const [];
+  List<CashuTokenSendRecord> _sendRecords = const [];
   CashuMintUrl? _selectedMintUrl;
   CashuPreparedSend? _prepared;
   bool _loading = true;
@@ -47,10 +48,12 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
           widget.controllerFactory ?? MobileCashuTokenControllerFactory.create;
       final controller = await factory();
       final options = await controller.loadSendOptions();
+      final records = await controller.loadSendRecords();
       if (!mounted) return;
       setState(() {
         _controller = controller;
         _mintOptions = options;
+        _sendRecords = records;
         _selectedMintUrl = options.isEmpty ? null : options.first.mint.url;
         _loading = false;
         _errorMessage = null;
@@ -188,7 +191,56 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
             ],
           ),
         ],
+        if (_sendRecords.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          Text(
+            'Recoverable sends',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          ..._sendRecords.map(_buildSendRecord),
+        ],
       ],
+    );
+  }
+
+  Widget _buildSendRecord(CashuTokenSendRecord record) {
+    final canReclaim = switch (record.state) {
+      CashuSendState.claimed || CashuSendState.reclaimed => false,
+      _ => true,
+    };
+    final subtitle = [
+      '${record.amount.value} sat · ${_stateLabel(record.state)}',
+      record.mintUrl.toString(),
+      if (record.memo != null) 'Memo: ${record.memo}',
+    ].join('\n');
+    return Card(
+      child: Column(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: Text(record.operationId),
+            subtitle: Text(subtitle),
+          ),
+          OverflowBar(
+            alignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: _mutating ? null : () => _checkRecordStatus(record),
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Check status'),
+              ),
+              TextButton.icon(
+                onPressed: _mutating || !canReclaim
+                    ? null
+                    : () => _reclaimRecord(record),
+                icon: const Icon(Icons.undo),
+                label: const Text('Reclaim'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -207,7 +259,13 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
         amount: CashuAmount.positiveSats(amount),
         memo: _memoController.text,
       );
-      if (mounted) setState(() => _prepared = prepared);
+      final records = await _controller!.loadSendRecords();
+      if (mounted) {
+        setState(() {
+          _prepared = prepared;
+          _sendRecords = records;
+        });
+      }
     } catch (error) {
       _showError(error);
     } finally {
@@ -219,24 +277,28 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
     final prepared = _prepared;
     final mintUrl = _selectedMintUrl;
     if (prepared == null || mintUrl == null) return;
+    await _checkStatusFor(mintUrl: mintUrl, operationId: prepared.operationId);
+  }
 
+  Future<void> _checkRecordStatus(CashuTokenSendRecord record) =>
+      _checkStatusFor(mintUrl: record.mintUrl, operationId: record.operationId);
+
+  Future<void> _checkStatusFor({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) async {
     setState(() => _mutating = true);
     try {
       final status = await _controller!.checkSendStatus(
         mintUrl: mintUrl,
-        operationId: prepared.operationId,
+        operationId: operationId,
       );
+      final records = await _controller!.loadSendRecords();
       if (!mounted) return;
-      final message = switch (status) {
-        CashuSendState.claimed => 'Token has been claimed.',
-        CashuSendState.recoverable => 'Token is still recoverable.',
-        CashuSendState.reclaimed => 'Token has been reclaimed.',
-        CashuSendState.prepared => 'Token is prepared.',
-        CashuSendState.unknown => 'Token status is unknown.',
-      };
+      setState(() => _sendRecords = records);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ).showSnackBar(SnackBar(content: Text(_statusMessage(status))));
     } catch (error) {
       _showError(error);
     } finally {
@@ -248,18 +310,28 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
     final prepared = _prepared;
     final mintUrl = _selectedMintUrl;
     if (prepared == null || mintUrl == null) return;
+    await _reclaimFor(mintUrl: mintUrl, operationId: prepared.operationId);
+  }
 
+  Future<void> _reclaimRecord(CashuTokenSendRecord record) =>
+      _reclaimFor(mintUrl: record.mintUrl, operationId: record.operationId);
+
+  Future<void> _reclaimFor({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) async {
     setState(() => _mutating = true);
     try {
       final amount = await _controller!.reclaimSend(
         mintUrl: mintUrl,
-        operationId: prepared.operationId,
+        operationId: operationId,
       );
+      final records = await _controller!.loadSendRecords();
       if (!mounted) return;
+      setState(() => _sendRecords = records);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Reclaimed ${amount.value} sat.')));
-      Navigator.of(context).pop(true);
     } catch (error) {
       _showError(error);
     } finally {
@@ -294,6 +366,22 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  String _statusMessage(CashuSendState status) => switch (status) {
+    CashuSendState.claimed => 'Token has been claimed.',
+    CashuSendState.recoverable => 'Token is still recoverable.',
+    CashuSendState.reclaimed => 'Token has been reclaimed.',
+    CashuSendState.prepared => 'Token is prepared.',
+    CashuSendState.unknown => 'Token status is unknown.',
+  };
+
+  String _stateLabel(CashuSendState state) => switch (state) {
+    CashuSendState.prepared => 'prepared',
+    CashuSendState.recoverable => 'recoverable',
+    CashuSendState.claimed => 'claimed',
+    CashuSendState.reclaimed => 'reclaimed',
+    CashuSendState.unknown => 'unknown',
+  };
 }
 
 final class _CenteredMessage extends StatelessWidget {

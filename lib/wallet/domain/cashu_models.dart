@@ -1,5 +1,7 @@
 import 'dart:collection';
 
+import 'cashu_account_id.dart';
+
 /// Cashu protocol features required or recognized by the wallet.
 enum CashuNut {
   nut00(0),
@@ -263,4 +265,47 @@ final class CashuReconciliationResult {
 
   final int recoveredOperations;
   final int pendingOperations;
+}
+
+final class CashuTokenSendRecord {
+  const CashuTokenSendRecord({
+    required this.owner,
+    required this.operationId,
+    required this.mintUrl,
+    required this.amount,
+    required this.state,
+    required this.createdAt,
+    required this.updatedAt,
+    this.memo,
+  });
+
+  final CashuAccountId owner;
+  final String operationId;
+  final CashuMintUrl mintUrl;
+  final CashuAmount amount;
+  final CashuSendState state;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? memo;
+
+  CashuTokenSendRecord copyWith({CashuSendState? state, DateTime? updatedAt}) {
+    return CashuTokenSendRecord(
+      owner: owner,
+      operationId: operationId,
+      mintUrl: mintUrl,
+      amount: amount,
+      state: state ?? this.state,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      memo: memo,
+    );
+  }
+}
+
+abstract interface class CashuTokenSendRepository {
+  Future<CashuTokenSendRecord?> find(CashuAccountId owner, String operationId);
+
+  Future<List<CashuTokenSendRecord>> list(CashuAccountId owner);
+
+  Future<void> save(CashuTokenSendRecord record);
 }

@@ -16,6 +16,8 @@ final class CashuTokenMintOption {
 abstract interface class CashuTokenController {
   Future<List<CashuTokenMintOption>> loadSendOptions();
 
+  Future<List<CashuTokenSendRecord>> loadSendRecords();
+
   Future<CashuTokenSummary> previewReceive(String encodedToken);
 
   Future<CashuReceiveResult> receive(String encodedToken);
@@ -42,16 +44,22 @@ final class AccountCashuTokenController implements CashuTokenController {
     required CashuAccountId accountId,
     required WalletSessionManager sessionManager,
     required MintConfigurationRepository mintRepository,
+    required CashuTokenSendRepository sendRepository,
     required CashuTokenCodec tokenCodec,
+    DateTime Function()? clock,
   }) : _accountId = accountId,
        _sessionManager = sessionManager,
        _mintRepository = mintRepository,
-       _tokenCodec = tokenCodec;
+       _sendRepository = sendRepository,
+       _tokenCodec = tokenCodec,
+       _clock = clock ?? DateTime.now;
 
   final CashuAccountId _accountId;
   final WalletSessionManager _sessionManager;
   final MintConfigurationRepository _mintRepository;
+  final CashuTokenSendRepository _sendRepository;
   final CashuTokenCodec _tokenCodec;
+  final DateTime Function() _clock;
 
   @override
   Future<List<CashuTokenMintOption>> loadSendOptions() async {
@@ -69,6 +77,10 @@ final class AccountCashuTokenController implements CashuTokenController {
           ),
     );
   }
+
+  @override
+  Future<List<CashuTokenSendRecord>> loadSendRecords() =>
+      _sendRepository.list(_accountId);
 
   @override
   Future<CashuTokenSummary> previewReceive(String encodedToken) async {
@@ -108,9 +120,23 @@ final class AccountCashuTokenController implements CashuTokenController {
         requestedSats: amount.value,
       );
     }
-    return wallet.prepareSend(
+    final prepared = await wallet.prepareSend(
       CashuSendRequest(mintUrl: mintUrl, amount: amount, memo: memo),
     );
+    final now = _clock();
+    await _sendRepository.save(
+      CashuTokenSendRecord(
+        owner: _accountId,
+        operationId: prepared.operationId,
+        mintUrl: mintUrl,
+        amount: prepared.amount,
+        state: CashuSendState.recoverable,
+        createdAt: now,
+        updatedAt: now,
+        memo: _normalizedMemo(memo),
+      ),
+    );
+    return prepared;
   }
 
   @override
@@ -119,10 +145,12 @@ final class AccountCashuTokenController implements CashuTokenController {
     required String operationId,
   }) async {
     await _requireEnabledMint(mintUrl);
-    return (await _requireWallet()).checkSendStatus(
+    final state = await (await _requireWallet()).checkSendStatus(
       mintUrl: mintUrl,
       operationId: operationId,
     );
+    await _updateRecordState(operationId, state);
+    return state;
   }
 
   @override
@@ -131,10 +159,12 @@ final class AccountCashuTokenController implements CashuTokenController {
     required String operationId,
   }) async {
     await _requireEnabledMint(mintUrl);
-    return (await _requireWallet()).reclaimSend(
+    final amount = await (await _requireWallet()).reclaimSend(
       mintUrl: mintUrl,
       operationId: operationId,
     );
+    await _updateRecordState(operationId, CashuSendState.reclaimed);
+    return amount;
   }
 
   Future<AccountWalletSession> _requireWallet() async {
@@ -148,5 +178,21 @@ final class AccountCashuTokenController implements CashuTokenController {
     final configuration = await _mintRepository.find(_accountId, mintUrl);
     if (configuration == null) throw UnknownMintException(mintUrl);
     if (!configuration.enabled) throw DisabledMintException(mintUrl);
+  }
+
+  Future<void> _updateRecordState(
+    String operationId,
+    CashuSendState state,
+  ) async {
+    final record = await _sendRepository.find(_accountId, operationId);
+    if (record == null) return;
+    await _sendRepository.save(
+      record.copyWith(state: state, updatedAt: _clock()),
+    );
+  }
+
+  String? _normalizedMemo(String? memo) {
+    final trimmed = memo?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 }

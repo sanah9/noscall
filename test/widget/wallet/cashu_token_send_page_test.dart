@@ -27,17 +27,17 @@ void main() {
     expect(controller.sentAmounts, [42]);
     expect(controller.sentMemos, ['lunch']);
 
-    await tester.ensureVisible(find.text('Check status'));
+    await tester.ensureVisible(find.text('Check status').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Check status'));
+    await tester.tap(find.text('Check status').first);
     await tester.pumpAndSettle();
     expect(find.text('Token is still recoverable.'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Reclaim'));
+    await tester.ensureVisible(find.text('Reclaim').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Reclaim'));
+    await tester.tap(find.text('Reclaim').first);
     await tester.pumpAndSettle();
     expect(controller.reclaimCalls, 1);
   });
@@ -46,12 +46,16 @@ void main() {
 final class _FakeTokenController implements CashuTokenController {
   final List<int> sentAmounts = [];
   final List<String?> sentMemos = [];
+  final List<CashuTokenSendRecord> records = [];
   int reclaimCalls = 0;
 
   @override
   Future<List<CashuTokenMintOption>> loadSendOptions() async => [
     CashuTokenMintOption(mint: _mint, balanceSats: 100),
   ];
+
+  @override
+  Future<List<CashuTokenSendRecord>> loadSendRecords() async => records;
 
   @override
   Future<CashuPreparedSend> prepareSend({
@@ -61,6 +65,20 @@ final class _FakeTokenController implements CashuTokenController {
   }) async {
     sentAmounts.add(amount.value);
     sentMemos.add(memo);
+    records
+      ..clear()
+      ..add(
+        CashuTokenSendRecord(
+          owner: _owner,
+          operationId: 'send-1',
+          mintUrl: mintUrl,
+          amount: amount,
+          state: CashuSendState.recoverable,
+          createdAt: DateTime.utc(2026, 6, 29),
+          updatedAt: DateTime.utc(2026, 6, 29),
+          memo: memo,
+        ),
+      );
     return CashuPreparedSend(
       operationId: 'send-1',
       token: 'cashu-generated-token',
@@ -72,7 +90,10 @@ final class _FakeTokenController implements CashuTokenController {
   Future<CashuSendState> checkSendStatus({
     required CashuMintUrl mintUrl,
     required String operationId,
-  }) async => CashuSendState.recoverable;
+  }) async {
+    _updateRecord(operationId, CashuSendState.recoverable);
+    return CashuSendState.recoverable;
+  }
 
   @override
   Future<CashuAmount> reclaimSend({
@@ -80,6 +101,7 @@ final class _FakeTokenController implements CashuTokenController {
     required String operationId,
   }) async {
     reclaimCalls++;
+    _updateRecord(operationId, CashuSendState.reclaimed);
     return CashuAmount.sats(42);
   }
 
@@ -90,6 +112,17 @@ final class _FakeTokenController implements CashuTokenController {
   @override
   Future<CashuReceiveResult> receive(String encodedToken) =>
       throw UnimplementedError();
+
+  void _updateRecord(String operationId, CashuSendState state) {
+    final index = records.indexWhere(
+      (record) => record.operationId == operationId,
+    );
+    if (index == -1) return;
+    records[index] = records[index].copyWith(
+      state: state,
+      updatedAt: DateTime.utc(2026, 6, 29, 1),
+    );
+  }
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);

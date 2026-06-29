@@ -38,6 +38,9 @@ final class _FakeTokenController implements CashuTokenController {
   Future<List<CashuTokenMintOption>> loadSendOptions() async => const [];
 
   @override
+  Future<List<CashuTokenSendRecord>> loadSendRecords() async => const [];
+
+  @override
   Future<CashuTokenSummary> previewReceive(String encodedToken) async {
     previewedTokens.add(encodedToken);
     return CashuTokenSummary(
