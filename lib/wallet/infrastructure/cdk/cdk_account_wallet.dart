@@ -339,6 +339,59 @@ final class CdkAccountWallet implements AccountWalletSession {
   }
 
   @override
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  }) async {
+    _ensureOpen();
+    final invoice = bolt11Invoice.trim();
+    if (invoice.isEmpty) {
+      throw ArgumentError.value(
+        bolt11Invoice,
+        'bolt11Invoice',
+        'Lightning invoice cannot be empty',
+      );
+    }
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final quote = await wallet.meltQuote(
+        method: cdk.Bolt11PaymentMethod(),
+        request: invoice,
+        options: null,
+        extra: null,
+      );
+      return _meltQuoteFromCdk(quote, fallbackMintUrl: mintUrl);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'melt_quote_failed',
+        'The Lightning pay quote could not be created',
+      );
+    }
+  }
+
+  @override
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    _ensureOpen();
+    cdk.PreparedMelt? prepared;
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      prepared = await wallet.prepareMelt(quoteId: quoteId);
+      final finalized = await prepared.confirm();
+      return _meltResultFromCdk(finalized);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'melt_failed',
+        'The Lightning invoice could not be paid',
+      );
+    } finally {
+      prepared?.dispose();
+    }
+  }
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async {
     _ensureOpen();
     var recovered = 0;
@@ -442,12 +495,60 @@ final class CdkAccountWallet implements AccountWalletSession {
     );
   }
 
+  CashuMeltQuote _meltQuoteFromCdk(
+    cdk.MeltQuote quote, {
+    required CashuMintUrl fallbackMintUrl,
+  }) {
+    if (quote.unit is! cdk.SatCurrencyUnit) {
+      throw const CashuProtocolException(
+        'unsupported_unit',
+        'Only sat-denominated Lightning pay quotes are supported',
+      );
+    }
+    return CashuMeltQuote(
+      quoteId: quote.id,
+      mintUrl: quote.mintUrl == null
+          ? fallbackMintUrl
+          : CashuMintUrl.parse(quote.mintUrl!.url),
+      amount: CashuAmount.sats(quote.amount.value),
+      feeReserve: CashuAmount.sats(quote.feeReserve.value),
+      state: _isMeltQuoteExpired(quote)
+          ? CashuQuoteState.expired
+          : _quoteStateFromCdk(quote.state),
+      expiry: DateTime.fromMillisecondsSinceEpoch(
+        quote.expiry * 1000,
+        isUtc: true,
+      ),
+    );
+  }
+
+  CashuMeltResult _meltResultFromCdk(cdk.FinalizedMelt melt) {
+    final amount = CashuAmount.sats(melt.amount.value);
+    final feePaid = CashuAmount.sats(melt.feePaid.value);
+    return CashuMeltResult(
+      quoteId: melt.quoteId,
+      state: _quoteStateFromCdk(melt.state),
+      amountSpent: amount + feePaid,
+      feePaid: feePaid,
+      paymentPreimage: melt.preimage,
+    );
+  }
+
   bool _isExpired(cdk.MintQuote quote) {
     if (quote.state == cdk.QuoteState.issued) return false;
     return cdk.mintQuoteIsExpired(
       quote: quote,
       currentTime: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000,
     );
+  }
+
+  bool _isMeltQuoteExpired(cdk.MeltQuote quote) {
+    if (quote.state == cdk.QuoteState.issued ||
+        quote.state == cdk.QuoteState.paid) {
+      return false;
+    }
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    return quote.expiry <= now;
   }
 
   CashuQuoteState _quoteStateFromCdk(cdk.QuoteState state) {

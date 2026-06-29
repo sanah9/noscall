@@ -302,6 +302,18 @@ final class _Wallet implements AccountWalletSession {
   }) => throw UnimplementedError();
 
   @override
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async =>
       const CashuReconciliationResult(
         recoveredOperations: 0,

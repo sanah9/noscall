@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noscall/wallet/application/cashu_lightning_receive_controller.dart';
+import 'package:noscall/wallet/application/cashu_lightning_pay_controller.dart';
 import 'package:noscall/wallet/application/wallet_session_manager.dart';
 import 'package:noscall/wallet/domain/account_wallet.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
@@ -12,30 +12,26 @@ void main() {
   late CashuMintUrl mintUrl;
   late CashuMintUrl unsupportedMintUrl;
   late _MintRepository mintRepository;
-  late _QuoteRepository quoteRepository;
   late _Wallet wallet;
-  late AccountCashuLightningReceiveController controller;
+  late AccountCashuLightningPayController controller;
 
   setUp(() {
     account = CashuAccountId.fromNostrPubkey('a' * 64);
     mintUrl = CashuMintUrl.parse('https://mint.example.com');
-    unsupportedMintUrl = CashuMintUrl.parse('https://token-only.example.com');
+    unsupportedMintUrl = CashuMintUrl.parse('https://receive-only.example.com');
     mintRepository = _MintRepository();
-    quoteRepository = _QuoteRepository();
-    wallet = _Wallet(account);
-    controller = AccountCashuLightningReceiveController(
+    wallet = _Wallet(account, balances: {mintUrl: 100});
+    controller = AccountCashuLightningPayController(
       accountId: account,
       sessionManager: WalletSessionManager(factory: _WalletFactory(wallet)),
       mintRepository: mintRepository,
-      quoteRepository: quoteRepository,
-      clock: () => DateTime.utc(2026, 6, 29, 12),
     );
   });
 
-  test('lists only enabled Mints that support Lightning receive', () async {
+  test('lists only enabled Mints that support Lightning pay', () async {
     mintRepository
       ..put(_mint(account, mintUrl))
-      ..put(_mint(account, unsupportedMintUrl, supportsLightningReceive: false))
+      ..put(_mint(account, unsupportedMintUrl, supportsLightningPay: false))
       ..put(
         _mint(
           account,
@@ -50,76 +46,74 @@ void main() {
         ),
       );
 
-    final options = await controller.loadReceiveOptions();
+    final options = await controller.loadPayOptions();
 
     expect(options.map((option) => option.mint.url), [mintUrl]);
+    expect(options.single.balanceSats, 100);
   });
 
-  test('creates, checks, and mints a Lightning receive quote', () async {
+  test('creates quote and pays a Lightning invoice', () async {
     mintRepository.put(_mint(account, mintUrl));
 
     final quote = await controller.createQuote(
       mintUrl: mintUrl,
-      amount: CashuAmount.positiveSats(21),
+      bolt11Invoice: ' lnbc420n1test ',
     );
-    final status = await controller.checkQuote(
-      mintUrl: mintUrl,
-      quoteId: quote.quoteId,
-    );
-    final amount = await controller.mintQuote(
+    final result = await controller.payQuote(
       mintUrl: mintUrl,
       quoteId: quote.quoteId,
     );
 
-    expect(quote.quoteId, 'quote-1');
-    expect(quote.request, 'lnbc210n1test');
-    expect(quote.state, CashuQuoteState.unpaid);
-    expect(status.state, CashuQuoteState.paid);
-    expect(amount, CashuAmount.sats(21));
-    expect(wallet.createdQuoteAmounts, [21]);
-    expect(wallet.checkedQuoteIds, ['quote-1']);
-    expect(wallet.mintedQuoteIds, ['quote-1']);
-    expect(
-      (await quoteRepository.find(account, 'quote-1'))?.state,
-      CashuQuoteState.issued,
-    );
-    expect(
-      (await quoteRepository.find(account, 'quote-1'))?.request,
-      'lnbc210n1test',
-    );
-    expect(await controller.loadQuoteRecords(), hasLength(1));
+    expect(quote.quoteId, 'melt-quote-1');
+    expect(quote.amount, CashuAmount.sats(42));
+    expect(quote.feeReserve, CashuAmount.sats(2));
+    expect(result.quoteId, 'melt-quote-1');
+    expect(result.state, CashuQuoteState.paid);
+    expect(result.amountSpent, CashuAmount.sats(43));
+    expect(result.feePaid, CashuAmount.sats(1));
+    expect(result.paymentPreimage, 'preimage');
+    expect(wallet.createdInvoices, ['lnbc420n1test']);
+    expect(wallet.paidQuoteIds, ['melt-quote-1']);
   });
 
-  test(
-    'rejects unsupported and non-positive Lightning receive requests',
-    () async {
-      mintRepository.put(
-        _mint(account, unsupportedMintUrl, supportsLightningReceive: false),
-      );
+  test('rejects unsupported and empty Lightning pay requests', () async {
+    mintRepository.put(
+      _mint(account, unsupportedMintUrl, supportsLightningPay: false),
+    );
 
-      await expectLater(
-        controller.createQuote(
-          mintUrl: unsupportedMintUrl,
-          amount: CashuAmount.positiveSats(21),
-        ),
-        throwsA(isA<UnsupportedMintException>()),
-      );
-      await expectLater(
-        controller.createQuote(
-          mintUrl: unsupportedMintUrl,
-          amount: CashuAmount.sats(0),
-        ),
-        throwsArgumentError,
-      );
-    },
-  );
+    await expectLater(
+      controller.createQuote(
+        mintUrl: unsupportedMintUrl,
+        bolt11Invoice: 'lnbc420n1test',
+      ),
+      throwsA(isA<UnsupportedMintException>()),
+    );
+    await expectLater(
+      controller.createQuote(mintUrl: unsupportedMintUrl, bolt11Invoice: ' '),
+      throwsArgumentError,
+    );
+  });
+
+  test('rejects quotes that exceed the selected Mint balance', () async {
+    mintRepository.put(_mint(account, mintUrl));
+    wallet.balances = {mintUrl: 43};
+
+    await expectLater(
+      controller.createQuote(mintUrl: mintUrl, bolt11Invoice: 'lnbc420n1test'),
+      throwsA(
+        isA<InsufficientCashuBalanceException>()
+            .having((error) => error.availableSats, 'available', 43)
+            .having((error) => error.requestedSats, 'requested', 44),
+      ),
+    );
+  });
 }
 
 MintConfiguration _mint(
   CashuAccountId owner,
   CashuMintUrl url, {
   bool enabled = true,
-  bool supportsLightningReceive = true,
+  bool supportsLightningPay = true,
 }) => MintConfiguration(
   owner: owner,
   url: url,
@@ -133,8 +127,9 @@ MintConfiguration _mint(
     CashuNut.nut06,
     CashuNut.nut07,
     CashuNut.nut09,
-    if (supportsLightningReceive) CashuNut.nut04,
-    if (supportsLightningReceive) CashuNut.nut23,
+    if (supportsLightningPay) CashuNut.nut05,
+    if (supportsLightningPay) CashuNut.nut08,
+    if (supportsLightningPay) CashuNut.nut23,
   },
   units: const ['sat'],
   lastSyncAt: DateTime.utc(2026, 6, 29),
@@ -172,31 +167,6 @@ final class _MintRepository implements MintConfigurationRepository {
       put(configuration);
 }
 
-final class _QuoteRepository implements CashuLightningReceiveQuoteRepository {
-  final Map<String, CashuLightningReceiveQuoteRecord> values = {};
-
-  String _key(CashuAccountId owner, String quoteId) =>
-      '${owner.value}|$quoteId';
-
-  @override
-  Future<CashuLightningReceiveQuoteRecord?> find(
-    CashuAccountId owner,
-    String quoteId,
-  ) async => values[_key(owner, quoteId)];
-
-  @override
-  Future<List<CashuLightningReceiveQuoteRecord>> list(
-    CashuAccountId owner,
-  ) async => values.values
-      .where((record) => record.owner == owner)
-      .toList(growable: false);
-
-  @override
-  Future<void> save(CashuLightningReceiveQuoteRecord record) async {
-    values[_key(record.owner, record.quoteId)] = record;
-  }
-}
-
 final class _WalletFactory implements AccountWalletFactory {
   const _WalletFactory(this.wallet);
 
@@ -216,69 +186,47 @@ final class _WalletFactory implements AccountWalletFactory {
 }
 
 final class _Wallet implements AccountWalletSession {
-  _Wallet(this.accountId);
+  _Wallet(this.accountId, {required this.balances});
 
   @override
   final CashuAccountId accountId;
-  final List<int> createdQuoteAmounts = [];
-  final List<String> checkedQuoteIds = [];
-  final List<String> mintedQuoteIds = [];
+  Map<CashuMintUrl, int> balances;
+  final List<String> createdInvoices = [];
+  final List<String> paidQuoteIds = [];
 
   @override
-  Future<CashuMintQuote> createMintQuote({
-    required CashuMintUrl mintUrl,
-    required CashuAmount amount,
-  }) async {
-    createdQuoteAmounts.add(amount.value);
-    return _quote(mintUrl, state: CashuQuoteState.unpaid);
-  }
-
-  @override
-  Future<CashuMintQuote> checkMintQuote({
-    required CashuMintUrl mintUrl,
-    required String quoteId,
-  }) async {
-    checkedQuoteIds.add(quoteId);
-    return _quote(mintUrl, state: CashuQuoteState.paid);
-  }
-
-  @override
-  Future<CashuAmount> mintQuote({
-    required CashuMintUrl mintUrl,
-    required String quoteId,
-  }) async {
-    mintedQuoteIds.add(quoteId);
-    return CashuAmount.sats(21);
-  }
+  Future<Map<CashuMintUrl, int>> balancesByMintSats() async => balances;
 
   @override
   Future<CashuMeltQuote> createMeltQuote({
     required CashuMintUrl mintUrl,
     required String bolt11Invoice,
-  }) => throw UnimplementedError();
-
-  @override
-  Future<CashuMeltResult> meltQuote({
-    required CashuMintUrl mintUrl,
-    required String quoteId,
-  }) => throw UnimplementedError();
-
-  CashuMintQuote _quote(
-    CashuMintUrl mintUrl, {
-    required CashuQuoteState state,
-  }) {
-    return CashuMintQuote(
-      quoteId: 'quote-1',
+  }) async {
+    createdInvoices.add(bolt11Invoice);
+    return CashuMeltQuote(
+      quoteId: 'melt-quote-1',
       mintUrl: mintUrl,
-      amount: CashuAmount.sats(21),
-      request: 'lnbc210n1test',
-      state: state,
+      amount: CashuAmount.sats(42),
+      feeReserve: CashuAmount.sats(2),
+      state: CashuQuoteState.unpaid,
       expiry: DateTime.utc(2026, 6, 29, 12),
     );
   }
 
   @override
-  Future<Map<CashuMintUrl, int>> balancesByMintSats() async => const {};
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    paidQuoteIds.add(quoteId);
+    return CashuMeltResult(
+      quoteId: quoteId,
+      state: CashuQuoteState.paid,
+      amountSpent: CashuAmount.sats(43),
+      feePaid: CashuAmount.sats(1),
+      paymentPreimage: 'preimage',
+    );
+  }
 
   @override
   Future<CashuReceiveResult> receive(CashuReceiveRequest request) =>
@@ -301,6 +249,24 @@ final class _Wallet implements AccountWalletSession {
   }) => throw UnimplementedError();
 
   @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async =>
       const CashuReconciliationResult(
         recoveredOperations: 0,
@@ -308,7 +274,8 @@ final class _Wallet implements AccountWalletSession {
       );
 
   @override
-  Future<int> totalBalanceSats() async => 0;
+  Future<int> totalBalanceSats() async =>
+      balances.values.fold<int>(0, (total, balance) => total + balance);
 
   @override
   Future<void> close() async {}

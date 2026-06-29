@@ -38,6 +38,16 @@ abstract interface class AccountWalletSession {
     required String quoteId,
   });
 
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  });
+
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  });
+
   Future<CashuReconciliationResult> reconcilePendingOperations();
 
   Future<void> close();
