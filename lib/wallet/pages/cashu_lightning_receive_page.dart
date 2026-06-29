@@ -23,6 +23,7 @@ final class _CashuLightningReceivePageState
   final TextEditingController _amountController = TextEditingController();
   CashuLightningReceiveController? _controller;
   List<CashuLightningReceiveMintOption> _options = const [];
+  List<CashuLightningReceiveQuoteRecord> _quoteRecords = const [];
   CashuMintUrl? _selectedMintUrl;
   CashuMintQuote? _quote;
   bool _loading = true;
@@ -52,10 +53,12 @@ final class _CashuLightningReceivePageState
           MobileCashuLightningReceiveControllerFactory.create;
       final controller = await factory();
       final options = await controller.loadReceiveOptions();
+      final records = await controller.loadQuoteRecords();
       if (!mounted) return;
       setState(() {
         _controller = controller;
         _options = options;
+        _quoteRecords = records;
         _selectedMintUrl = options.isEmpty ? null : options.first.mint.url;
         _quote = null;
         _loading = false;
@@ -155,16 +158,40 @@ final class _CashuLightningReceivePageState
           const SizedBox(height: 20),
           _QuoteCard(
             quote: quote,
-            onCopy: _copyInvoice,
+            onCopy: () => _copyInvoice(quote.request),
             onCheck: _mutating ? null : _checkQuote,
             onMint: _mutating || quote.state != CashuQuoteState.paid
                 ? null
                 : _mintQuote,
           ),
         ],
+        if (_visibleQuoteRecords.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Recent invoices',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          for (final record in _visibleQuoteRecords) ...[
+            _QuoteCard(
+              quote: _quoteFromRecord(record),
+              onCopy: () => _copyInvoice(record.request),
+              onCheck: _mutating ? null : () => _checkRecord(record),
+              onMint: _mutating || record.state != CashuQuoteState.paid
+                  ? null
+                  : () => _mintRecord(record),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ],
       ],
     );
   }
+
+  List<CashuLightningReceiveQuoteRecord> get _visibleQuoteRecords =>
+      _quoteRecords
+          .where((record) => record.quoteId != _quote?.quoteId)
+          .toList(growable: false);
 
   Future<void> _createQuote() async {
     final mintUrl = _selectedMintUrl;
@@ -179,7 +206,13 @@ final class _CashuLightningReceivePageState
         mintUrl: mintUrl,
         amount: CashuAmount.positiveSats(amount),
       );
-      if (mounted) setState(() => _quote = quote);
+      final records = await _controller!.loadQuoteRecords();
+      if (mounted) {
+        setState(() {
+          _quote = quote;
+          _quoteRecords = records;
+        });
+      }
     } catch (error) {
       _showError(error);
     } finally {
@@ -196,8 +229,12 @@ final class _CashuLightningReceivePageState
         mintUrl: quote.mintUrl,
         quoteId: quote.quoteId,
       );
+      final records = await _controller!.loadQuoteRecords();
       if (!mounted) return;
-      setState(() => _quote = updated);
+      setState(() {
+        _quote = updated;
+        _quoteRecords = records;
+      });
       _showSnackBar(_statusMessage(updated.state));
     } catch (error) {
       _showError(error);
@@ -227,11 +264,58 @@ final class _CashuLightningReceivePageState
     }
   }
 
-  Future<void> _copyInvoice() async {
-    final invoice = _quote?.request;
-    if (invoice == null) return;
+  Future<void> _checkRecord(CashuLightningReceiveQuoteRecord record) async {
+    setState(() => _mutating = true);
+    try {
+      final updated = await _controller!.checkQuote(
+        mintUrl: record.mintUrl,
+        quoteId: record.quoteId,
+      );
+      final records = await _controller!.loadQuoteRecords();
+      if (!mounted) return;
+      setState(() => _quoteRecords = records);
+      _showSnackBar(_statusMessage(updated.state));
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
+  }
+
+  Future<void> _mintRecord(CashuLightningReceiveQuoteRecord record) async {
+    setState(() => _mutating = true);
+    try {
+      final amount = await _controller!.mintQuote(
+        mintUrl: record.mintUrl,
+        quoteId: record.quoteId,
+      );
+      final records = await _controller!.loadQuoteRecords();
+      if (!mounted) return;
+      setState(() => _quoteRecords = records);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Received ${amount.value} sat.')));
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
+  }
+
+  Future<void> _copyInvoice(String invoice) async {
     await Clipboard.setData(ClipboardData(text: invoice));
     _showSnackBar('Invoice copied.');
+  }
+
+  CashuMintQuote _quoteFromRecord(CashuLightningReceiveQuoteRecord record) {
+    return CashuMintQuote(
+      quoteId: record.quoteId,
+      mintUrl: record.mintUrl,
+      amount: record.amount,
+      request: record.request,
+      state: record.state,
+      expiry: record.expiry,
+    );
   }
 
   void _showError(Object error) {

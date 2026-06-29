@@ -309,3 +309,55 @@ abstract interface class CashuTokenSendRepository {
 
   Future<void> save(CashuTokenSendRecord record);
 }
+
+final class CashuLightningReceiveQuoteRecord {
+  const CashuLightningReceiveQuoteRecord({
+    required this.owner,
+    required this.quoteId,
+    required this.mintUrl,
+    required this.amount,
+    required this.request,
+    required this.state,
+    required this.expiry,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final CashuAccountId owner;
+  final String quoteId;
+  final CashuMintUrl mintUrl;
+  final CashuAmount amount;
+  final String request;
+  final CashuQuoteState state;
+  final DateTime expiry;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  CashuLightningReceiveQuoteRecord copyWith({
+    CashuQuoteState? state,
+    DateTime? updatedAt,
+  }) {
+    return CashuLightningReceiveQuoteRecord(
+      owner: owner,
+      quoteId: quoteId,
+      mintUrl: mintUrl,
+      amount: amount,
+      request: request,
+      state: state ?? this.state,
+      expiry: expiry,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
+abstract interface class CashuLightningReceiveQuoteRepository {
+  Future<CashuLightningReceiveQuoteRecord?> find(
+    CashuAccountId owner,
+    String quoteId,
+  );
+
+  Future<List<CashuLightningReceiveQuoteRecord>> list(CashuAccountId owner);
+
+  Future<void> save(CashuLightningReceiveQuoteRecord record);
+}

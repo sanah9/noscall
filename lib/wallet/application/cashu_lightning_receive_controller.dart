@@ -14,6 +14,8 @@ final class CashuLightningReceiveMintOption {
 abstract interface class CashuLightningReceiveController {
   Future<List<CashuLightningReceiveMintOption>> loadReceiveOptions();
 
+  Future<List<CashuLightningReceiveQuoteRecord>> loadQuoteRecords();
+
   Future<CashuMintQuote> createQuote({
     required CashuMintUrl mintUrl,
     required CashuAmount amount,
@@ -36,13 +38,19 @@ final class AccountCashuLightningReceiveController
     required CashuAccountId accountId,
     required WalletSessionManager sessionManager,
     required MintConfigurationRepository mintRepository,
+    required CashuLightningReceiveQuoteRepository quoteRepository,
+    DateTime Function()? clock,
   }) : _accountId = accountId,
        _sessionManager = sessionManager,
-       _mintRepository = mintRepository;
+       _mintRepository = mintRepository,
+       _quoteRepository = quoteRepository,
+       _clock = clock ?? DateTime.now;
 
   final CashuAccountId _accountId;
   final WalletSessionManager _sessionManager;
   final MintConfigurationRepository _mintRepository;
+  final CashuLightningReceiveQuoteRepository _quoteRepository;
+  final DateTime Function() _clock;
 
   @override
   Future<List<CashuLightningReceiveMintOption>> loadReceiveOptions() async {
@@ -53,6 +61,10 @@ final class AccountCashuLightningReceiveController
           .map((mint) => CashuLightningReceiveMintOption(mint: mint)),
     );
   }
+
+  @override
+  Future<List<CashuLightningReceiveQuoteRecord>> loadQuoteRecords() =>
+      _quoteRepository.list(_accountId);
 
   @override
   Future<CashuMintQuote> createQuote({
@@ -67,10 +79,12 @@ final class AccountCashuLightningReceiveController
       );
     }
     await _requireLightningReceiveMint(mintUrl);
-    return (await _requireWallet()).createMintQuote(
+    final quote = await (await _requireWallet()).createMintQuote(
       mintUrl: mintUrl,
       amount: amount,
     );
+    await _quoteRepository.save(_recordFromQuote(quote, createdAt: _clock()));
+    return quote;
   }
 
   @override
@@ -79,10 +93,12 @@ final class AccountCashuLightningReceiveController
     required String quoteId,
   }) async {
     await _requireLightningReceiveMint(mintUrl);
-    return (await _requireWallet()).checkMintQuote(
+    final quote = await (await _requireWallet()).checkMintQuote(
       mintUrl: mintUrl,
       quoteId: quoteId,
     );
+    await _saveQuoteUpdate(quote);
+    return quote;
   }
 
   @override
@@ -91,10 +107,12 @@ final class AccountCashuLightningReceiveController
     required String quoteId,
   }) async {
     await _requireLightningReceiveMint(mintUrl);
-    return (await _requireWallet()).mintQuote(
+    final amount = await (await _requireWallet()).mintQuote(
       mintUrl: mintUrl,
       quoteId: quoteId,
     );
+    await _updateQuoteState(quoteId, CashuQuoteState.issued);
+    return amount;
   }
 
   Future<AccountWalletSession> _requireWallet() async {
@@ -125,4 +143,37 @@ final class AccountCashuLightningReceiveController
       mint.enabled &&
       mint.units.contains('sat') &&
       mint.supportedNuts.containsAll({CashuNut.nut04, CashuNut.nut23});
+
+  Future<void> _saveQuoteUpdate(CashuMintQuote quote) async {
+    final existing = await _quoteRepository.find(_accountId, quote.quoteId);
+    await _quoteRepository.save(
+      _recordFromQuote(quote, createdAt: existing?.createdAt ?? _clock()),
+    );
+  }
+
+  Future<void> _updateQuoteState(String quoteId, CashuQuoteState state) async {
+    final record = await _quoteRepository.find(_accountId, quoteId);
+    if (record == null) return;
+    await _quoteRepository.save(
+      record.copyWith(state: state, updatedAt: _clock()),
+    );
+  }
+
+  CashuLightningReceiveQuoteRecord _recordFromQuote(
+    CashuMintQuote quote, {
+    required DateTime createdAt,
+  }) {
+    final now = _clock();
+    return CashuLightningReceiveQuoteRecord(
+      owner: _accountId,
+      quoteId: quote.quoteId,
+      mintUrl: quote.mintUrl,
+      amount: quote.amount,
+      request: quote.request,
+      state: quote.state,
+      expiry: quote.expiry,
+      createdAt: createdAt,
+      updatedAt: now,
+    );
+  }
 }

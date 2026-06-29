@@ -15,6 +15,7 @@ void main() {
   late IsarWalletConfigurationRepository walletRepository;
   late IsarMintConfigurationRepository mintRepository;
   late IsarCashuTokenSendRepository sendRepository;
+  late IsarCashuLightningReceiveQuoteRepository quoteRepository;
 
   setUpAll(_initializeIsarForTests);
 
@@ -25,6 +26,7 @@ void main() {
         CashuWalletConfigurationRecordSchema,
         CashuMintConfigurationRecordSchema,
         CashuTokenSendOperationRecordSchema,
+        CashuLightningReceiveQuoteOperationRecordSchema,
       ],
       directory: directory.path,
       name: 'wallet_configuration_test',
@@ -32,6 +34,7 @@ void main() {
     walletRepository = IsarWalletConfigurationRepository(database);
     mintRepository = IsarMintConfigurationRepository(database);
     sendRepository = IsarCashuTokenSendRepository(database);
+    quoteRepository = IsarCashuLightningReceiveQuoteRepository(database);
   });
 
   tearDown(() async {
@@ -133,6 +136,54 @@ void main() {
     );
     expect(await sendRepository.list(ownerA), hasLength(1));
   });
+
+  test(
+    'upserts and isolates Lightning receive quotes by Nostr account',
+    () async {
+      final ownerA = _account('a');
+      final ownerB = _account('b');
+      final url = CashuMintUrl.parse('https://mint.example.com');
+      final now = DateTime.utc(2026, 6, 29);
+
+      await quoteRepository.save(
+        _quote(
+          owner: ownerA,
+          url: url,
+          quoteId: 'quote-1',
+          state: CashuQuoteState.unpaid,
+          now: now,
+        ),
+      );
+      await quoteRepository.save(
+        _quote(
+          owner: ownerB,
+          url: url,
+          quoteId: 'quote-1',
+          state: CashuQuoteState.paid,
+          now: now,
+        ),
+      );
+      await quoteRepository.save(
+        _quote(
+          owner: ownerA,
+          url: url,
+          quoteId: 'quote-1',
+          state: CashuQuoteState.issued,
+          now: now.add(const Duration(minutes: 1)),
+        ),
+      );
+
+      expect(
+        (await quoteRepository.find(ownerA, 'quote-1'))?.state,
+        CashuQuoteState.issued,
+      );
+      expect(
+        (await quoteRepository.find(ownerB, 'quote-1'))?.state,
+        CashuQuoteState.paid,
+      );
+      expect(await quoteRepository.list(ownerA), hasLength(1));
+    },
+  );
 }
 
 Future<void> _initializeIsarForTests() async {
@@ -191,5 +242,25 @@ CashuTokenSendRecord _send({
     createdAt: now,
     updatedAt: now,
     memo: 'memo',
+  );
+}
+
+CashuLightningReceiveQuoteRecord _quote({
+  required CashuAccountId owner,
+  required CashuMintUrl url,
+  required String quoteId,
+  required CashuQuoteState state,
+  required DateTime now,
+}) {
+  return CashuLightningReceiveQuoteRecord(
+    owner: owner,
+    quoteId: quoteId,
+    mintUrl: url,
+    amount: CashuAmount.sats(21),
+    request: 'lnbc210n1test',
+    state: state,
+    expiry: now.add(const Duration(hours: 1)),
+    createdAt: now,
+    updatedAt: now,
   );
 }

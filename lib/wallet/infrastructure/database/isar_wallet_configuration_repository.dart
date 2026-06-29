@@ -109,6 +109,46 @@ final class IsarCashuTokenSendRepository implements CashuTokenSendRepository {
   }
 }
 
+final class IsarCashuLightningReceiveQuoteRepository
+    implements CashuLightningReceiveQuoteRepository {
+  const IsarCashuLightningReceiveQuoteRepository(this._isar);
+
+  final Isar _isar;
+
+  @override
+  Future<CashuLightningReceiveQuoteRecord?> find(
+    CashuAccountId owner,
+    String quoteId,
+  ) async {
+    final record = await _isar.cashuLightningReceiveQuoteOperationRecords
+        .where()
+        .ownerPubkeyQuoteIdEqualTo(owner.value, quoteId)
+        .findFirst();
+    return record == null ? null : _receiveQuoteFromRecord(record);
+  }
+
+  @override
+  Future<List<CashuLightningReceiveQuoteRecord>> list(
+    CashuAccountId owner,
+  ) async {
+    final records = await _isar.cashuLightningReceiveQuoteOperationRecords
+        .filter()
+        .ownerPubkeyEqualTo(owner.value)
+        .findAll();
+    records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List.unmodifiable(records.map(_receiveQuoteFromRecord));
+  }
+
+  @override
+  Future<void> save(CashuLightningReceiveQuoteRecord record) async {
+    await _isar.writeTxn(
+      () => _isar.cashuLightningReceiveQuoteOperationRecords.put(
+        _receiveQuoteToRecord(record),
+      ),
+    );
+  }
+}
+
 CashuWalletConfigurationRecord _walletToRecord(
   WalletConfiguration configuration,
 ) {
@@ -187,6 +227,37 @@ CashuTokenSendRecord _sendFromRecord(CashuTokenSendOperationRecord record) {
     amount: CashuAmount.sats(record.amountSats),
     state: CashuSendState.values.byName(record.state),
     memo: record.memo,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(record.createdAt),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(record.updatedAt),
+  );
+}
+
+CashuLightningReceiveQuoteOperationRecord _receiveQuoteToRecord(
+  CashuLightningReceiveQuoteRecord record,
+) {
+  return CashuLightningReceiveQuoteOperationRecord()
+    ..ownerPubkey = record.owner.value
+    ..quoteId = record.quoteId
+    ..mintUrl = record.mintUrl.toString()
+    ..amountSats = record.amount.value
+    ..request = record.request
+    ..state = record.state.name
+    ..expiry = record.expiry.millisecondsSinceEpoch
+    ..createdAt = record.createdAt.millisecondsSinceEpoch
+    ..updatedAt = record.updatedAt.millisecondsSinceEpoch;
+}
+
+CashuLightningReceiveQuoteRecord _receiveQuoteFromRecord(
+  CashuLightningReceiveQuoteOperationRecord record,
+) {
+  return CashuLightningReceiveQuoteRecord(
+    owner: CashuAccountId.fromNostrPubkey(record.ownerPubkey),
+    quoteId: record.quoteId,
+    mintUrl: CashuMintUrl.parse(record.mintUrl),
+    amount: CashuAmount.sats(record.amountSats),
+    request: record.request,
+    state: CashuQuoteState.values.byName(record.state),
+    expiry: DateTime.fromMillisecondsSinceEpoch(record.expiry),
     createdAt: DateTime.fromMillisecondsSinceEpoch(record.createdAt),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(record.updatedAt),
   );

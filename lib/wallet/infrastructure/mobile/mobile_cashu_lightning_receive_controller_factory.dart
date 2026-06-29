@@ -43,6 +43,9 @@ final class MobileCashuLightningReceiveControllerFactory {
       mintRepository: IsarMintConfigurationRepository(
         DBISAR.sharedInstance.isar,
       ),
+      quoteRepository: IsarCashuLightningReceiveQuoteRepository(
+        DBISAR.sharedInstance.isar,
+      ),
     );
   }
 }

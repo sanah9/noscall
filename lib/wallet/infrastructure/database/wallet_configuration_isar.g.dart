@@ -5354,3 +5354,2068 @@ extension CashuTokenSendOperationRecordQueryProperty on QueryBuilder<
     });
   }
 }
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+extension GetCashuLightningReceiveQuoteOperationRecordCollection on Isar {
+  IsarCollection<CashuLightningReceiveQuoteOperationRecord>
+      get cashuLightningReceiveQuoteOperationRecords => this.collection();
+}
+
+const CashuLightningReceiveQuoteOperationRecordSchema = CollectionSchema(
+  name: r'CashuLightningReceiveQuoteOperationRecord',
+  id: -7605616092856510645,
+  properties: {
+    r'amountSats': PropertySchema(
+      id: 0,
+      name: r'amountSats',
+      type: IsarType.long,
+    ),
+    r'createdAt': PropertySchema(
+      id: 1,
+      name: r'createdAt',
+      type: IsarType.long,
+    ),
+    r'expiry': PropertySchema(
+      id: 2,
+      name: r'expiry',
+      type: IsarType.long,
+    ),
+    r'mintUrl': PropertySchema(
+      id: 3,
+      name: r'mintUrl',
+      type: IsarType.string,
+    ),
+    r'ownerPubkey': PropertySchema(
+      id: 4,
+      name: r'ownerPubkey',
+      type: IsarType.string,
+    ),
+    r'quoteId': PropertySchema(
+      id: 5,
+      name: r'quoteId',
+      type: IsarType.string,
+    ),
+    r'request': PropertySchema(
+      id: 6,
+      name: r'request',
+      type: IsarType.string,
+    ),
+    r'state': PropertySchema(
+      id: 7,
+      name: r'state',
+      type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 8,
+      name: r'updatedAt',
+      type: IsarType.long,
+    )
+  },
+  estimateSize: _cashuLightningReceiveQuoteOperationRecordEstimateSize,
+  serialize: _cashuLightningReceiveQuoteOperationRecordSerialize,
+  deserialize: _cashuLightningReceiveQuoteOperationRecordDeserialize,
+  deserializeProp: _cashuLightningReceiveQuoteOperationRecordDeserializeProp,
+  idName: r'id',
+  indexes: {
+    r'ownerPubkey_quoteId': IndexSchema(
+      id: 7650076232821481243,
+      name: r'ownerPubkey_quoteId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'ownerPubkey',
+          type: IndexType.hash,
+          caseSensitive: true,
+        ),
+        IndexPropertySchema(
+          name: r'quoteId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    )
+  },
+  links: {},
+  embeddedSchemas: {},
+  getId: _cashuLightningReceiveQuoteOperationRecordGetId,
+  getLinks: _cashuLightningReceiveQuoteOperationRecordGetLinks,
+  attach: _cashuLightningReceiveQuoteOperationRecordAttach,
+  version: '3.1.0+1',
+);
+
+int _cashuLightningReceiveQuoteOperationRecordEstimateSize(
+  CashuLightningReceiveQuoteOperationRecord object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  bytesCount += 3 + object.mintUrl.length * 3;
+  bytesCount += 3 + object.ownerPubkey.length * 3;
+  bytesCount += 3 + object.quoteId.length * 3;
+  bytesCount += 3 + object.request.length * 3;
+  bytesCount += 3 + object.state.length * 3;
+  return bytesCount;
+}
+
+void _cashuLightningReceiveQuoteOperationRecordSerialize(
+  CashuLightningReceiveQuoteOperationRecord object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeLong(offsets[0], object.amountSats);
+  writer.writeLong(offsets[1], object.createdAt);
+  writer.writeLong(offsets[2], object.expiry);
+  writer.writeString(offsets[3], object.mintUrl);
+  writer.writeString(offsets[4], object.ownerPubkey);
+  writer.writeString(offsets[5], object.quoteId);
+  writer.writeString(offsets[6], object.request);
+  writer.writeString(offsets[7], object.state);
+  writer.writeLong(offsets[8], object.updatedAt);
+}
+
+CashuLightningReceiveQuoteOperationRecord
+    _cashuLightningReceiveQuoteOperationRecordDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = CashuLightningReceiveQuoteOperationRecord();
+  object.amountSats = reader.readLong(offsets[0]);
+  object.createdAt = reader.readLong(offsets[1]);
+  object.expiry = reader.readLong(offsets[2]);
+  object.id = id;
+  object.mintUrl = reader.readString(offsets[3]);
+  object.ownerPubkey = reader.readString(offsets[4]);
+  object.quoteId = reader.readString(offsets[5]);
+  object.request = reader.readString(offsets[6]);
+  object.state = reader.readString(offsets[7]);
+  object.updatedAt = reader.readLong(offsets[8]);
+  return object;
+}
+
+P _cashuLightningReceiveQuoteOperationRecordDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readLong(offset)) as P;
+    case 1:
+      return (reader.readLong(offset)) as P;
+    case 2:
+      return (reader.readLong(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
+      return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readString(offset)) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
+      return (reader.readLong(offset)) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+Id _cashuLightningReceiveQuoteOperationRecordGetId(
+    CashuLightningReceiveQuoteOperationRecord object) {
+  return object.id;
+}
+
+List<IsarLinkBase<dynamic>> _cashuLightningReceiveQuoteOperationRecordGetLinks(
+    CashuLightningReceiveQuoteOperationRecord object) {
+  return [];
+}
+
+void _cashuLightningReceiveQuoteOperationRecordAttach(
+    IsarCollection<dynamic> col,
+    Id id,
+    CashuLightningReceiveQuoteOperationRecord object) {
+  object.id = id;
+}
+
+extension CashuLightningReceiveQuoteOperationRecordByIndex
+    on IsarCollection<CashuLightningReceiveQuoteOperationRecord> {
+  Future<CashuLightningReceiveQuoteOperationRecord?> getByOwnerPubkeyQuoteId(
+      String ownerPubkey, String quoteId) {
+    return getByIndex(r'ownerPubkey_quoteId', [ownerPubkey, quoteId]);
+  }
+
+  CashuLightningReceiveQuoteOperationRecord? getByOwnerPubkeyQuoteIdSync(
+      String ownerPubkey, String quoteId) {
+    return getByIndexSync(r'ownerPubkey_quoteId', [ownerPubkey, quoteId]);
+  }
+
+  Future<bool> deleteByOwnerPubkeyQuoteId(String ownerPubkey, String quoteId) {
+    return deleteByIndex(r'ownerPubkey_quoteId', [ownerPubkey, quoteId]);
+  }
+
+  bool deleteByOwnerPubkeyQuoteIdSync(String ownerPubkey, String quoteId) {
+    return deleteByIndexSync(r'ownerPubkey_quoteId', [ownerPubkey, quoteId]);
+  }
+
+  Future<List<CashuLightningReceiveQuoteOperationRecord?>>
+      getAllByOwnerPubkeyQuoteId(
+          List<String> ownerPubkeyValues, List<String> quoteIdValues) {
+    final len = ownerPubkeyValues.length;
+    assert(quoteIdValues.length == len,
+        'All index values must have the same length');
+    final values = <List<dynamic>>[];
+    for (var i = 0; i < len; i++) {
+      values.add([ownerPubkeyValues[i], quoteIdValues[i]]);
+    }
+
+    return getAllByIndex(r'ownerPubkey_quoteId', values);
+  }
+
+  List<CashuLightningReceiveQuoteOperationRecord?>
+      getAllByOwnerPubkeyQuoteIdSync(
+          List<String> ownerPubkeyValues, List<String> quoteIdValues) {
+    final len = ownerPubkeyValues.length;
+    assert(quoteIdValues.length == len,
+        'All index values must have the same length');
+    final values = <List<dynamic>>[];
+    for (var i = 0; i < len; i++) {
+      values.add([ownerPubkeyValues[i], quoteIdValues[i]]);
+    }
+
+    return getAllByIndexSync(r'ownerPubkey_quoteId', values);
+  }
+
+  Future<int> deleteAllByOwnerPubkeyQuoteId(
+      List<String> ownerPubkeyValues, List<String> quoteIdValues) {
+    final len = ownerPubkeyValues.length;
+    assert(quoteIdValues.length == len,
+        'All index values must have the same length');
+    final values = <List<dynamic>>[];
+    for (var i = 0; i < len; i++) {
+      values.add([ownerPubkeyValues[i], quoteIdValues[i]]);
+    }
+
+    return deleteAllByIndex(r'ownerPubkey_quoteId', values);
+  }
+
+  int deleteAllByOwnerPubkeyQuoteIdSync(
+      List<String> ownerPubkeyValues, List<String> quoteIdValues) {
+    final len = ownerPubkeyValues.length;
+    assert(quoteIdValues.length == len,
+        'All index values must have the same length');
+    final values = <List<dynamic>>[];
+    for (var i = 0; i < len; i++) {
+      values.add([ownerPubkeyValues[i], quoteIdValues[i]]);
+    }
+
+    return deleteAllByIndexSync(r'ownerPubkey_quoteId', values);
+  }
+
+  Future<Id> putByOwnerPubkeyQuoteId(
+      CashuLightningReceiveQuoteOperationRecord object) {
+    return putByIndex(r'ownerPubkey_quoteId', object);
+  }
+
+  Id putByOwnerPubkeyQuoteIdSync(
+      CashuLightningReceiveQuoteOperationRecord object,
+      {bool saveLinks = true}) {
+    return putByIndexSync(r'ownerPubkey_quoteId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByOwnerPubkeyQuoteId(
+      List<CashuLightningReceiveQuoteOperationRecord> objects) {
+    return putAllByIndex(r'ownerPubkey_quoteId', objects);
+  }
+
+  List<Id> putAllByOwnerPubkeyQuoteIdSync(
+      List<CashuLightningReceiveQuoteOperationRecord> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'ownerPubkey_quoteId', objects,
+        saveLinks: saveLinks);
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryWhereSort
+    on QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+        CashuLightningReceiveQuoteOperationRecord, QWhere> {
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterWhere> anyId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryWhere on QueryBuilder<
+    CashuLightningReceiveQuoteOperationRecord,
+    CashuLightningReceiveQuoteOperationRecord,
+    QWhereClause> {
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterWhereClause> idEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterWhereClause> idNotEqualTo(Id id) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            )
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IdWhereClause.greaterThan(lower: id, includeLower: false),
+            )
+            .addWhereClause(
+              IdWhereClause.lessThan(upper: id, includeUpper: false),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterWhereClause> idGreaterThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.greaterThan(lower: id, includeLower: include),
+      );
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterWhereClause> idLessThan(Id id, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IdWhereClause.lessThan(upper: id, includeUpper: include),
+      );
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterWhereClause> idBetween(
+    Id lowerId,
+    Id upperId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterWhereClause> ownerPubkeyEqualToAnyQuoteId(String ownerPubkey) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'ownerPubkey_quoteId',
+        value: [ownerPubkey],
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterWhereClause> ownerPubkeyNotEqualToAnyQuoteId(String ownerPubkey) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [],
+              upper: [ownerPubkey],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [ownerPubkey],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [ownerPubkey],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [],
+              upper: [ownerPubkey],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterWhereClause>
+      ownerPubkeyQuoteIdEqualTo(String ownerPubkey, String quoteId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'ownerPubkey_quoteId',
+        value: [ownerPubkey, quoteId],
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterWhereClause>
+      ownerPubkeyEqualToQuoteIdNotEqualTo(String ownerPubkey, String quoteId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [ownerPubkey],
+              upper: [ownerPubkey, quoteId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [ownerPubkey, quoteId],
+              includeLower: false,
+              upper: [ownerPubkey],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [ownerPubkey, quoteId],
+              includeLower: false,
+              upper: [ownerPubkey],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'ownerPubkey_quoteId',
+              lower: [ownerPubkey],
+              upper: [ownerPubkey, quoteId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryFilter on QueryBuilder<
+    CashuLightningReceiveQuoteOperationRecord,
+    CashuLightningReceiveQuoteOperationRecord,
+    QFilterCondition> {
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> amountSatsEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'amountSats',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> amountSatsGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'amountSats',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> amountSatsLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'amountSats',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> amountSatsBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'amountSats',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> createdAtEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> createdAtGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> createdAtLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> createdAtBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> expiryEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'expiry',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> expiryGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'expiry',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> expiryLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'expiry',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> expiryBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'expiry',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> idEqualTo(Id value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> idLessThan(
+    Id value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> idBetween(
+    Id lower,
+    Id upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'mintUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'mintUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'mintUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'mintUrl',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'mintUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'mintUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      mintUrlContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'mintUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      mintUrlMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'mintUrl',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'mintUrl',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> mintUrlIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'mintUrl',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'ownerPubkey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'ownerPubkey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'ownerPubkey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'ownerPubkey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'ownerPubkey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'ownerPubkey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      ownerPubkeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'ownerPubkey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      ownerPubkeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'ownerPubkey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'ownerPubkey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> ownerPubkeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'ownerPubkey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'quoteId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'quoteId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'quoteId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'quoteId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'quoteId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'quoteId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      quoteIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'quoteId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      quoteIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'quoteId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'quoteId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> quoteIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'quoteId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'request',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'request',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'request',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'request',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'request',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'request',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      requestContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'request',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      requestMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'request',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'request',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> requestIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'request',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'state',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'state',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'state',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'state',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'state',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'state',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      stateContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'state',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+          CashuLightningReceiveQuoteOperationRecord, QAfterFilterCondition>
+      stateMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'state',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'state',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> stateIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'state',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> updatedAtEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> updatedAtGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> updatedAtLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterFilterCondition> updatedAtBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryObject on QueryBuilder<
+    CashuLightningReceiveQuoteOperationRecord,
+    CashuLightningReceiveQuoteOperationRecord,
+    QFilterCondition> {}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryLinks on QueryBuilder<
+    CashuLightningReceiveQuoteOperationRecord,
+    CashuLightningReceiveQuoteOperationRecord,
+    QFilterCondition> {}
+
+extension CashuLightningReceiveQuoteOperationRecordQuerySortBy on QueryBuilder<
+    CashuLightningReceiveQuoteOperationRecord,
+    CashuLightningReceiveQuoteOperationRecord,
+    QSortBy> {
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByAmountSats() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amountSats', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByAmountSatsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amountSats', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> sortByExpiry() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'expiry', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByExpiryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'expiry', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> sortByMintUrl() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'mintUrl', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByMintUrlDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'mintUrl', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByOwnerPubkey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerPubkey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByOwnerPubkeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerPubkey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> sortByQuoteId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'quoteId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByQuoteIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'quoteId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> sortByRequest() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'request', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByRequestDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'request', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> sortByState() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'state', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByStateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'state', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> sortByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQuerySortThenBy
+    on QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+        CashuLightningReceiveQuoteOperationRecord, QSortThenBy> {
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByAmountSats() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amountSats', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByAmountSatsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'amountSats', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenByExpiry() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'expiry', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByExpiryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'expiry', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenById() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.asc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenByIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'id', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenByMintUrl() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'mintUrl', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByMintUrlDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'mintUrl', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByOwnerPubkey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerPubkey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByOwnerPubkeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ownerPubkey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenByQuoteId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'quoteId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByQuoteIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'quoteId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenByRequest() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'request', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByRequestDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'request', Sort.desc);
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QAfterSortBy> thenByState() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'state', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByStateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'state', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QAfterSortBy> thenByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryWhereDistinct
+    on QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+        CashuLightningReceiveQuoteOperationRecord, QDistinct> {
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByAmountSats() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'amountSats');
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'createdAt');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord, QDistinct> distinctByExpiry() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'expiry');
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByMintUrl({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'mintUrl', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByOwnerPubkey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'ownerPubkey', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByQuoteId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'quoteId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByRequest({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'request', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByState({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'state', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<
+      CashuLightningReceiveQuoteOperationRecord,
+      CashuLightningReceiveQuoteOperationRecord,
+      QDistinct> distinctByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'updatedAt');
+    });
+  }
+}
+
+extension CashuLightningReceiveQuoteOperationRecordQueryProperty
+    on QueryBuilder<CashuLightningReceiveQuoteOperationRecord,
+        CashuLightningReceiveQuoteOperationRecord, QQueryProperty> {
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, int, QQueryOperations>
+      idProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, int, QQueryOperations>
+      amountSatsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'amountSats');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, int, QQueryOperations>
+      createdAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'createdAt');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, int, QQueryOperations>
+      expiryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'expiry');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, String,
+      QQueryOperations> mintUrlProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'mintUrl');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, String,
+      QQueryOperations> ownerPubkeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'ownerPubkey');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, String,
+      QQueryOperations> quoteIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'quoteId');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, String,
+      QQueryOperations> requestProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'request');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, String,
+      QQueryOperations> stateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'state');
+    });
+  }
+
+  QueryBuilder<CashuLightningReceiveQuoteOperationRecord, int, QQueryOperations>
+      updatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'updatedAt');
+    });
+  }
+}

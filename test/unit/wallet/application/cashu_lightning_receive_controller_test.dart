@@ -12,6 +12,7 @@ void main() {
   late CashuMintUrl mintUrl;
   late CashuMintUrl unsupportedMintUrl;
   late _MintRepository mintRepository;
+  late _QuoteRepository quoteRepository;
   late _Wallet wallet;
   late AccountCashuLightningReceiveController controller;
 
@@ -20,11 +21,14 @@ void main() {
     mintUrl = CashuMintUrl.parse('https://mint.example.com');
     unsupportedMintUrl = CashuMintUrl.parse('https://token-only.example.com');
     mintRepository = _MintRepository();
+    quoteRepository = _QuoteRepository();
     wallet = _Wallet(account);
     controller = AccountCashuLightningReceiveController(
       accountId: account,
       sessionManager: WalletSessionManager(factory: _WalletFactory(wallet)),
       mintRepository: mintRepository,
+      quoteRepository: quoteRepository,
+      clock: () => DateTime.utc(2026, 6, 29, 12),
     );
   });
 
@@ -75,6 +79,15 @@ void main() {
     expect(wallet.createdQuoteAmounts, [21]);
     expect(wallet.checkedQuoteIds, ['quote-1']);
     expect(wallet.mintedQuoteIds, ['quote-1']);
+    expect(
+      (await quoteRepository.find(account, 'quote-1'))?.state,
+      CashuQuoteState.issued,
+    );
+    expect(
+      (await quoteRepository.find(account, 'quote-1'))?.request,
+      'lnbc210n1test',
+    );
+    expect(await controller.loadQuoteRecords(), hasLength(1));
   });
 
   test(
@@ -157,6 +170,31 @@ final class _MintRepository implements MintConfigurationRepository {
   @override
   Future<void> save(MintConfiguration configuration) async =>
       put(configuration);
+}
+
+final class _QuoteRepository implements CashuLightningReceiveQuoteRepository {
+  final Map<String, CashuLightningReceiveQuoteRecord> values = {};
+
+  String _key(CashuAccountId owner, String quoteId) =>
+      '${owner.value}|$quoteId';
+
+  @override
+  Future<CashuLightningReceiveQuoteRecord?> find(
+    CashuAccountId owner,
+    String quoteId,
+  ) async => values[_key(owner, quoteId)];
+
+  @override
+  Future<List<CashuLightningReceiveQuoteRecord>> list(
+    CashuAccountId owner,
+  ) async => values.values
+      .where((record) => record.owner == owner)
+      .toList(growable: false);
+
+  @override
+  Future<void> save(CashuLightningReceiveQuoteRecord record) async {
+    values[_key(record.owner, record.quoteId)] = record;
+  }
 }
 
 final class _WalletFactory implements AccountWalletFactory {
