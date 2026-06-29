@@ -89,6 +89,29 @@ void main() {
     expect(find.text('Payment complete'), findsOneWidget);
     expect(controller.paidQuoteIds, ['melt-quote-1']);
   });
+
+  testWidgets('shows expired persisted Lightning pay quote as not payable', (
+    tester,
+  ) async {
+    final controller = _FakeLightningPayController()
+      ..records.add(_record(CashuQuoteState.expired));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CashuLightningPayPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent payments'), findsOneWidget);
+    expect(find.textContaining('Status: expired'), findsOneWidget);
+    await tester.ensureVisible(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+
+    expect(controller.paidQuoteIds, isEmpty);
+  });
 }
 
 final class _FakeLightningPayController implements CashuLightningPayController {
@@ -153,29 +176,6 @@ final class _FakeLightningPayController implements CashuLightningPayController {
       paymentPreimage: 'preimage',
     );
   }
-
-  CashuLightningPayQuoteRecord _record(
-    CashuQuoteState state, {
-    CashuAmount? amountSpent,
-    CashuAmount? feePaid,
-    String? paymentPreimage,
-  }) {
-    return CashuLightningPayQuoteRecord(
-      owner: _owner,
-      quoteId: 'melt-quote-1',
-      mintUrl: _mintUrl,
-      amount: CashuAmount.sats(42),
-      request: 'lnbc420n1test',
-      feeReserve: CashuAmount.sats(2),
-      state: state,
-      expiry: DateTime.utc(2026, 6, 29, 12),
-      createdAt: DateTime.utc(2026, 6, 29, 11),
-      updatedAt: DateTime.utc(2026, 6, 29, 12),
-      amountSpent: amountSpent,
-      feePaid: feePaid,
-      paymentPreimage: paymentPreimage,
-    );
-  }
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
@@ -202,3 +202,26 @@ final _mint = MintConfiguration(
   units: const ['sat'],
   lastSyncAt: DateTime.utc(2026, 6, 29),
 );
+
+CashuLightningPayQuoteRecord _record(
+  CashuQuoteState state, {
+  CashuAmount? amountSpent,
+  CashuAmount? feePaid,
+  String? paymentPreimage,
+}) {
+  return CashuLightningPayQuoteRecord(
+    owner: _owner,
+    quoteId: 'melt-quote-1',
+    mintUrl: _mintUrl,
+    amount: CashuAmount.sats(42),
+    request: 'lnbc420n1test',
+    feeReserve: CashuAmount.sats(2),
+    state: state,
+    expiry: DateTime.utc(2026, 6, 29, 12),
+    createdAt: DateTime.utc(2026, 6, 29, 11),
+    updatedAt: DateTime.utc(2026, 6, 29, 12),
+    amountSpent: amountSpent,
+    feePaid: feePaid,
+    paymentPreimage: paymentPreimage,
+  );
+}

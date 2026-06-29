@@ -69,8 +69,19 @@ final class AccountCashuLightningPayController
   }
 
   @override
-  Future<List<CashuLightningPayQuoteRecord>> loadQuoteRecords() =>
-      _quoteRepository.list(_accountId);
+  Future<List<CashuLightningPayQuoteRecord>> loadQuoteRecords() async {
+    final records = await _quoteRepository.list(_accountId);
+    final now = _clock();
+    final restoredRecords = <CashuLightningPayQuoteRecord>[];
+    for (final record in records) {
+      final restoredRecord = _expireLocallyIfNeeded(record, now);
+      if (restoredRecord.state != record.state) {
+        await _quoteRepository.save(restoredRecord);
+      }
+      restoredRecords.add(restoredRecord);
+    }
+    return List.unmodifiable(restoredRecords);
+  }
 
   @override
   Future<CashuMeltQuote> createQuote({
@@ -151,6 +162,22 @@ final class AccountCashuLightningPayController
         CashuNut.nut08,
         CashuNut.nut23,
       });
+
+  CashuLightningPayQuoteRecord _expireLocallyIfNeeded(
+    CashuLightningPayQuoteRecord record,
+    DateTime now,
+  ) {
+    final canExpireLocally = switch (record.state) {
+      CashuQuoteState.unpaid || CashuQuoteState.pending => true,
+      CashuQuoteState.paid ||
+      CashuQuoteState.issued ||
+      CashuQuoteState.expired ||
+      CashuQuoteState.failed ||
+      CashuQuoteState.unknown => false,
+    };
+    if (!canExpireLocally || record.expiry.isAfter(now)) return record;
+    return record.copyWith(state: CashuQuoteState.expired, updatedAt: now);
+  }
 
   CashuLightningPayQuoteRecord _recordFromQuote(
     CashuMeltQuote quote, {

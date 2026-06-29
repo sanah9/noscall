@@ -89,6 +89,64 @@ void main() {
     expect(await controller.loadQuoteRecords(), hasLength(1));
   });
 
+  test(
+    'marks expired unpaid and pending records when loading history',
+    () async {
+      final unpaid = _payRecord(
+        account,
+        mintUrl,
+        quoteId: 'expired-unpaid',
+        state: CashuQuoteState.unpaid,
+        expiry: DateTime.utc(2026, 6, 29, 11, 59),
+      );
+      final pending = _payRecord(
+        account,
+        mintUrl,
+        quoteId: 'expired-pending',
+        state: CashuQuoteState.pending,
+        expiry: DateTime.utc(2026, 6, 29, 12),
+      );
+      final paid = _payRecord(
+        account,
+        mintUrl,
+        quoteId: 'paid',
+        state: CashuQuoteState.paid,
+        expiry: DateTime.utc(2026, 6, 29, 11),
+        amountSpent: CashuAmount.sats(43),
+        feePaid: CashuAmount.sats(1),
+      );
+      await quoteRepository.save(unpaid);
+      await quoteRepository.save(pending);
+      await quoteRepository.save(paid);
+
+      final records = await controller.loadQuoteRecords();
+
+      final restoredUnpaid = records.singleWhere(
+        (record) => record.quoteId == 'expired-unpaid',
+      );
+      final restoredPending = records.singleWhere(
+        (record) => record.quoteId == 'expired-pending',
+      );
+      final unchangedPaid = records.singleWhere(
+        (record) => record.quoteId == 'paid',
+      );
+      expect(restoredUnpaid.state, CashuQuoteState.expired);
+      expect(restoredUnpaid.updatedAt, DateTime.utc(2026, 6, 29, 12));
+      expect(restoredPending.state, CashuQuoteState.expired);
+      expect(restoredPending.updatedAt, DateTime.utc(2026, 6, 29, 12));
+      expect(unchangedPaid.state, CashuQuoteState.paid);
+      expect(unchangedPaid.updatedAt, DateTime.utc(2026, 6, 29, 11));
+      expect(
+        (await quoteRepository.find(account, 'expired-unpaid'))?.state,
+        CashuQuoteState.expired,
+      );
+      expect(
+        (await quoteRepository.find(account, 'expired-pending'))?.state,
+        CashuQuoteState.expired,
+      );
+    },
+  );
+
   test('rejects unsupported and empty Lightning pay requests', () async {
     mintRepository.put(
       _mint(account, unsupportedMintUrl, supportsLightningPay: false),
@@ -147,6 +205,31 @@ MintConfiguration _mint(
   units: const ['sat'],
   lastSyncAt: DateTime.utc(2026, 6, 29),
 );
+
+CashuLightningPayQuoteRecord _payRecord(
+  CashuAccountId owner,
+  CashuMintUrl mintUrl, {
+  required String quoteId,
+  required CashuQuoteState state,
+  required DateTime expiry,
+  CashuAmount? amountSpent,
+  CashuAmount? feePaid,
+}) {
+  return CashuLightningPayQuoteRecord(
+    owner: owner,
+    quoteId: quoteId,
+    mintUrl: mintUrl,
+    amount: CashuAmount.sats(42),
+    request: 'lnbc420n1test',
+    feeReserve: CashuAmount.sats(2),
+    state: state,
+    expiry: expiry,
+    createdAt: DateTime.utc(2026, 6, 29, 10),
+    updatedAt: DateTime.utc(2026, 6, 29, 11),
+    amountSpent: amountSpent,
+    feePaid: feePaid,
+  );
+}
 
 final class _MintRepository implements MintConfigurationRepository {
   final Map<String, MintConfiguration> values = {};
