@@ -284,6 +284,24 @@ final class _Wallet implements AccountWalletSession {
   }) async => CashuAmount.sats(42);
 
   @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async =>
       const CashuReconciliationResult(
         recoveredOperations: 0,

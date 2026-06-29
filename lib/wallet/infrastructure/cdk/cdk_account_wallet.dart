@@ -268,6 +268,77 @@ final class CdkAccountWallet implements AccountWalletSession {
   }
 
   @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) async {
+    _ensureOpen();
+    if (amount.value <= 0) {
+      throw ArgumentError.value(
+        amount.value,
+        'amount',
+        'Mint quote amount must be positive',
+      );
+    }
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final quote = await wallet.mintQuote(
+        paymentMethod: cdk.Bolt11PaymentMethod(),
+        amount: cdk.Amount(value: amount.value),
+        description: null,
+        extra: null,
+      );
+      return _mintQuoteFromCdk(quote);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'mint_quote_failed',
+        'The Lightning receive quote could not be created',
+      );
+    }
+  }
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final quote = await wallet.checkMintQuote(quoteId: quoteId);
+      return _mintQuoteFromCdk(quote);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'mint_quote_status_failed',
+        'The Lightning receive quote status could not be checked',
+      );
+    }
+  }
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final proofs = await wallet.mint(
+        quoteId: quoteId,
+        amountSplitTarget: cdk.NoneSplitTarget(),
+        spendingConditions: null,
+      );
+      final amount = cdk.proofsTotalAmount(proofs: proofs);
+      return CashuAmount.sats(amount.value);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'mint_failed',
+        'The Lightning receive quote could not be minted',
+      );
+    }
+  }
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async {
     _ensureOpen();
     var recovered = 0;
@@ -347,5 +418,44 @@ final class CdkAccountWallet implements AccountWalletSession {
   String _localReceiveOperationId(String encodedToken) {
     final digest = sha256.convert(encodedToken.codeUnits).toString();
     return 'receive:${digest.substring(0, 16)}';
+  }
+
+  CashuMintQuote _mintQuoteFromCdk(cdk.MintQuote quote) {
+    if (quote.unit is! cdk.SatCurrencyUnit) {
+      throw const CashuProtocolException(
+        'unsupported_unit',
+        'Only sat-denominated Lightning receive quotes are supported',
+      );
+    }
+    return CashuMintQuote(
+      quoteId: quote.id,
+      mintUrl: CashuMintUrl.parse(quote.mintUrl.url),
+      amount: CashuAmount.sats(quote.amount?.value ?? quote.amountPaid.value),
+      request: quote.request,
+      state: _isExpired(quote)
+          ? CashuQuoteState.expired
+          : _quoteStateFromCdk(quote.state),
+      expiry: DateTime.fromMillisecondsSinceEpoch(
+        quote.expiry * 1000,
+        isUtc: true,
+      ),
+    );
+  }
+
+  bool _isExpired(cdk.MintQuote quote) {
+    if (quote.state == cdk.QuoteState.issued) return false;
+    return cdk.mintQuoteIsExpired(
+      quote: quote,
+      currentTime: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000,
+    );
+  }
+
+  CashuQuoteState _quoteStateFromCdk(cdk.QuoteState state) {
+    return switch (state) {
+      cdk.QuoteState.unpaid => CashuQuoteState.unpaid,
+      cdk.QuoteState.pending => CashuQuoteState.pending,
+      cdk.QuoteState.paid => CashuQuoteState.paid,
+      cdk.QuoteState.issued => CashuQuoteState.issued,
+    };
   }
 }

@@ -211,4 +211,22 @@ final class _FakeAccountWallet implements AccountWalletSession {
     required CashuMintUrl mintUrl,
     required String operationId,
   }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
 }

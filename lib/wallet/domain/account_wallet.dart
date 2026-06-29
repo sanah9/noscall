@@ -23,6 +23,21 @@ abstract interface class AccountWalletSession {
     required String operationId,
   });
 
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  });
+
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  });
+
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  });
+
   Future<CashuReconciliationResult> reconcilePendingOperations();
 
   Future<void> close();
