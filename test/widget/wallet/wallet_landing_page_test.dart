@@ -61,6 +61,10 @@ void main() {
           path: '/wallet/send-token',
           builder: (context, state) => const SizedBox.shrink(),
         ),
+        GoRoute(
+          path: '/wallet/pay-lightning',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -110,6 +114,7 @@ void main() {
 
     expect(find.text('Receive Lightning'), findsOneWidget);
     expect(find.text('Receive token'), findsOneWidget);
+    expect(find.text('Pay Lightning'), findsOneWidget);
     expect(find.text('Send token'), findsOneWidget);
   });
 }

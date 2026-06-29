@@ -213,16 +213,32 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
             ],
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed:
-                  snapshot.enabledMintCount == 0 || snapshot.balanceSats == 0
-                  ? null
-                  : () => _openWalletOperation('/wallet/send-token'),
-              icon: const Icon(Icons.upload),
-              label: const Text('Send token'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      snapshot.enabledMintCount == 0 ||
+                          snapshot.balanceSats == 0
+                      ? null
+                      : () => _openWalletOperation('/wallet/pay-lightning'),
+                  icon: const Icon(Icons.payment),
+                  label: const Text('Pay Lightning'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed:
+                      snapshot.enabledMintCount == 0 ||
+                          snapshot.balanceSats == 0
+                      ? null
+                      : () => _openWalletOperation('/wallet/send-token'),
+                  icon: const Icon(Icons.upload),
+                  label: const Text('Send token'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Card(
