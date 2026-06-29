@@ -74,3 +74,24 @@ class CashuLightningReceiveQuoteOperationRecord {
   int createdAt = 0;
   int updatedAt = 0;
 }
+
+@collection
+class CashuLightningPayQuoteOperationRecord {
+  Id id = Isar.autoIncrement;
+
+  @Index(composite: [CompositeIndex('quoteId')], unique: true, replace: true)
+  String ownerPubkey = '';
+
+  String quoteId = '';
+  String mintUrl = '';
+  int amountSats = 0;
+  String request = '';
+  int feeReserveSats = 0;
+  String state = '';
+  int expiry = 0;
+  int createdAt = 0;
+  int updatedAt = 0;
+  int? amountSpentSats;
+  int? feePaidSats;
+  String? paymentPreimage;
+}

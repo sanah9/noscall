@@ -18,6 +18,8 @@ final class CashuLightningPayMintOption {
 abstract interface class CashuLightningPayController {
   Future<List<CashuLightningPayMintOption>> loadPayOptions();
 
+  Future<List<CashuLightningPayQuoteRecord>> loadQuoteRecords();
+
   Future<CashuMeltQuote> createQuote({
     required CashuMintUrl mintUrl,
     required String bolt11Invoice,
@@ -35,13 +37,19 @@ final class AccountCashuLightningPayController
     required CashuAccountId accountId,
     required WalletSessionManager sessionManager,
     required MintConfigurationRepository mintRepository,
+    required CashuLightningPayQuoteRepository quoteRepository,
+    DateTime Function()? clock,
   }) : _accountId = accountId,
        _sessionManager = sessionManager,
-       _mintRepository = mintRepository;
+       _mintRepository = mintRepository,
+       _quoteRepository = quoteRepository,
+       _clock = clock ?? DateTime.now;
 
   final CashuAccountId _accountId;
   final WalletSessionManager _sessionManager;
   final MintConfigurationRepository _mintRepository;
+  final CashuLightningPayQuoteRepository _quoteRepository;
+  final DateTime Function() _clock;
 
   @override
   Future<List<CashuLightningPayMintOption>> loadPayOptions() async {
@@ -59,6 +67,10 @@ final class AccountCashuLightningPayController
           ),
     );
   }
+
+  @override
+  Future<List<CashuLightningPayQuoteRecord>> loadQuoteRecords() =>
+      _quoteRepository.list(_accountId);
 
   @override
   Future<CashuMeltQuote> createQuote({
@@ -87,6 +99,7 @@ final class AccountCashuLightningPayController
         requestedSats: requiredBalance,
       );
     }
+    await _quoteRepository.save(_recordFromQuote(quote, createdAt: _clock()));
     return quote;
   }
 
@@ -96,10 +109,12 @@ final class AccountCashuLightningPayController
     required String quoteId,
   }) async {
     await _requireLightningPayMint(mintUrl);
-    return (await _requireWallet()).meltQuote(
+    final result = await (await _requireWallet()).meltQuote(
       mintUrl: mintUrl,
       quoteId: quoteId,
     );
+    await _savePaymentResult(result);
+    return result;
   }
 
   Future<AccountWalletSession> _requireWallet() async {
@@ -136,4 +151,37 @@ final class AccountCashuLightningPayController
         CashuNut.nut08,
         CashuNut.nut23,
       });
+
+  CashuLightningPayQuoteRecord _recordFromQuote(
+    CashuMeltQuote quote, {
+    required DateTime createdAt,
+  }) {
+    final now = _clock();
+    return CashuLightningPayQuoteRecord(
+      owner: _accountId,
+      quoteId: quote.quoteId,
+      mintUrl: quote.mintUrl,
+      amount: quote.amount,
+      request: quote.request,
+      feeReserve: quote.feeReserve,
+      state: quote.state,
+      expiry: quote.expiry,
+      createdAt: createdAt,
+      updatedAt: now,
+    );
+  }
+
+  Future<void> _savePaymentResult(CashuMeltResult result) async {
+    final record = await _quoteRepository.find(_accountId, result.quoteId);
+    if (record == null) return;
+    await _quoteRepository.save(
+      record.copyWith(
+        state: result.state,
+        updatedAt: _clock(),
+        amountSpent: result.amountSpent,
+        feePaid: result.feePaid,
+        paymentPreimage: result.paymentPreimage,
+      ),
+    );
+  }
 }

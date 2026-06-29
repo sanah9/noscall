@@ -41,6 +41,9 @@ final class MobileCashuLightningPayControllerFactory {
       mintRepository: IsarMintConfigurationRepository(
         DBISAR.sharedInstance.isar,
       ),
+      quoteRepository: IsarCashuLightningPayQuoteRepository(
+        DBISAR.sharedInstance.isar,
+      ),
     );
   }
 }

@@ -18,6 +18,7 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
   final TextEditingController _invoiceController = TextEditingController();
   CashuLightningPayController? _controller;
   List<CashuLightningPayMintOption> _mintOptions = const [];
+  List<CashuLightningPayQuoteRecord> _quoteRecords = const [];
   CashuMintUrl? _selectedMintUrl;
   CashuMeltQuote? _quote;
   CashuMeltResult? _result;
@@ -44,10 +45,12 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
           MobileCashuLightningPayControllerFactory.create;
       final controller = await factory();
       final options = await controller.loadPayOptions();
+      final records = await controller.loadQuoteRecords();
       if (!mounted) return;
       setState(() {
         _controller = controller;
         _mintOptions = options;
+        _quoteRecords = records;
         _selectedMintUrl = options.isEmpty ? null : options.first.mint.url;
         _loading = false;
         _errorMessage = null;
@@ -155,14 +158,39 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
           _MeltQuoteCard(
             quote: quote,
             result: _result,
-            onPay: _mutating || quote.state == CashuQuoteState.paid
+            onPay:
+                _mutating ||
+                    _result != null ||
+                    quote.state == CashuQuoteState.paid
                 ? null
-                : _payQuote,
+                : () => _payQuote(quote),
           ),
+        ],
+        if (_visibleQuoteRecords.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Recent payments',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          for (final record in _visibleQuoteRecords) ...[
+            _MeltQuoteCard(
+              quote: _quoteFromRecord(record),
+              result: _resultFromRecord(record),
+              onPay: _mutating || !_canPayRecord(record)
+                  ? null
+                  : () => _payQuote(_quoteFromRecord(record)),
+            ),
+            const SizedBox(height: 12),
+          ],
         ],
       ],
     );
   }
+
+  List<CashuLightningPayQuoteRecord> get _visibleQuoteRecords => _quoteRecords
+      .where((record) => record.quoteId != _quote?.quoteId)
+      .toList(growable: false);
 
   Future<void> _createQuote() async {
     final mintUrl = _selectedMintUrl;
@@ -178,9 +206,11 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
         mintUrl: mintUrl,
         bolt11Invoice: invoice,
       );
+      final records = await _controller!.loadQuoteRecords();
       if (!mounted) return;
       setState(() {
         _quote = quote;
+        _quoteRecords = records;
         _result = null;
       });
     } catch (error) {
@@ -190,18 +220,19 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
     }
   }
 
-  Future<void> _payQuote() async {
-    final quote = _quote;
-    if (quote == null) return;
-
+  Future<void> _payQuote(CashuMeltQuote quote) async {
     setState(() => _mutating = true);
     try {
       final result = await _controller!.payQuote(
         mintUrl: quote.mintUrl,
         quoteId: quote.quoteId,
       );
+      final records = await _controller!.loadQuoteRecords();
       if (!mounted) return;
-      setState(() => _result = result);
+      setState(() {
+        if (_quote?.quoteId == quote.quoteId) _result = result;
+        _quoteRecords = records;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -214,6 +245,42 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
+  }
+
+  CashuMeltQuote _quoteFromRecord(CashuLightningPayQuoteRecord record) {
+    return CashuMeltQuote(
+      quoteId: record.quoteId,
+      mintUrl: record.mintUrl,
+      amount: record.amount,
+      request: record.request,
+      feeReserve: record.feeReserve,
+      state: record.state,
+      expiry: record.expiry,
+    );
+  }
+
+  CashuMeltResult? _resultFromRecord(CashuLightningPayQuoteRecord record) {
+    final amountSpent = record.amountSpent;
+    final feePaid = record.feePaid;
+    if (amountSpent == null || feePaid == null) return null;
+    return CashuMeltResult(
+      quoteId: record.quoteId,
+      state: record.state,
+      amountSpent: amountSpent,
+      feePaid: feePaid,
+      paymentPreimage: record.paymentPreimage,
+    );
+  }
+
+  bool _canPayRecord(CashuLightningPayQuoteRecord record) {
+    return switch (record.state) {
+      CashuQuoteState.unpaid || CashuQuoteState.pending => true,
+      CashuQuoteState.paid ||
+      CashuQuoteState.issued ||
+      CashuQuoteState.expired ||
+      CashuQuoteState.failed ||
+      CashuQuoteState.unknown => false,
+    };
   }
 
   void _showError(Object error) {

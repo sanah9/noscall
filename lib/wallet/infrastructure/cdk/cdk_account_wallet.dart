@@ -511,6 +511,7 @@ final class CdkAccountWallet implements AccountWalletSession {
           ? fallbackMintUrl
           : CashuMintUrl.parse(quote.mintUrl!.url),
       amount: CashuAmount.sats(quote.amount.value),
+      request: quote.request,
       feeReserve: CashuAmount.sats(quote.feeReserve.value),
       state: _isMeltQuoteExpired(quote)
           ? CashuQuoteState.expired

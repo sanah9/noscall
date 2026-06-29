@@ -41,6 +41,7 @@ class DBISAR {
     CashuMintConfigurationRecordSchema,
     CashuTokenSendOperationRecordSchema,
     CashuLightningReceiveQuoteOperationRecordSchema,
+    CashuLightningPayQuoteOperationRecordSchema,
   ];
 
   // Store encryption key after first open so subsequent opens re-use it.

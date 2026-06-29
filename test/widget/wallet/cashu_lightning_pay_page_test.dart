@@ -53,6 +53,42 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('continues a persisted Lightning pay quote', (tester) async {
+    final controller = _FakeLightningPayController()
+      ..records.add(
+        CashuLightningPayQuoteRecord(
+          owner: _owner,
+          quoteId: 'melt-quote-1',
+          mintUrl: _mintUrl,
+          amount: CashuAmount.sats(42),
+          request: 'lnbc420n1test',
+          feeReserve: CashuAmount.sats(2),
+          state: CashuQuoteState.unpaid,
+          expiry: DateTime.utc(2026, 6, 29, 12),
+          createdAt: DateTime.utc(2026, 6, 29, 11),
+          updatedAt: DateTime.utc(2026, 6, 29, 12),
+        ),
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CashuLightningPayPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent payments'), findsOneWidget);
+    expect(find.textContaining('Fee reserve: 2 sat'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Payment complete'), findsOneWidget);
+    expect(controller.paidQuoteIds, ['melt-quote-1']);
+  });
 }
 
 final class _FakeLightningPayController implements CashuLightningPayController {
@@ -62,6 +98,7 @@ final class _FakeLightningPayController implements CashuLightningPayController {
           [CashuLightningPayMintOption(mint: _mint, balanceSats: 100)];
 
   final List<CashuLightningPayMintOption> options;
+  final List<CashuLightningPayQuoteRecord> records = [];
   final List<String> createdInvoices = [];
   final List<String> paidQuoteIds = [];
 
@@ -69,15 +106,23 @@ final class _FakeLightningPayController implements CashuLightningPayController {
   Future<List<CashuLightningPayMintOption>> loadPayOptions() async => options;
 
   @override
+  Future<List<CashuLightningPayQuoteRecord>> loadQuoteRecords() async =>
+      records;
+
+  @override
   Future<CashuMeltQuote> createQuote({
     required CashuMintUrl mintUrl,
     required String bolt11Invoice,
   }) async {
     createdInvoices.add(bolt11Invoice);
+    records
+      ..clear()
+      ..add(_record(CashuQuoteState.unpaid));
     return CashuMeltQuote(
       quoteId: 'melt-quote-1',
       mintUrl: mintUrl,
       amount: CashuAmount.sats(42),
+      request: 'lnbc420n1test',
       feeReserve: CashuAmount.sats(2),
       state: CashuQuoteState.unpaid,
       expiry: DateTime.utc(2026, 6, 29, 12),
@@ -90,12 +135,45 @@ final class _FakeLightningPayController implements CashuLightningPayController {
     required String quoteId,
   }) async {
     paidQuoteIds.add(quoteId);
+    records
+      ..clear()
+      ..add(
+        _record(
+          CashuQuoteState.paid,
+          amountSpent: CashuAmount.sats(43),
+          feePaid: CashuAmount.sats(1),
+          paymentPreimage: 'preimage',
+        ),
+      );
     return CashuMeltResult(
       quoteId: quoteId,
       state: CashuQuoteState.paid,
       amountSpent: CashuAmount.sats(43),
       feePaid: CashuAmount.sats(1),
       paymentPreimage: 'preimage',
+    );
+  }
+
+  CashuLightningPayQuoteRecord _record(
+    CashuQuoteState state, {
+    CashuAmount? amountSpent,
+    CashuAmount? feePaid,
+    String? paymentPreimage,
+  }) {
+    return CashuLightningPayQuoteRecord(
+      owner: _owner,
+      quoteId: 'melt-quote-1',
+      mintUrl: _mintUrl,
+      amount: CashuAmount.sats(42),
+      request: 'lnbc420n1test',
+      feeReserve: CashuAmount.sats(2),
+      state: state,
+      expiry: DateTime.utc(2026, 6, 29, 12),
+      createdAt: DateTime.utc(2026, 6, 29, 11),
+      updatedAt: DateTime.utc(2026, 6, 29, 12),
+      amountSpent: amountSpent,
+      feePaid: feePaid,
+      paymentPreimage: paymentPreimage,
     );
   }
 }

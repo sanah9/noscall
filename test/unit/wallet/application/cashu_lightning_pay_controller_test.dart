@@ -12,6 +12,7 @@ void main() {
   late CashuMintUrl mintUrl;
   late CashuMintUrl unsupportedMintUrl;
   late _MintRepository mintRepository;
+  late _QuoteRepository quoteRepository;
   late _Wallet wallet;
   late AccountCashuLightningPayController controller;
 
@@ -20,11 +21,14 @@ void main() {
     mintUrl = CashuMintUrl.parse('https://mint.example.com');
     unsupportedMintUrl = CashuMintUrl.parse('https://receive-only.example.com');
     mintRepository = _MintRepository();
+    quoteRepository = _QuoteRepository();
     wallet = _Wallet(account, balances: {mintUrl: 100});
     controller = AccountCashuLightningPayController(
       accountId: account,
       sessionManager: WalletSessionManager(factory: _WalletFactory(wallet)),
       mintRepository: mintRepository,
+      quoteRepository: quoteRepository,
+      clock: () => DateTime.utc(2026, 6, 29, 12),
     );
   });
 
@@ -74,6 +78,15 @@ void main() {
     expect(result.paymentPreimage, 'preimage');
     expect(wallet.createdInvoices, ['lnbc420n1test']);
     expect(wallet.paidQuoteIds, ['melt-quote-1']);
+    expect(
+      (await quoteRepository.find(account, 'melt-quote-1'))?.state,
+      CashuQuoteState.paid,
+    );
+    expect(
+      (await quoteRepository.find(account, 'melt-quote-1'))?.amountSpent,
+      CashuAmount.sats(43),
+    );
+    expect(await controller.loadQuoteRecords(), hasLength(1));
   });
 
   test('rejects unsupported and empty Lightning pay requests', () async {
@@ -167,6 +180,30 @@ final class _MintRepository implements MintConfigurationRepository {
       put(configuration);
 }
 
+final class _QuoteRepository implements CashuLightningPayQuoteRepository {
+  final Map<String, CashuLightningPayQuoteRecord> values = {};
+
+  String _key(CashuAccountId owner, String quoteId) =>
+      '${owner.value}|$quoteId';
+
+  @override
+  Future<CashuLightningPayQuoteRecord?> find(
+    CashuAccountId owner,
+    String quoteId,
+  ) async => values[_key(owner, quoteId)];
+
+  @override
+  Future<List<CashuLightningPayQuoteRecord>> list(CashuAccountId owner) async =>
+      values.values
+          .where((record) => record.owner == owner)
+          .toList(growable: false);
+
+  @override
+  Future<void> save(CashuLightningPayQuoteRecord record) async {
+    values[_key(record.owner, record.quoteId)] = record;
+  }
+}
+
 final class _WalletFactory implements AccountWalletFactory {
   const _WalletFactory(this.wallet);
 
@@ -207,6 +244,7 @@ final class _Wallet implements AccountWalletSession {
       quoteId: 'melt-quote-1',
       mintUrl: mintUrl,
       amount: CashuAmount.sats(42),
+      request: 'lnbc420n1test',
       feeReserve: CashuAmount.sats(2),
       state: CashuQuoteState.unpaid,
       expiry: DateTime.utc(2026, 6, 29, 12),
