@@ -54,6 +54,10 @@ void main() {
           builder: (context, state) => const SizedBox.shrink(),
         ),
         GoRoute(
+          path: '/wallet/receive-lightning',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
           path: '/wallet/send-token',
           builder: (context, state) => const SizedBox.shrink(),
         ),
@@ -104,6 +108,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Receive Lightning'), findsOneWidget);
     expect(find.text('Receive token'), findsOneWidget);
     expect(find.text('Send token'), findsOneWidget);
   });

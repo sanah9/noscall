@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../wallet/pages/cashu_lightning_receive_page.dart';
 import '../../wallet/pages/wallet_backup_page.dart';
 import '../../wallet/pages/cashu_token_receive_page.dart';
 import '../../wallet/pages/cashu_token_send_page.dart';
@@ -41,6 +42,11 @@ List<RouteBase> get walletRoutes => [
     path: '/wallet/receive-token',
     name: 'wallet-receive-token',
     builder: (context, state) => const CashuTokenReceivePage(),
+  ),
+  GoRoute(
+    path: '/wallet/receive-lightning',
+    name: 'wallet-receive-lightning',
+    builder: (context, state) => const CashuLightningReceivePage(),
   ),
   GoRoute(
     path: '/wallet/send-token',

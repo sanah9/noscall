@@ -195,24 +195,34 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
                 child: FilledButton.icon(
                   onPressed: snapshot.enabledMintCount == 0
                       ? null
-                      : () => _openWalletOperation('/wallet/receive-token'),
-                  icon: const Icon(Icons.download),
-                  label: const Text('Receive token'),
+                      : () => _openWalletOperation('/wallet/receive-lightning'),
+                  icon: const Icon(Icons.bolt),
+                  label: const Text('Receive Lightning'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed:
-                      snapshot.enabledMintCount == 0 ||
-                          snapshot.balanceSats == 0
+                  onPressed: snapshot.enabledMintCount == 0
                       ? null
-                      : () => _openWalletOperation('/wallet/send-token'),
-                  icon: const Icon(Icons.upload),
-                  label: const Text('Send token'),
+                      : () => _openWalletOperation('/wallet/receive-token'),
+                  icon: const Icon(Icons.download),
+                  label: const Text('Receive token'),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed:
+                  snapshot.enabledMintCount == 0 || snapshot.balanceSats == 0
+                  ? null
+                  : () => _openWalletOperation('/wallet/send-token'),
+              icon: const Icon(Icons.upload),
+              label: const Text('Send token'),
+            ),
           ),
           const SizedBox(height: 16),
           Card(
