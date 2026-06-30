@@ -142,6 +142,40 @@ void main() {
     expect(find.textContaining('2 operation(s) recovered'), findsOneWidget);
     expect(find.textContaining('1 operation(s) still pending'), findsOneWidget);
   });
+
+  testWidgets('pull to refresh reruns recovery and updates the notice', (
+    tester,
+  ) async {
+    final controller = _FakeLandingController(
+      created: true,
+      backupStatus: WalletBackupStatus.confirmed,
+      balanceSats: 50,
+      mintCount: 1,
+      enabledMintCount: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WalletLandingPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wallet recovery checked'), findsNothing);
+
+    controller.recoveryResult = const CashuReconciliationResult(
+      recoveredOperations: 1,
+      pendingOperations: 0,
+    );
+    await tester.drag(find.byType(ListView), const Offset(0, 600));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(controller.refreshCalls, 1);
+    expect(find.text('Wallet recovery checked'), findsOneWidget);
+    expect(find.textContaining('1 operation(s) recovered'), findsOneWidget);
+  });
 }
 
 final class _FakeLandingController implements WalletLandingController {
@@ -165,7 +199,8 @@ final class _FakeLandingController implements WalletLandingController {
   final int balanceSats;
   final int mintCount;
   final int enabledMintCount;
-  final CashuReconciliationResult recoveryResult;
+  CashuReconciliationResult recoveryResult;
+  int refreshCalls = 0;
   final List<WalletBackupStatus> backupStatuses = [];
 
   @override
@@ -193,6 +228,12 @@ final class _FakeLandingController implements WalletLandingController {
       enabledMintCount: enabledMintCount,
       reconciliationResult: recoveryResult,
     );
+  }
+
+  @override
+  Future<WalletLandingSnapshot> refresh() async {
+    refreshCalls++;
+    return load();
   }
 
   @override

@@ -69,17 +69,29 @@ final class WalletSessionManager {
         return _activeState = WalletSessionState.absent(accountId);
       }
 
-      final wallet = await _factory.openExisting(accountId);
-      try {
-        final reconciliationResult = await _recoveryService.recover(wallet);
-        return _activeState = WalletSessionState.ready(
-          wallet,
-          reconciliationResult: reconciliationResult,
-        );
-      } catch (_) {
-        await wallet.close();
-        rethrow;
+      return _openExistingWithRecovery(accountId);
+    });
+  }
+
+  Future<WalletSessionState> recoverActive(CashuAccountId accountId) {
+    return _serialize(() async {
+      _ensureNotDisposed();
+      final current = _activeState;
+      if (current?.accountId != accountId) {
+        await _closeActive();
+        if (!await _factory.exists(accountId)) {
+          return _activeState = WalletSessionState.absent(accountId);
+        }
+        return _openExistingWithRecovery(accountId);
       }
+
+      final wallet = current?.wallet;
+      if (wallet == null) return current!;
+      final reconciliationResult = await _recoveryService.recover(wallet);
+      return _activeState = WalletSessionState.ready(
+        wallet,
+        reconciliationResult: reconciliationResult,
+      );
     });
   }
 
@@ -126,6 +138,22 @@ final class WalletSessionManager {
     final wallet = _activeState?.wallet;
     _activeState = null;
     await wallet?.close();
+  }
+
+  Future<WalletSessionState> _openExistingWithRecovery(
+    CashuAccountId accountId,
+  ) async {
+    final wallet = await _factory.openExisting(accountId);
+    try {
+      final reconciliationResult = await _recoveryService.recover(wallet);
+      return _activeState = WalletSessionState.ready(
+        wallet,
+        reconciliationResult: reconciliationResult,
+      );
+    } catch (_) {
+      await wallet.close();
+      rethrow;
+    }
   }
 
   Future<T> _serialize<T>(Future<T> Function() action) {

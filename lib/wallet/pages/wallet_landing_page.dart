@@ -68,7 +68,7 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
     final controller = _controller;
     if (controller == null) return;
     try {
-      final snapshot = await controller.load();
+      final snapshot = await controller.refresh();
       if (!mounted) return;
       setState(() {
         _snapshot = snapshot;

@@ -63,6 +63,33 @@ void main() {
     expect(state.reconciliationResult?.pendingOperations, 2);
   });
 
+  test('recoverActive reruns recovery for the active wallet', () async {
+    final account = _account('f');
+    final wallet = factory.addExisting(account);
+    wallet.recoveryResult = Completer<CashuReconciliationResult>()
+      ..complete(
+        const CashuReconciliationResult(
+          recoveredOperations: 0,
+          pendingOperations: 2,
+        ),
+      );
+    await manager.activate(account);
+
+    wallet.recoveryResult = Completer<CashuReconciliationResult>()
+      ..complete(
+        const CashuReconciliationResult(
+          recoveredOperations: 2,
+          pendingOperations: 0,
+        ),
+      );
+    final state = await manager.recoverActive(account);
+
+    expect(wallet.recoveryCalls, 2);
+    expect(state.wallet, same(wallet));
+    expect(state.reconciliationResult?.recoveredOperations, 2);
+    expect(state.reconciliationResult?.pendingOperations, 0);
+  });
+
   test('does not expose a wallet when startup recovery fails', () async {
     final account = _account('e');
     final wallet = factory.addExisting(account);

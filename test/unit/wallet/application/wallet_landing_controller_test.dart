@@ -73,6 +73,26 @@ void main() {
     expect(snapshot.reconciliationResult?.recoveredOperations, 2);
     expect(snapshot.reconciliationResult?.pendingOperations, 1);
   });
+
+  test('refresh reruns recovery for the active wallet', () async {
+    walletFactory.wallet = _FakeWallet(account)
+      ..reconciliationResult = const CashuReconciliationResult(
+        recoveredOperations: 0,
+        pendingOperations: 1,
+      );
+    await controller.load();
+
+    walletFactory.wallet!.reconciliationResult =
+        const CashuReconciliationResult(
+          recoveredOperations: 1,
+          pendingOperations: 0,
+        );
+    final snapshot = await controller.refresh();
+
+    expect(walletFactory.wallet?.recoveryCalls, 2);
+    expect(snapshot.reconciliationResult?.recoveredOperations, 1);
+    expect(snapshot.reconciliationResult?.pendingOperations, 0);
+  });
 }
 
 final class _FakeWalletFactory implements AccountWalletFactory {

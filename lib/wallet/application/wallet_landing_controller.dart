@@ -67,6 +67,8 @@ abstract interface class WalletLandingController {
 
   Future<WalletLandingSnapshot> load();
 
+  Future<WalletLandingSnapshot> refresh();
+
   Future<String> createWallet();
 
   Future<WalletLandingSnapshot> updateBackupStatus(WalletBackupStatus status);
@@ -99,6 +101,18 @@ final class AccountWalletLandingController implements WalletLandingController {
   @override
   Future<WalletLandingSnapshot> load() async {
     final session = await _sessionManager.activate(_accountId);
+    return _snapshotFromSession(session);
+  }
+
+  @override
+  Future<WalletLandingSnapshot> refresh() async {
+    final session = await _sessionManager.recoverActive(_accountId);
+    return _snapshotFromSession(session);
+  }
+
+  Future<WalletLandingSnapshot> _snapshotFromSession(
+    WalletSessionState session,
+  ) async {
     final wallet = session.wallet;
     if (wallet == null) return const WalletLandingSnapshot.absent();
 
@@ -151,6 +165,10 @@ final class UnavailableWalletLandingController
 
   @override
   Future<WalletLandingSnapshot> load() async =>
+      WalletLandingSnapshot.unavailable(reason);
+
+  @override
+  Future<WalletLandingSnapshot> refresh() async =>
       WalletLandingSnapshot.unavailable(reason);
 
   @override
