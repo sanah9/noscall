@@ -120,6 +120,7 @@ final class AccountCashuLightningPayController
     required String quoteId,
   }) async {
     await _requireLightningPayMint(mintUrl);
+    await _requireLocallyPayableQuote(mintUrl: mintUrl, quoteId: quoteId);
     final result = await (await _requireWallet()).meltQuote(
       mintUrl: mintUrl,
       quoteId: quoteId,
@@ -163,11 +164,33 @@ final class AccountCashuLightningPayController
         CashuNut.nut23,
       });
 
-  CashuLightningPayQuoteRecord _expireLocallyIfNeeded(
-    CashuLightningPayQuoteRecord record,
-    DateTime now,
-  ) {
-    final canExpireLocally = switch (record.state) {
+  Future<void> _requireLocallyPayableQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    final record = await _quoteRepository.find(_accountId, quoteId);
+    if (record == null) return;
+    if (record.mintUrl != mintUrl) {
+      throw const CashuProtocolException(
+        'quote_mint_mismatch',
+        'Payment quote does not belong to the selected Mint.',
+      );
+    }
+
+    final restoredRecord = _expireLocallyIfNeeded(record, _clock());
+    if (restoredRecord.state != record.state) {
+      await _quoteRepository.save(restoredRecord);
+    }
+    if (!_canPayQuoteState(restoredRecord.state)) {
+      throw CashuProtocolException(
+        _payQuoteErrorCode(restoredRecord.state),
+        _payQuoteErrorMessage(restoredRecord.state),
+      );
+    }
+  }
+
+  bool _canPayQuoteState(CashuQuoteState state) {
+    return switch (state) {
       CashuQuoteState.unpaid || CashuQuoteState.pending => true,
       CashuQuoteState.paid ||
       CashuQuoteState.issued ||
@@ -175,7 +198,40 @@ final class AccountCashuLightningPayController
       CashuQuoteState.failed ||
       CashuQuoteState.unknown => false,
     };
-    if (!canExpireLocally || record.expiry.isAfter(now)) return record;
+  }
+
+  String _payQuoteErrorCode(CashuQuoteState state) {
+    return switch (state) {
+      CashuQuoteState.expired => 'quote_expired',
+      CashuQuoteState.paid || CashuQuoteState.issued => 'quote_already_paid',
+      CashuQuoteState.failed => 'quote_failed',
+      CashuQuoteState.unknown => 'quote_not_payable',
+      CashuQuoteState.unpaid || CashuQuoteState.pending => 'quote_payable',
+    };
+  }
+
+  String _payQuoteErrorMessage(CashuQuoteState state) {
+    return switch (state) {
+      CashuQuoteState.expired =>
+        'Payment quote expired. Create a new quote before paying.',
+      CashuQuoteState.paid ||
+      CashuQuoteState.issued => 'Payment quote has already been paid.',
+      CashuQuoteState.failed =>
+        'Payment quote failed. Create a new quote before paying.',
+      CashuQuoteState.unknown =>
+        'Payment quote cannot be paid. Create a new quote before paying.',
+      CashuQuoteState.unpaid ||
+      CashuQuoteState.pending => 'Payment quote is ready.',
+    };
+  }
+
+  CashuLightningPayQuoteRecord _expireLocallyIfNeeded(
+    CashuLightningPayQuoteRecord record,
+    DateTime now,
+  ) {
+    if (!_canPayQuoteState(record.state) || record.expiry.isAfter(now)) {
+      return record;
+    }
     return record.copyWith(state: CashuQuoteState.expired, updatedAt: now);
   }
 

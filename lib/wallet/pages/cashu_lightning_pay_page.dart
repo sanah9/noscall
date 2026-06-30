@@ -241,9 +241,27 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
         ),
       );
     } catch (error) {
+      await _refreshRecordsAfterFailedPay(quote);
       _showError(error);
     } finally {
       if (mounted) setState(() => _mutating = false);
+    }
+  }
+
+  Future<void> _refreshRecordsAfterFailedPay(CashuMeltQuote quote) async {
+    try {
+      final records = await _controller!.loadQuoteRecords();
+      if (!mounted) return;
+      final record = _findQuoteRecord(records, quote.quoteId);
+      setState(() {
+        _quoteRecords = records;
+        if (record != null && _quote?.quoteId == quote.quoteId) {
+          _quote = _quoteFromRecord(record);
+          _result = _resultFromRecord(record);
+        }
+      });
+    } catch (_) {
+      // Preserve the original payment error for the user.
     }
   }
 
@@ -281,6 +299,16 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
       CashuQuoteState.failed ||
       CashuQuoteState.unknown => false,
     };
+  }
+
+  CashuLightningPayQuoteRecord? _findQuoteRecord(
+    List<CashuLightningPayQuoteRecord> records,
+    String quoteId,
+  ) {
+    for (final record in records) {
+      if (record.quoteId == quoteId) return record;
+    }
+    return null;
   }
 
   void _showError(Object error) {

@@ -4,6 +4,7 @@ import 'package:noscall/wallet/application/cashu_lightning_pay_controller.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 import 'package:noscall/wallet/domain/wallet_configuration.dart';
+import 'package:noscall/wallet/domain/wallet_errors.dart';
 import 'package:noscall/wallet/pages/cashu_lightning_pay_page.dart';
 
 void main() {
@@ -112,6 +113,40 @@ void main() {
 
     expect(controller.paidQuoteIds, isEmpty);
   });
+
+  testWidgets('refreshes current quote when payment is rejected as expired', (
+    tester,
+  ) async {
+    final controller = _FakeLightningPayController()
+      ..payFailure = const CashuProtocolException(
+        'quote_expired',
+        'Payment quote expired. Create a new quote before paying.',
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CashuLightningPayPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'lnbc420n1test');
+    await tester.tap(find.text('Create payment quote'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Status: unpaid'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Status: expired'), findsOneWidget);
+    expect(
+      find.text('Payment quote expired. Create a new quote before paying.'),
+      findsOneWidget,
+    );
+    expect(controller.paidQuoteIds, isEmpty);
+  });
 }
 
 final class _FakeLightningPayController implements CashuLightningPayController {
@@ -124,6 +159,7 @@ final class _FakeLightningPayController implements CashuLightningPayController {
   final List<CashuLightningPayQuoteRecord> records = [];
   final List<String> createdInvoices = [];
   final List<String> paidQuoteIds = [];
+  CashuProtocolException? payFailure;
 
   @override
   Future<List<CashuLightningPayMintOption>> loadPayOptions() async => options;
@@ -157,6 +193,13 @@ final class _FakeLightningPayController implements CashuLightningPayController {
     required CashuMintUrl mintUrl,
     required String quoteId,
   }) async {
+    final failure = payFailure;
+    if (failure != null) {
+      records
+        ..clear()
+        ..add(_record(CashuQuoteState.expired));
+      throw failure;
+    }
     paidQuoteIds.add(quoteId);
     records
       ..clear()

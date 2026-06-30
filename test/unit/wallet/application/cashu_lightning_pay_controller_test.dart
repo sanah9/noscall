@@ -147,6 +147,36 @@ void main() {
     },
   );
 
+  test('rejects locally expired quotes before calling the wallet', () async {
+    mintRepository.put(_mint(account, mintUrl));
+    await quoteRepository.save(
+      _payRecord(
+        account,
+        mintUrl,
+        quoteId: 'expired-before-pay',
+        state: CashuQuoteState.unpaid,
+        expiry: DateTime.utc(2026, 6, 29, 11, 59),
+      ),
+    );
+
+    await expectLater(
+      controller.payQuote(mintUrl: mintUrl, quoteId: 'expired-before-pay'),
+      throwsA(
+        isA<CashuProtocolException>().having(
+          (error) => error.code,
+          'code',
+          'quote_expired',
+        ),
+      ),
+    );
+
+    expect(wallet.paidQuoteIds, isEmpty);
+    expect(
+      (await quoteRepository.find(account, 'expired-before-pay'))?.state,
+      CashuQuoteState.expired,
+    );
+  });
+
   test('rejects unsupported and empty Lightning pay requests', () async {
     mintRepository.put(
       _mint(account, unsupportedMintUrl, supportsLightningPay: false),
@@ -330,7 +360,7 @@ final class _Wallet implements AccountWalletSession {
       request: 'lnbc420n1test',
       feeReserve: CashuAmount.sats(2),
       state: CashuQuoteState.unpaid,
-      expiry: DateTime.utc(2026, 6, 29, 12),
+      expiry: DateTime.utc(2026, 6, 29, 12, 5),
     );
   }
 
