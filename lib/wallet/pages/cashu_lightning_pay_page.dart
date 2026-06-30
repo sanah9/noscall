@@ -67,7 +67,16 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pay Lightning')),
+      appBar: AppBar(
+        title: const Text('Pay Lightning'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh Lightning pay',
+            onPressed: _loading || _mutating ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: SafeArea(child: _buildBody()),
     );
   }
@@ -159,9 +168,7 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
             quote: quote,
             result: _result,
             onPay:
-                _mutating ||
-                    _result != null ||
-                    quote.state == CashuQuoteState.paid
+                _mutating || _result != null || !_canPayQuoteState(quote.state)
                 ? null
                 : () => _payQuote(quote),
           ),
@@ -212,6 +219,39 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
         _quote = quote;
         _quoteRecords = records;
         _result = null;
+      });
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
+  }
+
+  Future<void> _refresh() async {
+    final controller = _controller;
+    if (controller == null) {
+      await _initialize();
+      return;
+    }
+
+    setState(() => _mutating = true);
+    try {
+      final options = await controller.loadPayOptions();
+      final records = await controller.loadQuoteRecords();
+      if (!mounted) return;
+      final currentQuoteId = _quote?.quoteId;
+      final currentRecord = currentQuoteId == null
+          ? null
+          : _findQuoteRecord(records, currentQuoteId);
+      setState(() {
+        _mintOptions = options;
+        _quoteRecords = records;
+        _selectedMintUrl = _selectMintUrl(options, _selectedMintUrl);
+        if (currentRecord != null) {
+          _quote = _quoteFromRecord(currentRecord);
+          _result = _resultFromRecord(currentRecord);
+        }
+        _errorMessage = null;
       });
     } catch (error) {
       _showError(error);
@@ -291,7 +331,11 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
   }
 
   bool _canPayRecord(CashuLightningPayQuoteRecord record) {
-    return switch (record.state) {
+    return _canPayQuoteState(record.state);
+  }
+
+  bool _canPayQuoteState(CashuQuoteState state) {
+    return switch (state) {
       CashuQuoteState.unpaid || CashuQuoteState.pending => true,
       CashuQuoteState.paid ||
       CashuQuoteState.issued ||
@@ -299,6 +343,18 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
       CashuQuoteState.failed ||
       CashuQuoteState.unknown => false,
     };
+  }
+
+  CashuMintUrl? _selectMintUrl(
+    List<CashuLightningPayMintOption> options,
+    CashuMintUrl? preferred,
+  ) {
+    if (options.isEmpty) return null;
+    if (preferred != null &&
+        options.any((option) => option.mint.url == preferred)) {
+      return preferred;
+    }
+    return options.first.mint.url;
   }
 
   CashuLightningPayQuoteRecord? _findQuoteRecord(

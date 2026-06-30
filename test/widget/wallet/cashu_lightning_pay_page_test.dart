@@ -147,6 +147,38 @@ void main() {
     );
     expect(controller.paidQuoteIds, isEmpty);
   });
+
+  testWidgets('refreshes current quote and keeps expired quotes not payable', (
+    tester,
+  ) async {
+    final controller = _FakeLightningPayController();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CashuLightningPayPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'lnbc420n1test');
+    await tester.tap(find.text('Create payment quote'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Status: unpaid'), findsOneWidget);
+
+    controller.records
+      ..clear()
+      ..add(_record(CashuQuoteState.expired));
+    await tester.tap(find.byTooltip('Refresh Lightning pay'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Status: expired'), findsOneWidget);
+    await tester.ensureVisible(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pay invoice'));
+    await tester.pumpAndSettle();
+
+    expect(controller.paidQuoteIds, isEmpty);
+  });
 }
 
 final class _FakeLightningPayController implements CashuLightningPayController {
