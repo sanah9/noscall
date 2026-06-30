@@ -45,6 +45,24 @@ void main() {
     expect(walletB.recoveryCalls, 1);
   });
 
+  test('exposes startup recovery result on the ready state', () async {
+    final account = _account('f');
+    final wallet = factory.addExisting(account);
+    wallet.recoveryResult = Completer<CashuReconciliationResult>()
+      ..complete(
+        const CashuReconciliationResult(
+          recoveredOperations: 3,
+          pendingOperations: 2,
+        ),
+      );
+
+    final state = await manager.activate(account);
+
+    expect(state.status, WalletSessionStatus.ready);
+    expect(state.reconciliationResult?.recoveredOperations, 3);
+    expect(state.reconciliationResult?.pendingOperations, 2);
+  });
+
   test('does not expose a wallet when startup recovery fails', () async {
     final account = _account('e');
     final wallet = factory.addExisting(account);

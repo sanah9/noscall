@@ -1,4 +1,5 @@
 import '../domain/cashu_account_id.dart';
+import '../domain/cashu_models.dart';
 import '../domain/wallet_configuration.dart';
 import 'wallet_configuration_service.dart';
 import 'wallet_session_manager.dart';
@@ -12,6 +13,7 @@ final class WalletLandingSnapshot {
     required this.backupStatus,
     required this.mintCount,
     required this.enabledMintCount,
+    required this.reconciliationResult,
     this.unavailableReason,
   });
 
@@ -22,6 +24,7 @@ final class WalletLandingSnapshot {
         backupStatus: null,
         mintCount: 0,
         enabledMintCount: 0,
+        reconciliationResult: null,
       );
 
   const WalletLandingSnapshot.unavailable(String reason)
@@ -31,6 +34,7 @@ final class WalletLandingSnapshot {
         backupStatus: null,
         mintCount: 0,
         enabledMintCount: 0,
+        reconciliationResult: null,
         unavailableReason: reason,
       );
 
@@ -39,12 +43,14 @@ final class WalletLandingSnapshot {
     required WalletBackupStatus backupStatus,
     required int mintCount,
     required int enabledMintCount,
+    required CashuReconciliationResult reconciliationResult,
   }) : this._(
          status: WalletLandingStatus.ready,
          balanceSats: balanceSats,
          backupStatus: backupStatus,
          mintCount: mintCount,
          enabledMintCount: enabledMintCount,
+         reconciliationResult: reconciliationResult,
        );
 
   final WalletLandingStatus status;
@@ -52,6 +58,7 @@ final class WalletLandingSnapshot {
   final WalletBackupStatus? backupStatus;
   final int mintCount;
   final int enabledMintCount;
+  final CashuReconciliationResult? reconciliationResult;
   final String? unavailableReason;
 }
 
@@ -102,6 +109,12 @@ final class AccountWalletLandingController implements WalletLandingController {
       backupStatus: configuration.backupStatus,
       mintCount: mints.length,
       enabledMintCount: mints.where((mint) => mint.enabled).length,
+      reconciliationResult:
+          session.reconciliationResult ??
+          const CashuReconciliationResult(
+            recoveredOperations: 0,
+            pendingOperations: 0,
+          ),
     );
   }
 

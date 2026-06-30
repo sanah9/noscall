@@ -178,6 +178,10 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
               ),
             ),
           ],
+          if (_shouldShowRecoveryNotice(snapshot)) ...[
+            const SizedBox(height: 12),
+            _RecoveryNoticeCard(snapshot: snapshot),
+          ],
           const SizedBox(height: 20),
           Text(
             'Available balance',
@@ -312,6 +316,12 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
       if (mounted) setState(() => _creating = false);
     }
   }
+
+  bool _shouldShowRecoveryNotice(WalletLandingSnapshot snapshot) {
+    final result = snapshot.reconciliationResult;
+    if (result == null) return false;
+    return result.recoveredOperations > 0 || result.pendingOperations > 0;
+  }
 }
 
 final class _DevelopmentBanner extends StatelessWidget {
@@ -327,6 +337,31 @@ final class _DevelopmentBanner extends StatelessWidget {
         subtitle: Text(
           'Do not use real funds. Seed storage is not production-ready.',
         ),
+      ),
+    );
+  }
+}
+
+final class _RecoveryNoticeCard extends StatelessWidget {
+  const _RecoveryNoticeCard({required this.snapshot});
+
+  final WalletLandingSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final result = snapshot.reconciliationResult!;
+    final recovered = result.recoveredOperations;
+    final pending = result.pendingOperations;
+    final subtitle = [
+      if (recovered > 0) '$recovered operation(s) recovered.',
+      if (pending > 0) '$pending operation(s) still pending.',
+    ].join(' ');
+    return Card(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: ListTile(
+        leading: const Icon(Icons.sync),
+        title: const Text('Wallet recovery checked'),
+        subtitle: Text(subtitle),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/wallet/application/wallet_landing_controller.dart';
+import 'package:noscall/wallet/domain/cashu_models.dart';
 import 'package:noscall/wallet/domain/wallet_configuration.dart';
 import 'package:noscall/wallet/pages/wallet_backup_page.dart';
 import 'package:noscall/wallet/pages/wallet_landing_page.dart';
@@ -117,6 +118,30 @@ void main() {
     expect(find.text('Pay Lightning'), findsOneWidget);
     expect(find.text('Send token'), findsOneWidget);
   });
+
+  testWidgets('shows startup recovery result when operations need attention', (
+    tester,
+  ) async {
+    final controller = _FakeLandingController(
+      created: true,
+      backupStatus: WalletBackupStatus.confirmed,
+      recoveryResult: const CashuReconciliationResult(
+        recoveredOperations: 2,
+        pendingOperations: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WalletLandingPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wallet recovery checked'), findsOneWidget);
+    expect(find.textContaining('2 operation(s) recovered'), findsOneWidget);
+    expect(find.textContaining('1 operation(s) still pending'), findsOneWidget);
+  });
 }
 
 final class _FakeLandingController implements WalletLandingController {
@@ -129,6 +154,10 @@ final class _FakeLandingController implements WalletLandingController {
     this.balanceSats = 0,
     this.mintCount = 0,
     this.enabledMintCount = 0,
+    this.recoveryResult = const CashuReconciliationResult(
+      recoveredOperations: 0,
+      pendingOperations: 0,
+    ),
   });
 
   bool created;
@@ -136,6 +165,7 @@ final class _FakeLandingController implements WalletLandingController {
   final int balanceSats;
   final int mintCount;
   final int enabledMintCount;
+  final CashuReconciliationResult recoveryResult;
   final List<WalletBackupStatus> backupStatuses = [];
 
   @override
@@ -161,6 +191,7 @@ final class _FakeLandingController implements WalletLandingController {
       backupStatus: backupStatus ?? WalletBackupStatus.notShown,
       mintCount: mintCount,
       enabledMintCount: enabledMintCount,
+      reconciliationResult: recoveryResult,
     );
   }
 
