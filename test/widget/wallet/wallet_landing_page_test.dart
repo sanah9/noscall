@@ -141,6 +141,7 @@ void main() {
     expect(find.text('Wallet recovery checked'), findsOneWidget);
     expect(find.textContaining('2 operation(s) recovered'), findsOneWidget);
     expect(find.textContaining('1 operation(s) still pending'), findsOneWidget);
+    expect(find.textContaining('Pull down to retry recovery'), findsOneWidget);
   });
 
   testWidgets('pull to refresh reruns recovery and updates the notice', (
@@ -175,6 +176,7 @@ void main() {
     expect(controller.refreshCalls, 1);
     expect(find.text('Wallet recovery checked'), findsOneWidget);
     expect(find.textContaining('1 operation(s) recovered'), findsOneWidget);
+    expect(find.textContaining('Pull down to retry recovery'), findsNothing);
   });
 }
 

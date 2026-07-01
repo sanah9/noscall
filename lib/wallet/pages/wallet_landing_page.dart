@@ -355,6 +355,7 @@ final class _RecoveryNoticeCard extends StatelessWidget {
     final subtitle = [
       if (recovered > 0) '$recovered operation(s) recovered.',
       if (pending > 0) '$pending operation(s) still pending.',
+      if (pending > 0) 'Pull down to retry recovery.',
     ].join(' ');
     return Card(
       color: Theme.of(context).colorScheme.secondaryContainer,
