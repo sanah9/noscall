@@ -226,8 +226,11 @@ CashuMintConfigurationRecord _mintToRecord(MintConfiguration configuration) {
     ..lastError = configuration.lastError;
 }
 
+final Map<int, CashuNut> _nutsByNumber = {
+  for (final nut in CashuNut.values) nut.number: nut,
+};
+
 MintConfiguration _mintFromRecord(CashuMintConfigurationRecord record) {
-  final nutsByNumber = {for (final nut in CashuNut.values) nut.number: nut};
   return MintConfiguration(
     owner: CashuAccountId.fromNostrPubkey(record.ownerPubkey),
     url: CashuMintUrl.parse(record.normalizedUrl),
@@ -236,7 +239,7 @@ MintConfiguration _mintFromRecord(CashuMintConfigurationRecord record) {
     enabled: record.enabled,
     source: MintConfigurationSource.values.byName(record.source),
     supportedNuts: record.supportedNutNumbers
-        .map((number) => nutsByNumber[number])
+        .map((number) => _nutsByNumber[number])
         .whereType<CashuNut>()
         .toSet(),
     units: record.units,
