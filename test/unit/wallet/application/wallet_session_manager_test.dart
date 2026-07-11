@@ -45,6 +45,51 @@ void main() {
     expect(walletB.recoveryCalls, 1);
   });
 
+  test('exposes startup recovery result on the ready state', () async {
+    final account = _account('f');
+    final wallet = factory.addExisting(account);
+    wallet.recoveryResult = Completer<CashuReconciliationResult>()
+      ..complete(
+        const CashuReconciliationResult(
+          recoveredOperations: 3,
+          pendingOperations: 2,
+        ),
+      );
+
+    final state = await manager.activate(account);
+
+    expect(state.status, WalletSessionStatus.ready);
+    expect(state.reconciliationResult?.recoveredOperations, 3);
+    expect(state.reconciliationResult?.pendingOperations, 2);
+  });
+
+  test('recoverActive reruns recovery for the active wallet', () async {
+    final account = _account('f');
+    final wallet = factory.addExisting(account);
+    wallet.recoveryResult = Completer<CashuReconciliationResult>()
+      ..complete(
+        const CashuReconciliationResult(
+          recoveredOperations: 0,
+          pendingOperations: 2,
+        ),
+      );
+    await manager.activate(account);
+
+    wallet.recoveryResult = Completer<CashuReconciliationResult>()
+      ..complete(
+        const CashuReconciliationResult(
+          recoveredOperations: 2,
+          pendingOperations: 0,
+        ),
+      );
+    final state = await manager.recoverActive(account);
+
+    expect(wallet.recoveryCalls, 2);
+    expect(state.wallet, same(wallet));
+    expect(state.reconciliationResult?.recoveredOperations, 2);
+    expect(state.reconciliationResult?.pendingOperations, 0);
+  });
+
   test('does not expose a wallet when startup recovery fails', () async {
     final account = _account('e');
     final wallet = factory.addExisting(account);
@@ -191,4 +236,54 @@ final class _FakeAccountWallet implements AccountWalletSession {
 
   @override
   Future<Map<CashuMintUrl, int>> balancesByMintSats() async => const {};
+
+  @override
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
 }

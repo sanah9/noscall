@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../wallet/pages/cashu_lightning_pay_page.dart';
+import '../../wallet/pages/cashu_lightning_receive_page.dart';
 import '../../wallet/pages/wallet_backup_page.dart';
+import '../../wallet/pages/cashu_token_receive_page.dart';
+import '../../wallet/pages/cashu_token_send_page.dart';
 import '../../wallet/pages/wallet_landing_page.dart';
 import '../../wallet/pages/mint_management_page.dart';
 import '../../wallet/pages/wallet_recovery_page.dart';
@@ -34,5 +38,25 @@ List<RouteBase> get walletRoutes => [
     path: '/wallet/mints',
     name: 'wallet-mints',
     builder: (context, state) => const MintManagementPage(),
+  ),
+  GoRoute(
+    path: '/wallet/receive-token',
+    name: 'wallet-receive-token',
+    builder: (context, state) => const CashuTokenReceivePage(),
+  ),
+  GoRoute(
+    path: '/wallet/receive-lightning',
+    name: 'wallet-receive-lightning',
+    builder: (context, state) => const CashuLightningReceivePage(),
+  ),
+  GoRoute(
+    path: '/wallet/send-token',
+    name: 'wallet-send-token',
+    builder: (context, state) => const CashuTokenSendPage(),
+  ),
+  GoRoute(
+    path: '/wallet/pay-lightning',
+    name: 'wallet-pay-lightning',
+    builder: (context, state) => const CashuLightningPayPage(),
   ),
 ];

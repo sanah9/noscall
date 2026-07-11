@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/wallet/application/wallet_landing_controller.dart';
+import 'package:noscall/wallet/domain/cashu_models.dart';
 import 'package:noscall/wallet/domain/wallet_configuration.dart';
 import 'package:noscall/wallet/pages/wallet_backup_page.dart';
 import 'package:noscall/wallet/pages/wallet_landing_page.dart';
@@ -49,6 +50,22 @@ void main() {
           path: '/wallet/mints',
           builder: (context, state) => const SizedBox.shrink(),
         ),
+        GoRoute(
+          path: '/wallet/receive-token',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: '/wallet/receive-lightning',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: '/wallet/send-token',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
+        GoRoute(
+          path: '/wallet/pay-lightning',
+          builder: (context, state) => const SizedBox.shrink(),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -77,14 +94,115 @@ void main() {
     expect(find.text('No Mint configured'), findsOneWidget);
     expect(find.text('Wallet backup is not complete'), findsOneWidget);
   });
+
+  testWidgets('shows token actions for a funded wallet with enabled Mint', (
+    tester,
+  ) async {
+    final controller = _FakeLandingController(
+      created: true,
+      backupStatus: WalletBackupStatus.confirmed,
+      balanceSats: 50,
+      mintCount: 1,
+      enabledMintCount: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WalletLandingPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Receive Lightning'), findsOneWidget);
+    expect(find.text('Receive token'), findsOneWidget);
+    expect(find.text('Pay Lightning'), findsOneWidget);
+    expect(find.text('Send token'), findsOneWidget);
+  });
+
+  testWidgets('shows startup recovery result when operations need attention', (
+    tester,
+  ) async {
+    final controller = _FakeLandingController(
+      created: true,
+      backupStatus: WalletBackupStatus.confirmed,
+      recoveryResult: const CashuReconciliationResult(
+        recoveredOperations: 2,
+        pendingOperations: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WalletLandingPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wallet recovery checked'), findsOneWidget);
+    expect(find.textContaining('2 operation(s) recovered'), findsOneWidget);
+    expect(find.textContaining('1 operation(s) still pending'), findsOneWidget);
+    expect(find.textContaining('Pull down to retry recovery'), findsOneWidget);
+  });
+
+  testWidgets('pull to refresh reruns recovery and updates the notice', (
+    tester,
+  ) async {
+    final controller = _FakeLandingController(
+      created: true,
+      backupStatus: WalletBackupStatus.confirmed,
+      balanceSats: 50,
+      mintCount: 1,
+      enabledMintCount: 1,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WalletLandingPage(controllerFactory: () async => controller),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wallet recovery checked'), findsNothing);
+
+    controller.recoveryResult = const CashuReconciliationResult(
+      recoveredOperations: 1,
+      pendingOperations: 0,
+    );
+    await tester.drag(find.byType(ListView), const Offset(0, 600));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(controller.refreshCalls, 1);
+    expect(find.text('Wallet recovery checked'), findsOneWidget);
+    expect(find.textContaining('1 operation(s) recovered'), findsOneWidget);
+    expect(find.textContaining('Pull down to retry recovery'), findsNothing);
+  });
 }
 
 final class _FakeLandingController implements WalletLandingController {
   static const mnemonic =
       'abandon ability able about above absent absorb abstract absurd abuse access accident';
 
-  bool created = false;
+  _FakeLandingController({
+    this.created = false,
+    this.backupStatus,
+    this.balanceSats = 0,
+    this.mintCount = 0,
+    this.enabledMintCount = 0,
+    this.recoveryResult = const CashuReconciliationResult(
+      recoveredOperations: 0,
+      pendingOperations: 0,
+    ),
+  });
+
+  bool created;
   WalletBackupStatus? backupStatus;
+  final int balanceSats;
+  final int mintCount;
+  final int enabledMintCount;
+  CashuReconciliationResult recoveryResult;
+  int refreshCalls = 0;
   final List<WalletBackupStatus> backupStatuses = [];
 
   @override
@@ -106,11 +224,18 @@ final class _FakeLandingController implements WalletLandingController {
   Future<WalletLandingSnapshot> load() async {
     if (!created) return const WalletLandingSnapshot.absent();
     return WalletLandingSnapshot.ready(
-      balanceSats: 0,
+      balanceSats: balanceSats,
       backupStatus: backupStatus ?? WalletBackupStatus.notShown,
-      mintCount: 0,
-      enabledMintCount: 0,
+      mintCount: mintCount,
+      enabledMintCount: enabledMintCount,
+      reconciliationResult: recoveryResult,
     );
+  }
+
+  @override
+  Future<WalletLandingSnapshot> refresh() async {
+    refreshCalls++;
+    return load();
   }
 
   @override

@@ -59,6 +59,40 @@ void main() {
       expect((await repository.find(account))?.owner, account);
     },
   );
+
+  test('includes startup recovery result in ready snapshots', () async {
+    walletFactory.wallet = _FakeWallet(account)
+      ..reconciliationResult = const CashuReconciliationResult(
+        recoveredOperations: 2,
+        pendingOperations: 1,
+      );
+
+    final snapshot = await controller.load();
+
+    expect(snapshot.status, WalletLandingStatus.ready);
+    expect(snapshot.reconciliationResult?.recoveredOperations, 2);
+    expect(snapshot.reconciliationResult?.pendingOperations, 1);
+  });
+
+  test('refresh reruns recovery for the active wallet', () async {
+    walletFactory.wallet = _FakeWallet(account)
+      ..reconciliationResult = const CashuReconciliationResult(
+        recoveredOperations: 0,
+        pendingOperations: 1,
+      );
+    await controller.load();
+
+    walletFactory.wallet!.reconciliationResult =
+        const CashuReconciliationResult(
+          recoveredOperations: 1,
+          pendingOperations: 0,
+        );
+    final snapshot = await controller.refresh();
+
+    expect(walletFactory.wallet?.recoveryCalls, 2);
+    expect(snapshot.reconciliationResult?.recoveredOperations, 1);
+    expect(snapshot.reconciliationResult?.pendingOperations, 0);
+  });
 }
 
 final class _FakeWalletFactory implements AccountWalletFactory {
@@ -91,6 +125,11 @@ final class _FakeWallet implements AccountWalletSession {
   @override
   final CashuAccountId accountId;
   int recoveryCalls = 0;
+  CashuReconciliationResult reconciliationResult =
+      const CashuReconciliationResult(
+        recoveredOperations: 0,
+        pendingOperations: 0,
+      );
 
   @override
   Future<void> close() async {}
@@ -98,10 +137,7 @@ final class _FakeWallet implements AccountWalletSession {
   @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async {
     recoveryCalls++;
-    return const CashuReconciliationResult(
-      recoveredOperations: 0,
-      pendingOperations: 0,
-    );
+    return reconciliationResult;
   }
 
   @override
@@ -109,6 +145,56 @@ final class _FakeWallet implements AccountWalletSession {
 
   @override
   Future<Map<CashuMintUrl, int>> balancesByMintSats() async => const {};
+
+  @override
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
 }
 
 final class _MemoryWalletConfigurationRepository

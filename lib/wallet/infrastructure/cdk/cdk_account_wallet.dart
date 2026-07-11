@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:cdk/cdk.dart' as cdk;
+import 'package:crypto/crypto.dart';
 
 import '../../domain/account_wallet.dart';
 import '../../domain/cashu_account_id.dart';
 import '../../domain/cashu_models.dart';
 import '../../domain/wallet_key_store.dart';
+import '../../domain/wallet_errors.dart';
 
 final class CdkAccountWalletFactory implements AccountWalletFactory {
   CdkAccountWalletFactory({
@@ -154,6 +156,242 @@ final class CdkAccountWallet implements AccountWalletSession {
   }
 
   @override
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request) async {
+    _ensureOpen();
+    cdk.Token? token;
+    try {
+      final encodedToken = request.encodedToken.trim();
+      token = cdk.Token.decode(encodedToken: encodedToken);
+      if (token.unit() is! cdk.SatCurrencyUnit) {
+        throw const CashuProtocolException(
+          'unsupported_unit',
+          'Only sat-denominated Cashu tokens are supported',
+        );
+      }
+      final mintUrl = CashuMintUrl.parse(token.mintUrl().url);
+      final wallet = await addOrOpenMint(mintUrl);
+      final amount = await wallet.receive(
+        token: token,
+        options: _receiveOptions(),
+      );
+      return CashuReceiveResult(
+        operationId: _localReceiveOperationId(encodedToken),
+        amount: CashuAmount.positiveSats(amount.value),
+      );
+    } on CashuProtocolException {
+      rethrow;
+    } on FormatException {
+      throw const CashuProtocolException(
+        'invalid_mint_url',
+        'The token contains an invalid or insecure Mint URL',
+      );
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'receive_failed',
+        'The Cashu token could not be received',
+      );
+    } finally {
+      token?.dispose();
+    }
+  }
+
+  @override
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request) async {
+    _ensureOpen();
+    if (request.amount.value <= 0) {
+      throw ArgumentError.value(
+        request.amount.value,
+        'amount',
+        'Send amount must be positive',
+      );
+    }
+    cdk.PreparedSend? prepared;
+    cdk.Token? token;
+    try {
+      final wallet = await addOrOpenMint(request.mintUrl);
+      prepared = await wallet.prepareSend(
+        amount: cdk.Amount(value: request.amount.value),
+        options: _sendOptions(request.memo),
+      );
+      final operationId = prepared.operationId();
+      token = await prepared.confirm(memo: _normalizedMemo(request.memo));
+      return CashuPreparedSend(
+        operationId: operationId,
+        token: token.encode(),
+        amount: CashuAmount.positiveSats(prepared.amount().value),
+      );
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'send_failed',
+        'The Cashu token could not be prepared',
+      );
+    } finally {
+      token?.dispose();
+      prepared?.dispose();
+    }
+  }
+
+  @override
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final claimed = await wallet.checkSendStatus(operationId: operationId);
+      return claimed ? CashuSendState.claimed : CashuSendState.recoverable;
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'send_status_failed',
+        'The Cashu send status could not be checked',
+      );
+    }
+  }
+
+  @override
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final amount = await wallet.revokeSend(operationId: operationId);
+      return CashuAmount.sats(amount.value);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'reclaim_failed',
+        'The Cashu send could not be reclaimed',
+      );
+    }
+  }
+
+  @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) async {
+    _ensureOpen();
+    if (amount.value <= 0) {
+      throw ArgumentError.value(
+        amount.value,
+        'amount',
+        'Mint quote amount must be positive',
+      );
+    }
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final quote = await wallet.mintQuote(
+        paymentMethod: cdk.Bolt11PaymentMethod(),
+        amount: cdk.Amount(value: amount.value),
+        description: null,
+        extra: null,
+      );
+      return _mintQuoteFromCdk(quote);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'mint_quote_failed',
+        'The Lightning receive quote could not be created',
+      );
+    }
+  }
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final quote = await wallet.checkMintQuote(quoteId: quoteId);
+      return _mintQuoteFromCdk(quote);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'mint_quote_status_failed',
+        'The Lightning receive quote status could not be checked',
+      );
+    }
+  }
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    _ensureOpen();
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final proofs = await wallet.mint(
+        quoteId: quoteId,
+        amountSplitTarget: cdk.NoneSplitTarget(),
+        spendingConditions: null,
+      );
+      final amount = cdk.proofsTotalAmount(proofs: proofs);
+      return CashuAmount.sats(amount.value);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'mint_failed',
+        'The Lightning receive quote could not be minted',
+      );
+    }
+  }
+
+  @override
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  }) async {
+    _ensureOpen();
+    final invoice = bolt11Invoice.trim();
+    if (invoice.isEmpty) {
+      throw ArgumentError.value(
+        bolt11Invoice,
+        'bolt11Invoice',
+        'Lightning invoice cannot be empty',
+      );
+    }
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      final quote = await wallet.meltQuote(
+        method: cdk.Bolt11PaymentMethod(),
+        request: invoice,
+        options: null,
+        extra: null,
+      );
+      return _meltQuoteFromCdk(quote, fallbackMintUrl: mintUrl);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'melt_quote_failed',
+        'The Lightning pay quote could not be created',
+      );
+    }
+  }
+
+  @override
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) async {
+    _ensureOpen();
+    cdk.PreparedMelt? prepared;
+    try {
+      final wallet = await addOrOpenMint(mintUrl);
+      prepared = await wallet.prepareMelt(quoteId: quoteId);
+      final finalized = await prepared.confirm();
+      return _meltResultFromCdk(finalized);
+    } on cdk.FfiException {
+      throw const CashuProtocolException(
+        'melt_failed',
+        'The Lightning invoice could not be paid',
+      );
+    } finally {
+      prepared?.dispose();
+    }
+  }
+
+  @override
   Future<CashuReconciliationResult> reconcilePendingOperations() async {
     _ensureOpen();
     var recovered = 0;
@@ -198,5 +436,128 @@ final class CdkAccountWallet implements AccountWalletSession {
 
   void _ensureOpen() {
     if (_closed) throw StateError('Cashu wallet session is closed');
+  }
+
+  cdk.ReceiveOptions _receiveOptions() => cdk.ReceiveOptions(
+    amountSplitTarget: cdk.NoneSplitTarget(),
+    p2pkSigningKeys: const [],
+    preimages: const [],
+    metadata: const {},
+  );
+
+  cdk.SendOptions _sendOptions(String? memo) {
+    final normalizedMemo = _normalizedMemo(memo);
+    return cdk.SendOptions(
+      memo: normalizedMemo == null
+          ? null
+          : cdk.SendMemo(memo: normalizedMemo, includeMemo: true),
+      conditions: null,
+      amountSplitTarget: cdk.NoneSplitTarget(),
+      sendKind: cdk.OnlineExactSendKind(),
+      includeFee: true,
+      useP2bk: false,
+      maxProofs: null,
+      metadata: const {},
+      p2pkSigningKeys: const [],
+      p2pkLockedProofSendMode: cdk.P2pkLockedProofSendMode.swap,
+    );
+  }
+
+  String? _normalizedMemo(String? memo) {
+    final trimmed = memo?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _localReceiveOperationId(String encodedToken) {
+    final digest = sha256.convert(encodedToken.codeUnits).toString();
+    return 'receive:${digest.substring(0, 16)}';
+  }
+
+  CashuMintQuote _mintQuoteFromCdk(cdk.MintQuote quote) {
+    if (quote.unit is! cdk.SatCurrencyUnit) {
+      throw const CashuProtocolException(
+        'unsupported_unit',
+        'Only sat-denominated Lightning receive quotes are supported',
+      );
+    }
+    return CashuMintQuote(
+      quoteId: quote.id,
+      mintUrl: CashuMintUrl.parse(quote.mintUrl.url),
+      amount: CashuAmount.sats(quote.amount?.value ?? quote.amountPaid.value),
+      request: quote.request,
+      state: _isExpired(quote)
+          ? CashuQuoteState.expired
+          : _quoteStateFromCdk(quote.state),
+      expiry: DateTime.fromMillisecondsSinceEpoch(
+        quote.expiry * 1000,
+        isUtc: true,
+      ),
+    );
+  }
+
+  CashuMeltQuote _meltQuoteFromCdk(
+    cdk.MeltQuote quote, {
+    required CashuMintUrl fallbackMintUrl,
+  }) {
+    if (quote.unit is! cdk.SatCurrencyUnit) {
+      throw const CashuProtocolException(
+        'unsupported_unit',
+        'Only sat-denominated Lightning pay quotes are supported',
+      );
+    }
+    return CashuMeltQuote(
+      quoteId: quote.id,
+      mintUrl: quote.mintUrl == null
+          ? fallbackMintUrl
+          : CashuMintUrl.parse(quote.mintUrl!.url),
+      amount: CashuAmount.sats(quote.amount.value),
+      request: quote.request,
+      feeReserve: CashuAmount.sats(quote.feeReserve.value),
+      state: _isMeltQuoteExpired(quote)
+          ? CashuQuoteState.expired
+          : _quoteStateFromCdk(quote.state),
+      expiry: DateTime.fromMillisecondsSinceEpoch(
+        quote.expiry * 1000,
+        isUtc: true,
+      ),
+    );
+  }
+
+  CashuMeltResult _meltResultFromCdk(cdk.FinalizedMelt melt) {
+    final amount = CashuAmount.sats(melt.amount.value);
+    final feePaid = CashuAmount.sats(melt.feePaid.value);
+    return CashuMeltResult(
+      quoteId: melt.quoteId,
+      state: _quoteStateFromCdk(melt.state),
+      amountSpent: amount + feePaid,
+      feePaid: feePaid,
+      paymentPreimage: melt.preimage,
+    );
+  }
+
+  bool _isExpired(cdk.MintQuote quote) {
+    if (quote.state == cdk.QuoteState.issued) return false;
+    return cdk.mintQuoteIsExpired(
+      quote: quote,
+      currentTime: DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000,
+    );
+  }
+
+  bool _isMeltQuoteExpired(cdk.MeltQuote quote) {
+    if (quote.state == cdk.QuoteState.issued ||
+        quote.state == cdk.QuoteState.paid) {
+      return false;
+    }
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
+    return quote.expiry <= now;
+  }
+
+  CashuQuoteState _quoteStateFromCdk(cdk.QuoteState state) {
+    return switch (state) {
+      cdk.QuoteState.unpaid => CashuQuoteState.unpaid,
+      cdk.QuoteState.pending => CashuQuoteState.pending,
+      cdk.QuoteState.paid => CashuQuoteState.paid,
+      cdk.QuoteState.issued => CashuQuoteState.issued,
+    };
   }
 }

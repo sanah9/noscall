@@ -139,6 +139,56 @@ final class _BalanceWallet implements AccountWalletSession {
       );
 
   @override
+  Future<CashuReceiveResult> receive(CashuReceiveRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuPreparedSend> prepareSend(CashuSendRequest request) =>
+      throw UnimplementedError();
+
+  @override
+  Future<CashuSendState> checkSendStatus({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> reclaimSend({
+    required CashuMintUrl mintUrl,
+    required String operationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> createMintQuote({
+    required CashuMintUrl mintUrl,
+    required CashuAmount amount,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMintQuote> checkMintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuAmount> mintQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltQuote> createMeltQuote({
+    required CashuMintUrl mintUrl,
+    required String bolt11Invoice,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<CashuMeltResult> meltQuote({
+    required CashuMintUrl mintUrl,
+    required String quoteId,
+  }) => throw UnimplementedError();
+
+  @override
   Future<void> close() async {}
 }
 
