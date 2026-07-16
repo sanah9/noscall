@@ -25,7 +25,10 @@ class UserDBISAR {
   String pubKey;
 
   String? encryptedPrivKey;
+
+  @ignore
   String? privkey;
+
   String? defaultPassword;
 
   String? name;
@@ -247,7 +250,7 @@ UserDBISAR _userInfoFromMap(Map<String, dynamic> map) {
   return UserDBISAR(
     pubKey: map['pubKey'].toString(),
     encryptedPrivKey: map['encryptedPrivKey'].toString(),
-    defaultPassword: map['defaultPassword'].toString(),
+    defaultPassword: map['defaultPassword']?.toString() ?? '',
     name: map['name'].toString(),
     nickName: map['nickName'].toString(),
     mainRelay: map['mainRelay'].toString(),

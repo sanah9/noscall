@@ -44,9 +44,6 @@ class DBISAR {
     CashuLightningPayQuoteOperationRecordSchema,
   ];
 
-  // Store encryption key after first open so subsequent opens re-use it.
-  static String? _sharedEncKey;
-
   /// Generate database name for given pubkey and optional circleId
   String _getDatabaseName(String pubkey, {String? circleId}) {
     if (circleId != null) {
@@ -71,12 +68,7 @@ class DBISAR {
     return '$dbDir/$dbName.isar';
   }
 
-  Future open(
-    String pubkey, {
-    String? circleId,
-    String? dbPath,
-    String? encryptionKey,
-  }) async {
+  Future open(String pubkey, {String? circleId, String? dbPath}) async {
     final dbName = _getDatabaseName(pubkey, circleId: circleId);
     dbPath ??= await _getDatabaseDirectory();
     LogUtils.v(
@@ -85,11 +77,6 @@ class DBISAR {
 
     // Store current circle ID
     _currentCircleId = circleId;
-
-    // Persist encryption key if provided.
-    if (encryptionKey != null) {
-      _sharedEncKey = encryptionKey;
-    }
 
     isar = await Isar.open(schemas, directory: dbPath, name: dbName);
   }
@@ -204,6 +191,7 @@ class DBISAR {
 
   Future<void> _saveTOISAR(List<dynamic> objects, Type type) async {
     String typeName = type.toString().replaceAll('?', '');
+    // ignore: invalid_use_of_protected_member
     IsarCollection? collection = isar.getCollectionByNameInternal(typeName);
     if (collection != null) {
       await collection.putAll(objects);

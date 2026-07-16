@@ -3,6 +3,7 @@ import Flutter
 import PushKit
 import UserNotifications
 import callkeep
+import Security
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -105,6 +106,57 @@ import callkeep
                 print("Failed to get registrar for WebRTCPiPPlugin")
             }
         }
+
+        setupAccountSecretStore(controller: controller)
+    }
+
+    private func setupAccountSecretStore(controller: FlutterViewController) {
+        let channel = FlutterMethodChannel(
+            name: "sh.noscall.account_secrets",
+            binaryMessenger: controller.binaryMessenger
+        )
+
+        channel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+            guard let args = call.arguments as? [String: Any],
+                  let key = args["key"] as? String,
+                  !key.isEmpty else {
+                result(FlutterError(
+                    code: "invalid_key",
+                    message: "Secret key is required.",
+                    details: nil
+                ))
+                return
+            }
+
+            switch call.method {
+            case "read":
+                result(AccountKeychainStore.read(key: key))
+            case "write":
+                guard let value = args["value"] as? String else {
+                    result(FlutterError(
+                        code: "invalid_value",
+                        message: "Secret value is required.",
+                        details: nil
+                    ))
+                    return
+                }
+                let error = AccountKeychainStore.write(key: key, value: value)
+                if let error = error {
+                    result(error)
+                } else {
+                    result(nil)
+                }
+            case "delete":
+                let error = AccountKeychainStore.delete(key: key)
+                if let error = error {
+                    result(error)
+                } else {
+                    result(nil)
+                }
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
     }
 
     override func applicationDidBecomeActive(_ application: UIApplication) {
@@ -173,6 +225,80 @@ import callkeep
 
     private func hexString(from data: Data) -> String {
         data.map { String(format: "%02.2hhx", $0) }.joined()
+    }
+}
+
+private enum AccountKeychainStore {
+    private static let service = "sh.noscall.account_secrets"
+
+    static func read(key: String) -> String? {
+        var query = baseQuery(key: key)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess else {
+            return nil
+        }
+
+        guard let data = item as? Data else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func write(key: String, value: String) -> FlutterError? {
+        guard let data = value.data(using: .utf8) else {
+            return FlutterError(
+                code: "invalid_value",
+                message: "Secret value is not valid UTF-8.",
+                details: nil
+            )
+        }
+
+        let query = baseQuery(key: key)
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary,
+            [kSecValueData as String: data] as CFDictionary
+        )
+        if updateStatus == errSecSuccess {
+            return nil
+        }
+        if updateStatus != errSecItemNotFound {
+            return error(status: updateStatus)
+        }
+
+        var attributes = query
+        attributes[kSecValueData as String] = data
+        attributes[kSecAttrAccessible as String] =
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let addStatus = SecItemAdd(attributes as CFDictionary, nil)
+        return addStatus == errSecSuccess ? nil : error(status: addStatus)
+    }
+
+    static func delete(key: String) -> FlutterError? {
+        let status = SecItemDelete(baseQuery(key: key) as CFDictionary)
+        if status == errSecSuccess || status == errSecItemNotFound {
+            return nil
+        }
+        return error(status: status)
+    }
+
+    private static func baseQuery(key: String) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+    }
+
+    private static func error(status: OSStatus) -> FlutterError {
+        FlutterError(
+            code: "account_secret_store",
+            message: "Keychain operation failed with status \(status).",
+            details: nil
+        )
     }
 }
 

@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account_dependencies.dart';
+import 'package:noscall/core/account/account_secret_store.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import '../../../helpers/test_data.dart';
@@ -34,15 +36,39 @@ class FakeAccountPersistence implements AccountPersistence {
   }
 }
 
+class FakeAccountSecretStore implements AccountSecretStore {
+  final Map<String, String> values = {};
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async {
+    return values[key];
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    values[key] = value;
+  }
+}
+
 void main() {
   group('Account', () {
     late Account account;
     late FakeAccountPersistence persistence;
+    late FakeAccountSecretStore secretStore;
 
     setUp(() {
       account = Account.sharedInstance;
       persistence = FakeAccountPersistence();
-      Account.setTestDependencies(persistence: persistence);
+      secretStore = FakeAccountSecretStore();
+      Account.setTestDependencies(
+        persistence: persistence,
+        secretStore: secretStore,
+      );
       Connect.setTestOverrides(
         connectivity: TestSetup.connectivity(),
         socketConnector: TestSetup.socketConnector(),
@@ -75,20 +101,22 @@ void main() {
     });
 
     group('syncMe', () {
-      test('should not throw when me is set (persists to DB; DB not mocked)',
-          () async {
-        // Arrange
-        final testUser = TestHelpers.createTestUser(
-          pubKey: TestData.validPubkey,
-          name: TestData.testUserName,
-        );
-        account.me = testUser;
+      test(
+        'should not throw when me is set (persists to DB; DB not mocked)',
+        () async {
+          // Arrange
+          final testUser = TestHelpers.createTestUser(
+            pubKey: TestData.validPubkey,
+            name: TestData.testUserName,
+          );
+          account.me = testUser;
 
-        // Act & Assert: syncMe() calls saveUserToDB(me!). We only verify no throw
-        // and me still set; actual DB write is not asserted without mocking DB.
-        await account.syncMe();
-        expect(account.me, isNotNull);
-      });
+          // Act & Assert: syncMe() calls saveUserToDB(me!). We only verify no throw
+          // and me still set; actual DB write is not asserted without mocking DB.
+          await account.syncMe();
+          expect(account.me, isNotNull);
+        },
+      );
 
       test('throws when me is null', () async {
         account.me = null;
@@ -108,8 +136,10 @@ void main() {
 
         // Assert
         expect(account.userCache.containsKey(testUser.pubKey), isTrue);
-        expect(account.userCache[testUser.pubKey]?.value.pubKey,
-            equals(testUser.pubKey));
+        expect(
+          account.userCache[testUser.pubKey]?.value.pubKey,
+          equals(testUser.pubKey),
+        );
       });
     });
 
@@ -121,23 +151,71 @@ void main() {
         );
         persistence.users[storedUser.pubKey] = storedUser;
 
-        final result =
-            await account.getUserFromDB(pubkey: TestData.validPubkey);
+        final result = await account.getUserFromDB(
+          pubkey: TestData.validPubkey,
+        );
 
         expect(result?.pubKey, TestData.validPubkey);
-        expect(account.userCache[TestData.validPubkey]?.value.name,
-            TestData.testUserName);
+        expect(
+          account.userCache[TestData.validPubkey]?.value.name,
+          TestData.testUserName,
+        );
       });
 
       test('saveUserToDB writes through injected persistence', () async {
-        final user = TestHelpers.createTestUser(
-          pubKey: TestData.validPubkey,
-        );
+        final user = TestHelpers.createTestUser(pubKey: TestData.validPubkey);
 
         await Account.saveUserToDB(user);
 
         expect(persistence.lastSavedUser?.pubKey, TestData.validPubkey);
       });
+
+      test(
+        'loginWithPriKey stores decrypt password outside UserDBISAR',
+        () async {
+          final keychain = Keychain.generate();
+
+          final result = await account.loginWithPriKey(keychain.private);
+
+          final secretKey = AccountSecretKeys.privateKeyPassword(
+            keychain.public,
+          );
+          expect(result?.pubKey, keychain.public);
+          expect(secretStore.values[secretKey], isNotNull);
+          expect(persistence.lastSavedUser?.encryptedPrivKey, isNotEmpty);
+          expect(persistence.lastSavedUser?.defaultPassword, isEmpty);
+        },
+      );
+
+      test(
+        'loginWithPubKeyAndPassword migrates legacy defaultPassword',
+        () async {
+          final keychain = Keychain.generate();
+          const legacyPassword = 'legacy-password';
+          final encryptedPrivKey = encryptPrivateKey(
+            hexToBytes(keychain.private),
+            legacyPassword,
+          );
+          final storedUser = UserDBISAR(
+            pubKey: keychain.public,
+            encryptedPrivKey: bytesToHex(encryptedPrivKey),
+            defaultPassword: legacyPassword,
+          );
+          persistence.users[storedUser.pubKey] = storedUser;
+
+          final result = await account.loginWithPubKeyAndPassword(
+            keychain.public,
+          );
+
+          final secretKey = AccountSecretKeys.privateKeyPassword(
+            keychain.public,
+          );
+          expect(result?.pubKey, keychain.public);
+          expect(secretStore.values[secretKey], legacyPassword);
+          expect(persistence.lastSavedUser?.defaultPassword, isEmpty);
+          expect(account.currentPrivkey, keychain.private);
+        },
+      );
     });
 
     group('init', () {
