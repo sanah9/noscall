@@ -14,8 +14,11 @@ ConnectStatusListenerHandle? _profileReloadListener;
 extension AccountProfile on Account {
   Future<void> loginSuccess() async {
     _profileReloadListener?.dispose();
-    _profileReloadListener = Connect.sharedInstance
-        .addConnectStatusListener((relay, status, relayKinds) async {
+    _profileReloadListener = Connect.sharedInstance.addConnectStatusListener((
+      relay,
+      status,
+      relayKinds,
+    ) async {
       if (status == 1 &&
           Account.sharedInstance.me != null &&
           relayKinds.contains(RelayKind.general)) {
@@ -34,73 +37,84 @@ extension AccountProfile on Account {
   Future<UserDBISAR> reloadMyProfileFromRelay({String? relay}) async {
     Completer<UserDBISAR> completer = Completer<UserDBISAR>();
     Filter f = Filter(
-        kinds: ChatCoreManager().myProfileKinds(), authors: [currentPubkey]);
+      kinds: ChatCoreManager().myProfileKinds(),
+      authors: [currentPubkey],
+    );
     List<Event> events = [];
-    Connect.sharedInstance
-        .addSubscription([f], relays: relay == null ? null : [relay],
-            eventCallBack: (event, relay) async {
-      events.add(event);
-    }, eoseCallBack: (requestId, ok, relay, unRelays) async {
-      if (unRelays.isEmpty) {
-        for (var event in events) {
-          switch (event.kind) {
-            case 0:
-              me = handleKind0Event(me, event);
-              break;
-            case 3:
-              me = _handleKind3Event(me, event);
-              break;
-            case 10000:
-              me = await _handleKind10000Event(me, event);
-              break;
-            case 10002:
-              me = _handleKind10002Event(me, event);
-              break;
-            case 10050:
-              me = _handleKind10050Event(me, event);
-              break;
-            case 30000:
-              me = await _handleKind30000Event(me, event);
-              break;
+    Connect.sharedInstance.addSubscription(
+      [f],
+      relays: relay == null ? null : [relay],
+      eventCallBack: (event, relay) async {
+        events.add(event);
+      },
+      eoseCallBack: (requestId, ok, relay, unRelays) async {
+        if (unRelays.isEmpty) {
+          for (var event in events) {
+            switch (event.kind) {
+              case 0:
+                me = handleKind0Event(me, event);
+                break;
+              case 3:
+                me = _handleKind3Event(me, event);
+                break;
+              case 10000:
+                me = await _handleKind10000Event(me, event);
+                break;
+              case 10002:
+                me = _handleKind10002Event(me, event);
+                break;
+              case 10050:
+                me = _handleKind10050Event(me, event);
+                break;
+              case 30000:
+                me = await _handleKind30000Event(me, event);
+                break;
+            }
           }
+          updateOrCreateUserNotifier(currentPubkey, me!);
+          syncMe();
+          if (!completer.isCompleted) completer.complete(me);
         }
-        updateOrCreateUserNotifier(currentPubkey, me!);
-        syncMe();
-        if (!completer.isCompleted) completer.complete(me);
-      }
-    });
+      },
+    );
     return completer.future;
   }
 
-  Future<UserDBISAR> reloadProfileFromRelay(String pubkey,
-      {List<String>? relays}) async {
+  Future<UserDBISAR> reloadProfileFromRelay(
+    String pubkey, {
+    List<String>? relays,
+  }) async {
     Completer<UserDBISAR> completer = Completer<UserDBISAR>();
     UserDBISAR? db = await getUserInfo(pubkey);
     List<Filter> filters = [
-      Filter(kinds: ChatCoreManager().userProfileKinds(), authors: [pubkey])
+      Filter(kinds: ChatCoreManager().userProfileKinds(), authors: [pubkey]),
     ];
 
-    Connect.sharedInstance.addSubscription(filters, relays: relays,
-        eventCallBack: (event, relay) async {
-      switch (event.kind) {
-        case 0:
-          db = handleKind0Event(db, event);
-          break;
-        case 10002:
-          db = _handleKind10002Event(db, event);
-          break;
-        case 10050:
-          db = _handleKind10050Event(db, event);
-          break;
-      }
-    }, eoseCallBack: (requestId, ok, relay, unRelays) async {
-      if (unRelays.isEmpty) {
-        updateOrCreateUserNotifier(pubkey, db!);
-        if (pubkey == currentPubkey) me = db;
-        Account.saveUserToDB(db!);
-        if (!completer.isCompleted) completer.complete(db);
-      }
-    });
+    Connect.sharedInstance.addSubscription(
+      filters,
+      relays: relays,
+      eventCallBack: (event, relay) async {
+        switch (event.kind) {
+          case 0:
+            db = handleKind0Event(db, event);
+            break;
+          case 10002:
+            db = _handleKind10002Event(db, event);
+            break;
+          case 10050:
+            db = _handleKind10050Event(db, event);
+            break;
+        }
+      },
+      eoseCallBack: (requestId, ok, relay, unRelays) async {
+        if (unRelays.isEmpty) {
+          updateOrCreateUserNotifier(pubkey, db!);
+          if (pubkey == currentPubkey) me = db;
+          Account.saveUserToDB(db!);
+          if (!completer.isCompleted) completer.complete(db);
+        }
+      },
+    );
     return completer.future;
   }
 
@@ -134,33 +148,36 @@ extension AccountProfile on Account {
       authors: users.keys.toList(),
     );
 
-    Connect.sharedInstance.addSubscription([f],
-        eventCallBack: (event, relay) async {
-      String p = event.pubkey;
-      UserDBISAR db = users[p] ?? UserDBISAR(pubKey: p);
-      if (event.kind == 0) {
-        users[p] = handleKind0Event(db, event)!;
-      }
-      if (event.kind == 10050) {
-        users[p] = _handleKind10050Event(db, event)!;
-      }
-      if (event.kind == 10002) {
-        users[p] = _handleKind10002Event(db, event)!;
-      }
-      if (userCache.containsKey(p)) {
-        userCache[p]!.value = users[p]!;
-        userCache[p]!.notifyListeners();
-      } else {
-        updateOrCreateUserNotifier(p, users[p]!);
-      }
-      pQueue.remove(p);
-      Account.saveUserToDB(users[p]!);
-    }, eoseCallBack: (requestId, ok, relay, unRelays) async {
-      if (unRelays.isEmpty) {
-        pQueue.removeWhere((key) => users.keys.contains(key));
-        if (!completer.isCompleted) completer.complete();
-      }
-    });
+    Connect.sharedInstance.addSubscription(
+      [f],
+      eventCallBack: (event, relay) async {
+        String p = event.pubkey;
+        UserDBISAR db = users[p] ?? UserDBISAR(pubKey: p);
+        if (event.kind == 0) {
+          users[p] = handleKind0Event(db, event)!;
+        }
+        if (event.kind == 10050) {
+          users[p] = _handleKind10050Event(db, event)!;
+        }
+        if (event.kind == 10002) {
+          users[p] = _handleKind10002Event(db, event)!;
+        }
+        if (userCache.containsKey(p)) {
+          userCache[p]!.value = users[p]!;
+          userCache[p]!.refresh();
+        } else {
+          updateOrCreateUserNotifier(p, users[p]!);
+        }
+        pQueue.remove(p);
+        Account.saveUserToDB(users[p]!);
+      },
+      eoseCallBack: (requestId, ok, relay, unRelays) async {
+        if (unRelays.isEmpty) {
+          pQueue.removeWhere((key) => users.keys.contains(key));
+          if (!completer.isCompleted) completer.complete();
+        }
+      },
+    );
     return completer.future;
   }
 
@@ -188,20 +205,26 @@ extension AccountProfile on Account {
       'picture': updateDB.picture ?? '',
       'banner': updateDB.banner ?? '',
       'nip05': updateDB.dns ?? '',
-      'lud16': updateDB.lnurl ?? ''
+      'lud16': updateDB.lnurl ?? '',
     };
     Map additionMap = jsonDecode(db.otherField ?? '{}');
     map.addAll(additionMap);
-    Event event =
-        await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
-    Connect.sharedInstance.sendEvent(event, sendCallBack: (ok, relay) {
-      if (ok.status) {
-        Account.sharedInstance.updateOrCreateUserNotifier(db.pubKey, db);
-        completer.complete(db);
-      } else {
-        completer.complete(null);
-      }
-    });
+    Event event = await Nip1.setMetadata(
+      jsonEncode(map),
+      currentPubkey,
+      currentPrivkey,
+    );
+    Connect.sharedInstance.sendEvent(
+      event,
+      sendCallBack: (ok, relay) {
+        if (ok.status) {
+          Account.sharedInstance.updateOrCreateUserNotifier(db.pubKey, db);
+          completer.complete(db);
+        } else {
+          completer.complete(null);
+        }
+      },
+    );
     return completer.future;
   }
 
@@ -218,12 +241,15 @@ extension AccountProfile on Account {
       'picture': db.picture ?? '',
       'banner': db.banner ?? '',
       'nip05': db.dns ?? '',
-      'lud16': db.lnurl ?? ''
+      'lud16': db.lnurl ?? '',
     };
     Map additionMap = jsonDecode(db.otherField ?? '{}');
     map.addAll(additionMap);
-    Event event =
-        await Nip1.setMetadata(jsonEncode(map), currentPubkey, currentPrivkey);
+    Event event = await Nip1.setMetadata(
+      jsonEncode(map),
+      currentPubkey,
+      currentPrivkey,
+    );
     return event;
   }
 
@@ -266,7 +292,7 @@ extension AccountProfile on Account {
         'nip05',
         'lnurl',
         'lud16',
-        'lud06'
+        'lud06',
       };
       Map filteredMap = Map.from(map)
         ..removeWhere((key, value) => keysToRemove.contains(key));
@@ -353,7 +379,10 @@ extension AccountProfile on Account {
       // contact list
       db.lastFriendsListUpdatedTime = event.createdAt;
       db.friendsList = await Nip51.peoplesToContent(
-          result.people, currentPrivkey, currentPubkey);
+        result.people,
+        currentPrivkey,
+        currentPubkey,
+      );
       contactListUpdateCallback?.call();
     }
     return db;

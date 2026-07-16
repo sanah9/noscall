@@ -32,6 +32,12 @@ typedef NIP46CommandResultCallback = void Function(NIP46CommandResult result);
 typedef NIP46ConnectionStatusCallback =
     void Function(NIP46ConnectionStatus status);
 
+class UserDBISARNotifier extends ValueNotifier<UserDBISAR> {
+  UserDBISARNotifier(super.value);
+
+  void refresh() => notifyListeners();
+}
+
 class Account {
   static AccountPersistence _persistence = const DefaultAccountPersistence();
   static AccountSecretStore _secretStore =
@@ -57,7 +63,7 @@ class Account {
   NIP46ConnectionStatusCallback? nip46connectionStatusCallback;
 
   // Map<String, UserDB> userCache = {};
-  Map<String, ValueNotifier<UserDBISAR>> userCache = {};
+  Map<String, UserDBISARNotifier> userCache = {};
 
   List<String> pQueue = [];
   List<Event> unsentNIP46EventQueue = [];
@@ -328,16 +334,16 @@ class Account {
     if (!isValidPubKey(normalized)) {
       return userCache.putIfAbsent(
         pubkey,
-        () => ValueNotifier(UserDBISAR(pubKey: pubkey)),
+        () => UserDBISARNotifier(UserDBISAR(pubKey: pubkey)),
       );
     }
     return userCache.putIfAbsent(normalized, () {
       final FutureOr<UserDBISAR?> info = getUserInfo(normalized);
       if (info is Future<UserDBISAR?>) {
-        return ValueNotifier<UserDBISAR>(UserDBISAR(pubKey: normalized));
+        return UserDBISARNotifier(UserDBISAR(pubKey: normalized));
       }
       final UserDBISAR? user = info;
-      return ValueNotifier<UserDBISAR>(user ?? UserDBISAR(pubKey: normalized));
+      return UserDBISARNotifier(user ?? UserDBISAR(pubKey: normalized));
     });
   }
 
@@ -694,10 +700,9 @@ class Account {
   void updateOrCreateUserNotifier(String pubkey, UserDBISAR user) {
     if (userCache.containsKey(pubkey)) {
       userCache[pubkey]!.value = user;
-      // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
-      userCache[pubkey]!.notifyListeners();
+      userCache[pubkey]!.refresh();
     } else {
-      userCache[pubkey] = ValueNotifier<UserDBISAR>(user);
+      userCache[pubkey] = UserDBISARNotifier(user);
     }
   }
 }
