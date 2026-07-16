@@ -343,8 +343,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         picture: pictureUrl,
         // Copy other existing fields
         encryptedPrivKey: _user!.encryptedPrivKey,
-        privkey: _user!.privkey,
-        defaultPassword: _user!.defaultPassword,
         nickName: _user!.nickName,
         mainRelay: _user!.mainRelay,
         dns: _user!.dns,
@@ -377,7 +375,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         otherField: _user!.otherField,
         nwcURI: _user!.nwcURI,
         remoteSignerURI: _user!.remoteSignerURI,
-        clientPrivateKey: _user!.clientPrivateKey,
         remotePubkey: _user!.remotePubkey,
         settings: _user!.settings,
       );

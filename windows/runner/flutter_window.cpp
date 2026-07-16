@@ -2,6 +2,7 @@
 
 #include <optional>
 
+#include "account_secret_store.h"
 #include "flutter/generated_plugin_registrant.h"
 
 namespace {
@@ -30,6 +31,7 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  RegisterAccountSecretStore(flutter_controller_->engine()->messenger());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
