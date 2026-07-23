@@ -7,7 +7,7 @@ import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/contacts/user_avatar.dart';
-import 'package:noscall/core/account/account.dart' as ChatCore;
+import 'package:noscall/core/account/account.dart' as chat_core;
 import 'package:noscall/core/account/model/userDB_isar.dart';
 
 import 'package:noscall/call_history/models/call_log_group.dart';
@@ -66,10 +66,7 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   @override
   Widget build(BuildContext context) {
     theme = Theme.of(context);
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-    );
+    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
   }
 
   PreferredSizeWidget _buildAppBar() {
@@ -160,32 +157,32 @@ class _RecentCallsPageState extends State<RecentCallsPage>
         initialData: _manager.callLogGroups,
         builder:
             (BuildContext context, AsyncSnapshot<List<CallLogGroup>> snapshot) {
-          switch ((snapshot.connectionState, snapshot.data)) {
-            case (ConnectionState.waiting, _):
-              return _buildLoadingState();
-            case (_, final List<CallLogGroup> data):
-              if (data.isEmpty) return _buildEmptyState();
-              return StreamBuilder<String>(
-                stream: _searchTextController.stream,
-                initialData: '',
-                builder: (context, searchSnapshot) {
-                  final searchQuery = searchSnapshot.data ?? '';
-                  final filteredData = _filterCallGroups(data, searchQuery);
-                  if (filteredData.isEmpty && searchQuery.isNotEmpty) {
-                    return _buildNoSearchResultsState();
+              switch ((snapshot.connectionState, snapshot.data)) {
+                case (ConnectionState.waiting, _):
+                  return _buildLoadingState();
+                case (_, final List<CallLogGroup> data):
+                  if (data.isEmpty) return _buildEmptyState();
+                  return StreamBuilder<String>(
+                    stream: _searchTextController.stream,
+                    initialData: '',
+                    builder: (context, searchSnapshot) {
+                      final searchQuery = searchSnapshot.data ?? '';
+                      final filteredData = _filterCallGroups(data, searchQuery);
+                      if (filteredData.isEmpty && searchQuery.isNotEmpty) {
+                        return _buildNoSearchResultsState();
+                      }
+                      return _buildCallGroupList(filteredData);
+                    },
+                  );
+                default:
+                  final errorText = snapshot.error?.toString() ?? '';
+                  if (errorText.isNotEmpty) {
+                    return _buildErrorState(errorText);
+                  } else {
+                    return _buildEmptyState();
                   }
-                  return _buildCallGroupList(filteredData);
-                },
-              );
-            default:
-              final errorText = snapshot.error?.toString() ?? '';
-              if (errorText.isNotEmpty) {
-                return _buildErrorState(errorText);
-              } else {
-                return _buildEmptyState();
               }
-          }
-        },
+            },
       ),
     );
   }
@@ -200,10 +197,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       },
       child: ListView.builder(
         itemCount: callGroups.length,
-        itemBuilder: (context, index) => _buildCallGroupItem(
-          context,
-          callGroups[index],
-        ),
+        itemBuilder: (context, index) =>
+            _buildCallGroupItem(context, callGroups[index]),
       ),
     );
   }
@@ -214,8 +209,9 @@ class _RecentCallsPageState extends State<RecentCallsPage>
     final isHighlighted = _highlightedGroupId == group.groupId;
 
     return ValueListenableBuilder(
-      valueListenable:
-          ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey),
+      valueListenable: chat_core.Account.sharedInstance.getUserNotifier(
+        group.peerPubkey,
+      ),
       builder: (context, user, child) {
         return GestureDetector(
           onTap: () => _callBackFromGroup(group),
@@ -224,11 +220,7 @@ class _RecentCallsPageState extends State<RecentCallsPage>
             key: globalKey,
             width: MediaQuery.of(context).size.width,
             color: isHighlighted ? primary.withValues(alpha: 0.1) : surface,
-            padding: const EdgeInsets.only(
-              top: 16,
-              bottom: 16,
-              left: 16,
-            ),
+            padding: const EdgeInsets.only(top: 16, bottom: 16, left: 16),
             child: Row(
               children: [
                 _buildUserAvatar(user, group.type, statusColor),
@@ -253,11 +245,11 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   }
 
   Widget _buildUserAvatar(
-      UserDBISAR user, CallType callType, Color statusColor) {
-    return UserAvatar(
-      user: user,
-      size: 48,
-    );
+    UserDBISAR user,
+    CallType callType,
+    Color statusColor,
+  ) {
+    return UserAvatar(user: user, size: 48);
   }
 
   Widget _buildContactName(UserDBISAR user, Color statusColor) {
@@ -274,8 +266,9 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   Widget _buildCallTypeAndDirection(CallLogGroup group, Color statusColor) {
     final theme = Theme.of(context);
 
-    String directionText =
-        group.direction == CallDirection.incoming ? '↙' : '↗';
+    String directionText = group.direction == CallDirection.incoming
+        ? '↙'
+        : '↗';
     String callTypeText = group.type.isVideo ? 'Video' : 'Audio';
     String fullText = '$directionText $callTypeText';
 
@@ -313,11 +306,7 @@ class _RecentCallsPageState extends State<RecentCallsPage>
               left: 12.0,
               right: 16.0,
             ),
-            child: Icon(
-              CupertinoIcons.info_circle,
-              size: 24,
-              color: primary,
-            ),
+            child: Icon(CupertinoIcons.info_circle, size: 24, color: primary),
           ),
         ),
       ],
@@ -333,16 +322,9 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.error_outline,
-            size: 64,
-            color: errorColor,
-          ),
+          Icon(Icons.error_outline, size: 64, color: errorColor),
           const SizedBox(height: 16),
-          Text(
-            'Error loading calls',
-            style: theme.textTheme.headlineSmall,
-          ),
+          Text('Error loading calls', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text(
             error,
@@ -366,16 +348,9 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.call_outlined,
-            size: 64,
-            color: onSurfaceVariant,
-          ),
+          Icon(Icons.call_outlined, size: 64, color: onSurfaceVariant),
           const SizedBox(height: 16),
-          Text(
-            'No recent calls',
-            style: theme.textTheme.headlineSmall,
-          ),
+          Text('No recent calls', style: theme.textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text(
             'Your call history will appear here',
@@ -421,7 +396,8 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       builder: (context) => AlertDialog(
         title: const Text('Clear Call History'),
         content: const Text(
-            'Are you sure you want to clear all call history? This action cannot be undone.'),
+          'Are you sure you want to clear all call history? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -460,7 +436,10 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   }
 
   void _showContextMenu(
-      BuildContext context, GlobalKey key, CallLogGroup group) {
+    BuildContext context,
+    GlobalKey key,
+    CallLogGroup group,
+  ) {
     final RenderBox? renderBox =
         key.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
@@ -482,9 +461,7 @@ class _RecentCallsPageState extends State<RecentCallsPage>
         position.dx + offset.dx + size.width,
         position.dy + offset.dy + size.height,
       ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: theme.colorScheme.surfaceContainerLow,
       elevation: 1,
       shadowColor: onSurface.withValues(alpha: 0.3),
@@ -556,11 +533,7 @@ class _RecentCallsPageState extends State<RecentCallsPage>
           ),
         ),
         const SizedBox(width: 18),
-        Icon(
-          icon,
-          size: 20,
-          color: color,
-        ),
+        Icon(icon, size: 20, color: color),
       ],
     );
   }
@@ -583,14 +556,16 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   }
 
   Future<void> _deleteCallGroup(CallLogGroup group) async {
-    final user =
-        ChatCore.Account.sharedInstance.getUserNotifier(group.peerPubkey).value;
+    final user = chat_core.Account.sharedInstance
+        .getUserNotifier(group.peerPubkey)
+        .value;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Call History'),
         content: Text(
-            'Are you sure you want to delete call history with ${user.displayName()}? This action cannot be undone.'),
+          'Are you sure you want to delete call history with ${user.displayName()}? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -609,7 +584,9 @@ class _RecentCallsPageState extends State<RecentCallsPage>
         await _manager.deleteCallLogGroup(group.groupId);
         if (mounted) {
           AppSnackBar.info(
-              context, 'Call history with ${user.displayName()} deleted');
+            context,
+            'Call history with ${user.displayName()} deleted',
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -633,14 +610,16 @@ class _RecentCallsPageState extends State<RecentCallsPage>
   }
 
   List<CallLogGroup> _filterCallGroups(
-      List<CallLogGroup> groups, String query) {
+    List<CallLogGroup> groups,
+    String query,
+  ) {
     if (query.isEmpty) {
       return groups;
     }
 
     final lowercaseQuery = query.toLowerCase();
     return groups.where((group) {
-      final user = ChatCore.Account.sharedInstance
+      final user = chat_core.Account.sharedInstance
           .getUserNotifier(group.peerPubkey)
           .value;
       final displayName = user.displayName().toLowerCase();
@@ -660,8 +639,11 @@ extension _CallLogGroupEx on CallLogGroup {
   String get formattedLastCallTime {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final callDate =
-        DateTime(lastCallTime.year, lastCallTime.month, lastCallTime.day);
+    final callDate = DateTime(
+      lastCallTime.year,
+      lastCallTime.month,
+      lastCallTime.day,
+    );
 
     // Today: show time (e.g., "14:04")
     if (callDate == today) {
@@ -698,7 +680,7 @@ extension _CallLogGroupEx on CallLogGroup {
       'Thursday',
       'Friday',
       'Saturday',
-      'Sunday'
+      'Sunday',
     ];
     return weekdays[weekday - 1];
   }

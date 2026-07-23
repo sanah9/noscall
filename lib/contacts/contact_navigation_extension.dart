@@ -10,11 +10,16 @@ extension ContactNavigationExtension on BuildContext {
   void pushContactPage(Widget page, {String? key}) {
     final navigatorState = ContactNavigatorProvider.of(this);
     if (navigatorState != null) {
-      navigatorState.pushPage(page, key ?? 'contact-page-${DateTime.now().millisecondsSinceEpoch}');
+      navigatorState.pushPage(
+        page,
+        key ?? 'contact-page-${DateTime.now().millisecondsSinceEpoch}',
+      );
     } else {
       // Fallback to global router if not in contact navigator
       // This shouldn't happen, but provides safety
-      debugPrint('Warning: pushContactPage called outside ContactNavigator. Context: ${runtimeType}');
+      debugPrint(
+        'Warning: pushContactPage called outside ContactNavigator. Context: $runtimeType',
+      );
     }
   }
 
@@ -36,7 +41,8 @@ extension ContactNavigationExtension on BuildContext {
 
   bool canPopContactPage() {
     // Get ContactNavigatorProvider to check pages count
-    final provider = dependOnInheritedWidgetOfExactType<ContactNavigatorProvider>();
+    final provider =
+        dependOnInheritedWidgetOfExactType<ContactNavigatorProvider>();
     if (provider != null) {
       return provider.pagesCount > 1;
     }
@@ -55,10 +61,7 @@ extension ContactNavigationExtension on BuildContext {
   Future<int?> pushGroupContacts(int groupId, String groupName) async {
     final navigatorState = ContactNavigatorProvider.of(this);
     if (navigatorState != null) {
-      final page = GroupContactsPage(
-        groupId: groupId,
-        groupName: groupName,
-      );
+      final page = GroupContactsPage(groupId: groupId, groupName: groupName);
       navigatorState.pushPage(page, 'group-contacts-$groupId');
       // For internal navigation, we can't easily get the return value
       // The return value will be handled by the Navigator's onPopPage callback
@@ -73,4 +76,3 @@ extension ContactNavigationExtension on BuildContext {
     }
   }
 }
-

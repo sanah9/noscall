@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/model/userDB_isar.dart';
-import 'package:noscall/core/account/account.dart' as ChatCore;
+import 'package:noscall/core/account/account.dart' as chat_core;
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/contacts/services/contact_remark_service.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
@@ -33,7 +33,9 @@ class ContactListTile extends StatelessWidget {
     final nickName = (u.nickName ?? '').trim();
     final name = (u.name ?? '').trim();
     final nameMatched =
-        query != null && query.isNotEmpty && name.toLowerCase().contains(query.toLowerCase());
+        query != null &&
+        query.isNotEmpty &&
+        name.toLowerCase().contains(query.toLowerCase());
     if (nameMatched && nickName.isNotEmpty && name.isNotEmpty) {
       return '$nickName($name)';
     }
@@ -64,12 +66,16 @@ class ContactListTile extends StatelessWidget {
         break;
       }
       if (index > start) {
-        spans.add(TextSpan(text: text.substring(start, index), style: normalStyle));
+        spans.add(
+          TextSpan(text: text.substring(start, index), style: normalStyle),
+        );
       }
-      spans.add(TextSpan(
-        text: text.substring(index, index + query.length),
-        style: highlightStyle,
-      ));
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + query.length),
+          style: highlightStyle,
+        ),
+      );
       start = index + query.length;
     }
     return spans;
@@ -84,7 +90,9 @@ class ContactListTile extends StatelessWidget {
     final onSurfaceVariant = colorScheme.onSurfaceVariant;
 
     return ValueListenableBuilder<UserDBISAR>(
-      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(user.pubKey),
+      valueListenable: chat_core.Account.sharedInstance.getUserNotifier(
+        user.pubKey,
+      ),
       builder: (context, updatedUser, child) {
         final displayName = _displayNameWithRemark(updatedUser, searchQuery);
         final titleStyle = theme.textTheme.titleMedium?.copyWith(
@@ -132,7 +140,8 @@ class ContactListTile extends StatelessWidget {
                               ),
                         const SizedBox(height: 4),
                         ValueListenableBuilder<Map<String, String>>(
-                          valueListenable: ContactRemarkService().remarksNotifier,
+                          valueListenable:
+                              ContactRemarkService().remarksNotifier,
                           builder: (context, remarks, _) {
                             final remark = remarks[updatedUser.pubKey] ?? '';
                             final subtitle = remark.isNotEmpty
@@ -152,17 +161,28 @@ class ContactListTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (showFavoriteStar || onCallVoice != null || onCallVideo != null)
+                  if (showFavoriteStar ||
+                      onCallVoice != null ||
+                      onCallVideo != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (showFavoriteStar) _FavoriteStar(user: updatedUser),
-                        if (showFavoriteStar && (onCallVoice != null || onCallVideo != null))
+                        if (showFavoriteStar &&
+                            (onCallVoice != null || onCallVideo != null))
                           const SizedBox(width: 4),
-                        if (onCallVoice != null) _CallButton(icon: Icons.call, onPressed: onCallVoice!),
-                        if (onCallVoice != null && onCallVideo != null) const SizedBox(width: 8),
+                        if (onCallVoice != null)
+                          _CallButton(
+                            icon: Icons.call,
+                            onPressed: onCallVoice!,
+                          ),
+                        if (onCallVoice != null && onCallVideo != null)
+                          const SizedBox(width: 8),
                         if (onCallVideo != null)
-                          _CallButton(icon: Icons.videocam, onPressed: onCallVideo!),
+                          _CallButton(
+                            icon: Icons.videocam,
+                            onPressed: onCallVideo!,
+                          ),
                       ],
                     ),
                 ],

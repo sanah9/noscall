@@ -104,16 +104,13 @@ class _DataCleanupPageState extends State<DataCleanupPage> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
-            value: _selectedDays,
+            initialValue: _selectedDays,
             decoration: const InputDecoration(
               labelText: 'Older than',
               border: OutlineInputBorder(),
             ),
             items: _oldDataDaysOptions
-                .map((d) => DropdownMenuItem(
-                      value: d,
-                      child: Text('$d days'),
-                    ))
+                .map((d) => DropdownMenuItem(value: d, child: Text('$d days')))
                 .toList(),
             onChanged: _clearingOldData
                 ? null
