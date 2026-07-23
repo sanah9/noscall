@@ -53,8 +53,6 @@ class Account {
   String currentPrivkey = '';
   Timer? timer;
 
-  // ignore: non_constant_identifier_names
-  String NIP46Subscription = '';
   RemoteSignerConnection? currentRemoteConnection;
   RemoteSignerConnection? tempRemoteConnection;
 
@@ -144,7 +142,6 @@ class Account {
   void _resetSessionState({required bool keepIdentity}) {
     _sessionInitialized = false;
     _initializedSessionPubkey = '';
-    NIP46Subscription = '';
     currentRemoteConnection = null;
     tempRemoteConnection = null;
     resultCompleters.clear();
