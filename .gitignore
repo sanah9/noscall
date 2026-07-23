@@ -3,10 +3,10 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
-pubspec.lock
 build/
 **/build/
 *.lock
+!pubspec.lock
 
 # IDE
 .idea/
