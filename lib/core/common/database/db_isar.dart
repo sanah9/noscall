@@ -183,18 +183,51 @@ class DBISAR {
     _buffers.clear();
 
     await isar.writeTxn(() async {
-      for (var type in typeMap.keys) {
-        await _saveTOISAR(typeMap[type]!, type);
+      for (final entry in typeMap.entries) {
+        await _saveTypedObjects(entry.key, entry.value);
       }
     });
   }
 
-  Future<void> _saveTOISAR(List<dynamic> objects, Type type) async {
-    String typeName = type.toString().replaceAll('?', '');
-    // ignore: invalid_use_of_protected_member
-    IsarCollection? collection = isar.getCollectionByNameInternal(typeName);
-    if (collection != null) {
-      await collection.putAll(objects);
+  Future<void> _saveTypedObjects(Type type, List<dynamic> objects) async {
+    if (type == MessageDBISAR) {
+      await isar.messageDBISARs.putAll(objects.cast<MessageDBISAR>());
+    } else if (type == UserDBISAR) {
+      await isar.userDBISARs.putAll(objects.cast<UserDBISAR>());
+    } else if (type == RelayDBISAR) {
+      await isar.relayDBISARs.putAll(objects.cast<RelayDBISAR>());
+    } else if (type == EventDBISAR) {
+      await isar.eventDBISARs.putAll(objects.cast<EventDBISAR>());
+    } else if (type == CallEntry) {
+      await isar.callEntrys.putAll(objects.cast<CallEntry>());
+    } else if (type == CallLogGroup) {
+      await isar.callLogGroups.putAll(objects.cast<CallLogGroup>());
+    } else if (type == ContactGroup) {
+      await isar.contactGroups.putAll(objects.cast<ContactGroup>());
+    } else if (type == ContactGroupMember) {
+      await isar.contactGroupMembers.putAll(objects.cast<ContactGroupMember>());
+    } else if (type == CashuWalletConfigurationRecord) {
+      await isar.cashuWalletConfigurationRecords.putAll(
+        objects.cast<CashuWalletConfigurationRecord>(),
+      );
+    } else if (type == CashuMintConfigurationRecord) {
+      await isar.cashuMintConfigurationRecords.putAll(
+        objects.cast<CashuMintConfigurationRecord>(),
+      );
+    } else if (type == CashuTokenSendOperationRecord) {
+      await isar.cashuTokenSendOperationRecords.putAll(
+        objects.cast<CashuTokenSendOperationRecord>(),
+      );
+    } else if (type == CashuLightningReceiveQuoteOperationRecord) {
+      await isar.cashuLightningReceiveQuoteOperationRecords.putAll(
+        objects.cast<CashuLightningReceiveQuoteOperationRecord>(),
+      );
+    } else if (type == CashuLightningPayQuoteOperationRecord) {
+      await isar.cashuLightningPayQuoteOperationRecords.putAll(
+        objects.cast<CashuLightningPayQuoteOperationRecord>(),
+      );
+    } else {
+      LogUtils.w(() => 'DBISAR: unsupported buffered type $type');
     }
   }
 
