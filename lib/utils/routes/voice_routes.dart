@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/voice_messages/send_voice_message_page.dart';
 import 'package:noscall/voice_messages/voice_message_detail_page.dart';
 

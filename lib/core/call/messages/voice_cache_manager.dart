@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/io_client.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 
 /// Default timeout for voice file download (connection + idle).
 const Duration _voiceDownloadTimeout = Duration(seconds: 30);

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
+import 'package:noscall/core/call/contacts/contacts_isolate_event.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
@@ -8,11 +8,15 @@ import 'package:noscall/core/common/utils/log_utils.dart';
 import '../../account/account.dart';
 import '../../common/network/connect.dart';
 import '../messages/messages.dart';
-import '../messages/model/messageDB_isar.dart';
+import '../messages/model/message_db_isar.dart';
 import 'contacts.dart';
 
 extension Calling on Contacts {
-  Future<OKEvent> sendHangup(String callId, String friendPubkey, String reason) async {
+  Future<OKEvent> sendHangup(
+    String callId,
+    String friendPubkey,
+    String reason,
+  ) async {
     return _sendSignaling(
       callId: callId,
       toPubkey: friendPubkey,
@@ -22,7 +26,11 @@ extension Calling on Contacts {
     );
   }
 
-  Future<OKEvent> sendReject(String callId, String friendPubkey, String reason) async {
+  Future<OKEvent> sendReject(
+    String callId,
+    String friendPubkey,
+    String reason,
+  ) async {
     return _sendSignaling(
       callId: callId,
       toPubkey: friendPubkey,
@@ -47,7 +55,11 @@ extension Calling on Contacts {
     );
   }
 
-  Future<OKEvent> sendAnswer(String callId, String friendPubkey, String sdp) async {
+  Future<OKEvent> sendAnswer(
+    String callId,
+    String friendPubkey,
+    String sdp,
+  ) async {
     return _sendSignaling(
       callId: callId,
       toPubkey: friendPubkey,
@@ -56,7 +68,11 @@ extension Calling on Contacts {
     );
   }
 
-  Future<OKEvent> sendCandidate(String callId, String friendPubkey, String content) async {
+  Future<OKEvent> sendCandidate(
+    String callId,
+    String friendPubkey,
+    String content,
+  ) async {
     return _sendSignaling(
       callId: callId,
       toPubkey: friendPubkey,
@@ -144,12 +160,15 @@ extension Calling on Contacts {
     }
 
     final wrapped = await NipAcProtocol.wrap(innerEvent, toPubkey);
-    Connect.sharedInstance.sendEvent(relayKinds: [RelayKind.general], wrapped,
-          sendCallBack: (ok, relay) async {
+    Connect.sharedInstance.sendEvent(
+      relayKinds: [RelayKind.general],
+      wrapped,
+      sendCallBack: (ok, relay) async {
         if (!completer.isCompleted) {
           completer.complete(OKEvent(innerEvent.id, ok.status, ok.message));
         }
-      });
+      },
+    );
     return completer.future;
   }
 
@@ -158,7 +177,10 @@ extension Calling on Contacts {
     try {
       signaling = NipAcProtocol.decodeInner(event, pubkey);
     } catch (e) {
-      LogUtils.w(() => 'Drop non NIP-AC signaling event: kind=${event.kind}, id=${event.id}, error=$e');
+      LogUtils.w(
+        () =>
+            'Drop non NIP-AC signaling event: kind=${event.kind}, id=${event.id}, error=$e',
+      );
       return;
     }
     String? reason;
@@ -167,12 +189,21 @@ extension Calling on Contacts {
     }
     bool result = await handleSignalingEvent(event, signaling, reason);
     if (result) {
-      onCallStateChange
-          ?.call(event.pubkey, signaling.state, signaling.content, signaling.callId, signaling.callType);
+      onCallStateChange?.call(
+        event.pubkey,
+        signaling.state,
+        signaling.content,
+        signaling.callId,
+        signaling.callType,
+      );
     }
   }
 
-  Future<bool> handleSignalingEvent(Event event, NipAcSignaling signaling, String? reason) async {
+  Future<bool> handleSignalingEvent(
+    Event event,
+    NipAcSignaling signaling,
+    String? reason,
+  ) async {
     /// receive offer
     int eventTime = event.createdAt * 1000;
     if (signaling.state == SignalingState.offer) {
@@ -188,17 +219,17 @@ extension Calling on Contacts {
         return false;
       } else {
         callMessage = CallMessage(
-            signaling.callId,
-            signaling.sender,
-            signaling.receiver,
-            callMessage?.state ?? CallMessageState.offer,
-            eventTime,
-            callMessage?.end ?? eventTime,
-            media);
+          signaling.callId,
+          signaling.sender,
+          signaling.receiver,
+          callMessage?.state ?? CallMessageState.offer,
+          eventTime,
+          callMessage?.end ?? eventTime,
+          media,
+        );
         callMessages[signaling.callId] = callMessage;
       }
     }
-
     /// receive answer
     else if (signaling.state == SignalingState.answer) {
       CallMessage? callMessage = callMessages[signaling.callId];
@@ -206,7 +237,6 @@ extension Calling on Contacts {
         callMessage.start = eventTime;
       }
     }
-
     /// receive disconnect & reject
     else if (signaling.state == SignalingState.disconnect) {
       CallMessageState state = CallMessageState.disconnect;
@@ -227,8 +257,15 @@ extension Calling on Contacts {
           break;
       }
       CallMessage? callMessage = callMessages[signaling.callId];
-      callMessage ??= CallMessage(signaling.callId, signaling.sender,
-          signaling.receiver, state, eventTime, eventTime, '');
+      callMessage ??= CallMessage(
+        signaling.callId,
+        signaling.sender,
+        signaling.receiver,
+        state,
+        eventTime,
+        eventTime,
+        '',
+      );
       callMessage.end = eventTime;
       callMessage.state = state;
       callMessages[callMessage.callId] = callMessage;
@@ -261,11 +298,13 @@ extension Calling on Contacts {
     String plainContent, {
     String? replyToMessageId,
   }) async {
-    final encrypted =
-        await Account.sharedInstance.encryptNip04(plainContent, toPubkey);
+    final encrypted = await Account.sharedInstance.encryptNip04(
+      plainContent,
+      toPubkey,
+    );
     final now = currentUnixTimestampSeconds();
     final tags = <List<String>>[
-      ['p', toPubkey]
+      ['p', toPubkey],
     ];
     if (replyToMessageId != null && replyToMessageId.isNotEmpty) {
       tags.add(['e', replyToMessageId, '', 'reply']);
@@ -307,21 +346,22 @@ extension Calling on Contacts {
       'content': jsonEncode({
         'state': callMessage.state.toString(),
         'duration': (callMessage.end - callMessage.start),
-        'media': callMessage.media
-      })
+        'media': callMessage.media,
+      }),
     });
     return MessageDBISAR(
-        messageId: callMessage.callId,
-        sender: callMessage.sender,
-        receiver: callMessage.receiver,
-        content: content,
-        kind: 25053,
-        type: 'call',
-        decryptContent: jsonEncode({
-          'state': callMessage.state.toString(),
-          'duration': (callMessage.end - callMessage.start),
-          'media': callMessage.media
-        }),
-        createTime: currentUnixTimestampSeconds());
+      messageId: callMessage.callId,
+      sender: callMessage.sender,
+      receiver: callMessage.receiver,
+      content: content,
+      kind: 25053,
+      type: 'call',
+      decryptContent: jsonEncode({
+        'state': callMessage.state.toString(),
+        'duration': (callMessage.end - callMessage.start),
+        'media': callMessage.media,
+      }),
+      createTime: currentUnixTimestampSeconds(),
+    );
   }
 }

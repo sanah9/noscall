@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 
 import 'app_navigator.dart';
 import 'navigation_scope.dart';

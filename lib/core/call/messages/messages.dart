@@ -5,7 +5,7 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 
 typedef MessageActionsCallBack = void Function(MessageDBISAR);

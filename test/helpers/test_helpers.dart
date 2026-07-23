@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/call/ice_server_manager.dart';
 
 /// Test helper utilities

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+relay.dart';
+import 'package:noscall/core/account/account_relay.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
@@ -77,10 +77,9 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
     });
 
     try {
-      await Connect.sharedInstance.connectRelays(
-        [relay],
-        relayKind: RelayKind.temp,
-      );
+      await Connect.sharedInstance.connectRelays([
+        relay,
+      ], relayKind: RelayKind.temp);
 
       await Future.delayed(const Duration(seconds: 2));
 
@@ -108,8 +107,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
     if (url.isEmpty) return false;
     try {
       final uri = Uri.parse(url);
-      return (uri.scheme == 'ws' || uri.scheme == 'wss') &&
-          uri.host.isNotEmpty;
+      return (uri.scheme == 'ws' || uri.scheme == 'wss') && uri.host.isNotEmpty;
     } catch (e) {
       return false;
     }
@@ -405,11 +403,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
                 color: onPrimary.withValues(alpha: 0.25),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.bolt,
-                color: onPrimary,
-                size: 28,
-              ),
+              child: Icon(Icons.bolt, color: onPrimary, size: 28),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -435,10 +429,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: onPrimary.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(20),
@@ -462,11 +453,7 @@ class _RelayManagementPageState extends State<RelayManagementPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.cloud_off,
-            size: 64,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(Icons.cloud_off, size: 64, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             'No relays configured',
@@ -600,8 +587,8 @@ class _RelayStatusIndicator extends StatelessWidget {
     final Color tintColor = showError
         ? colorScheme.error
         : (isConnected
-            ? _connectedGreen(context)
-            : colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
+              ? _connectedGreen(context)
+              : colorScheme.onSurfaceVariant.withValues(alpha: 0.6));
 
     return SizedBox(
       width: 28,
@@ -629,4 +616,3 @@ class _RelayStatusIndicator extends StatelessWidget {
     );
   }
 }
-

@@ -4,8 +4,8 @@ import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/relayDB_isar.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/relay_db_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/connect.dart';
 
@@ -14,10 +14,12 @@ import 'account_relay_dependencies.dart';
 List<RelayDBISAR> _toRelayDBISARList(List<String> urls) {
   final result = <RelayDBISAR>[];
   for (var url in urls) {
-    final normalized =
-        url.endsWith('/') ? url.substring(0, url.length - 1) : url;
-    result.add(Relays.sharedInstance.relays[normalized] ??
-        RelayDBISAR(url: normalized));
+    final normalized = url.endsWith('/')
+        ? url.substring(0, url.length - 1)
+        : url;
+    result.add(
+      Relays.sharedInstance.relays[normalized] ?? RelayDBISAR(url: normalized),
+    );
   }
   return result;
 }
@@ -60,8 +62,11 @@ extension AccountRelay on Account {
     accountRelayRuntime.connectDMRelays();
     syncMe();
     unawaited(NostrRelayPushService().syncIfDue(force: true));
-    Event event =
-        await Nip17.encodeDMRelays(relays, currentPubkey, currentPrivkey);
+    Event event = await Nip17.encodeDMRelays(
+      relays,
+      currentPubkey,
+      currentPrivkey,
+    );
     return accountRelayRuntime.sendEvent(event);
   }
 
@@ -79,7 +84,9 @@ extension AccountRelay on Account {
   }
 
   Future<OKEvent> _setRelayList(
-      List<String> relays, _RelayListType type) async {
+    List<String> relays,
+    _RelayListType type,
+  ) async {
     switch (type) {
       case _RelayListType.general:
         return setGeneralRelayListToLocal(relays);

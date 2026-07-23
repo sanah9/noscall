@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/messages/messages.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/core/call/messages/unread_message_manager.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/voice_messages/widgets/voice_waveform_bar.dart';

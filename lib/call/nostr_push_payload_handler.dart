@@ -5,9 +5,9 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/call_event_policy.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
-import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
-import 'package:noscall/core/call/contacts/contacts+calling.dart';
-import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
+import 'package:noscall/core/call/contacts/contacts_blocklist.dart';
+import 'package:noscall/core/call/contacts/contacts_calling.dart';
+import 'package:noscall/core/call/contacts/contacts_isolate_event.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
@@ -53,8 +53,10 @@ class NostrPushPayloadHandler {
       return false;
     }
     if (event.kind != NipAcProtocol.wrapKind) {
-      LogUtils.v(() =>
-          'NostrPushPayloadHandler: ignored non NIP-AC wrapper kind=${event.kind}');
+      LogUtils.v(
+        () =>
+            'NostrPushPayloadHandler: ignored non NIP-AC wrapper kind=${event.kind}',
+      );
       return false;
     }
 
@@ -62,8 +64,10 @@ class NostrPushPayloadHandler {
     if (myPubkey.isEmpty ||
         !_tagContains(event.tags, 'p', myPubkey) ||
         !_tagContains(event.tags, 'k', NipAcKind.offer.value.toString())) {
-      LogUtils.v(() =>
-          'NostrPushPayloadHandler: ignored wrapper not addressed to current offer');
+      LogUtils.v(
+        () =>
+            'NostrPushPayloadHandler: ignored wrapper not addressed to current offer',
+      );
       return false;
     }
 
@@ -74,8 +78,9 @@ class NostrPushPayloadHandler {
       return false;
     }
     if (EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
-      LogUtils.v(() =>
-          'NostrPushPayloadHandler: duplicate inner event ${innerEvent.id}');
+      LogUtils.v(
+        () => 'NostrPushPayloadHandler: duplicate inner event ${innerEvent.id}',
+      );
       return false;
     }
     if (CallEventPolicy.isStale(
@@ -84,7 +89,8 @@ class NostrPushPayloadHandler {
       staleAfterSeconds: Contacts.callEventStaleSeconds,
     )) {
       LogUtils.v(
-          () => 'NostrPushPayloadHandler: stale inner event ${innerEvent.id}');
+        () => 'NostrPushPayloadHandler: stale inner event ${innerEvent.id}',
+      );
       return false;
     }
     if (!CallEventPolicy.isFollowedCaller(
@@ -92,13 +98,16 @@ class NostrPushPayloadHandler {
       myPubkey: contacts.pubkey,
       followedPubkeys: contacts.allContacts.keys.toSet(),
     )) {
-      LogUtils.v(() =>
-          'NostrPushPayloadHandler: caller not followed ${innerEvent.pubkey}');
+      LogUtils.v(
+        () =>
+            'NostrPushPayloadHandler: caller not followed ${innerEvent.pubkey}',
+      );
       return false;
     }
     if (contacts.inBlockList(innerEvent.pubkey)) {
       LogUtils.v(
-          () => 'NostrPushPayloadHandler: caller blocked ${innerEvent.pubkey}');
+        () => 'NostrPushPayloadHandler: caller blocked ${innerEvent.pubkey}',
+      );
       return false;
     }
 
@@ -124,7 +133,8 @@ class NostrPushPayloadHandler {
   }
 
   bool _tagContains(List<List<String>> tags, String name, String value) {
-    return tags
-        .any((tag) => tag.length >= 2 && tag[0] == name && tag[1] == value);
+    return tags.any(
+      (tag) => tag.length >= 2 && tag[0] == name && tag[1] == value,
+    );
   }
 }

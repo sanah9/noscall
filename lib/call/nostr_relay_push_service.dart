@@ -5,7 +5,7 @@ import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/call/push_token_service.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/relayDB_isar.dart';
+import 'package:noscall/core/account/model/relay_db_isar.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/common/network/connect.dart';

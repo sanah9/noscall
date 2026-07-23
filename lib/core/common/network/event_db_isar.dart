@@ -1,7 +1,7 @@
 import 'package:isar/isar.dart';
 import 'dart:convert';
 
-part 'eventDB_isar.g.dart';
+part 'event_db_isar.g.dart';
 
 @collection
 class EventDBISAR {

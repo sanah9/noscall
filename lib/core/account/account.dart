@@ -12,11 +12,11 @@ import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
-import 'account+nip46.dart';
-import 'account+profile.dart';
+import 'account_nip46.dart';
+import 'account_profile.dart';
 import 'account_dependencies.dart';
 import 'account_secret_store.dart';
-import 'model/userDB_isar.dart';
+import 'model/user_db_isar.dart';
 import 'relays.dart';
 
 enum NIP46ConnectionStatus {

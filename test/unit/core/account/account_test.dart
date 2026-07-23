@@ -3,7 +3,7 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account_dependencies.dart';
 import 'package:noscall/core/account/account_secret_store.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import '../../../helpers/test_data.dart';
 import '../../../helpers/test_helpers.dart';

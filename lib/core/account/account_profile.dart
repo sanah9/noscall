@@ -6,7 +6,7 @@ import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/core_manager.dart';
 import 'account.dart';
-import 'model/userDB_isar.dart';
+import 'model/user_db_isar.dart';
 import 'relays.dart';
 
 ConnectStatusListenerHandle? _profileReloadListener;

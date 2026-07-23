@@ -5,7 +5,7 @@ import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 
 ConnectStatusListenerHandle? _tempRemoteSignerListener;
 ConnectStatusListenerHandle? _currentRemoteSignerListener;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/call/constant/call_type.dart';

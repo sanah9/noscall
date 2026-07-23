@@ -4,9 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
-import 'package:noscall/core/call/contacts/contacts+calling.dart';
+import 'package:noscall/core/call/contacts/contacts_calling.dart';
 import 'package:noscall/core/call/messages/messages.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 import 'package:noscall/utils/file_upload_manager.dart';
 import 'package:noscall/utils/microphone_permission_service.dart';
@@ -102,8 +102,10 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
     final dir = await getTemporaryDirectory();
     final path =
         '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc),
-        path: path);
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc),
+      path: path,
+    );
     setState(() {
       _isRecording = true;
       _recordSeconds = 0;
@@ -217,7 +219,7 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
 
     final myPubkey = Account.sharedInstance.currentPubkey;
     final tags = <List<String>>[
-      ['p', widget.receiverPubkey]
+      ['p', widget.receiverPubkey],
     ];
     if (widget.replyToMessageId != null &&
         widget.replyToMessageId!.isNotEmpty) {
@@ -274,8 +276,9 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
                   const SizedBox(height: 16),
                   Text(
                     'Microphone access is required',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: colorScheme.onSurface),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
@@ -296,24 +299,27 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
                   Icon(
                     _isRecording ? Icons.stop_circle : Icons.mic,
                     size: 80,
-                    color:
-                        _isRecording ? colorScheme.error : colorScheme.primary,
+                    color: _isRecording
+                        ? colorScheme.error
+                        : colorScheme.primary,
                   ),
                   const SizedBox(height: 24),
                   Text(
                     _isRecording
                         ? 'Tap to stop · ${_recordSeconds.clamp(0, _maxDurationSeconds)}s'
                         : 'Tap to start recording (max $_maxDurationSeconds s)',
-                    style: theme.textTheme.bodyLarge
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
                   FilledButton.icon(
                     onPressed: _toggleRecording,
                     icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                    label:
-                        Text(_isRecording ? 'Stop & send' : 'Start recording'),
+                    label: Text(
+                      _isRecording ? 'Stop & send' : 'Start recording',
+                    ),
                   ),
                 ],
               ],

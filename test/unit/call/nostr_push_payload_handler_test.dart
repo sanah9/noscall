@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noscall/call/nostr_push_payload_handler.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/common/network/event_cache.dart';

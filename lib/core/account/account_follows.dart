@@ -4,7 +4,7 @@ import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 
 extension AccountFollows on Account {
   Future<bool> onFollowingList(String pubkey) async {
@@ -23,8 +23,10 @@ extension AccountFollows on Account {
     return result;
   }
 
-  Future<void> syncFollowingListFromRelay(String pubkey,
-      {String? relay}) async {
+  Future<void> syncFollowingListFromRelay(
+    String pubkey, {
+    String? relay,
+  }) async {
     Completer<void> completer = Completer<void>();
     Filter f = Filter(kinds: [3], authors: [pubkey], limit: 1);
     List<Profile> profiles = [];
@@ -37,23 +39,27 @@ extension AccountFollows on Account {
     } else {
       subscriptions[relay] = [f];
     }
-    Connect.sharedInstance.addSubscriptions(subscriptions,
-        eventCallBack: (event, relay) async {
-          if (event.createdAt > lastTimeStamp) {
-            profiles = Nip2.decode(event);
-            lastTimeStamp = event.createdAt;
+    Connect.sharedInstance.addSubscriptions(
+      subscriptions,
+      eventCallBack: (event, relay) async {
+        if (event.createdAt > lastTimeStamp) {
+          profiles = Nip2.decode(event);
+          lastTimeStamp = event.createdAt;
+        }
+      },
+      eoseCallBack: (requestId, ok, relay, unRelays) async {
+        if (unRelays.isEmpty) {
+          UserDBISAR? user = (pubkey == currentPubkey)
+              ? me
+              : await getUserInfo(pubkey);
+          if (user != null && profiles.isNotEmpty) {
+            user.followingList = profiles.map((e) => e.key).toList();
+            await Account.saveUserToDB(user);
           }
-        }, eoseCallBack: (requestId, ok, relay, unRelays) async {
-          if (unRelays.isEmpty) {
-            UserDBISAR? user =
-            (pubkey == currentPubkey) ? me : await getUserInfo(pubkey);
-            if (user != null && profiles.isNotEmpty) {
-              user.followingList = profiles.map((e) => e.key).toList();
-              await Account.saveUserToDB(user);
-            }
-            if (!completer.isCompleted) completer.complete();
-          }
-        });
+          if (!completer.isCompleted) completer.complete();
+        }
+      },
+    );
     return completer.future;
   }
 
@@ -65,11 +71,14 @@ extension AccountFollows on Account {
       currentPubkey,
       currentPrivkey,
     );
-    Connect.sharedInstance.sendEvent(event, sendCallBack: (ok, relay) {
-      if (!completer.isCompleted) {
-        completer.complete(ok);
-      }
-    });
+    Connect.sharedInstance.sendEvent(
+      event,
+      sendCallBack: (ok, relay) {
+        if (!completer.isCompleted) {
+          completer.complete(ok);
+        }
+      },
+    );
     return completer.future;
   }
 

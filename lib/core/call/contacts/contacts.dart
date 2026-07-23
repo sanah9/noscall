@@ -4,19 +4,19 @@ import 'package:flutter/services.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:nostr_core_dart/nostr.dart';
 
-import 'package:noscall/core/account/model/relayDB_isar.dart';
+import 'package:noscall/core/account/model/relay_db_isar.dart';
 import 'package:noscall/core/account/relays.dart';
 import 'package:noscall/core/common/network/event_cache.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/core/core_manager.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
-import 'package:noscall/core/call/messages/model/messageDB_isar.dart';
+import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/core/call/call_event_policy.dart';
-import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
-import 'package:noscall/core/call/contacts/contacts+calling.dart';
-import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
+import 'package:noscall/core/call/contacts/contacts_blocklist.dart';
+import 'package:noscall/core/call/contacts/contacts_calling.dart';
+import 'package:noscall/core/call/contacts/contacts_isolate_event.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
 import 'package:noscall/call/local_notification_service.dart';
 
@@ -30,7 +30,7 @@ enum CallMessageState {
   reject,
   timeout,
   cancel,
-  inCalling
+  inCalling,
 }
 
 class CallMessage {
@@ -42,8 +42,15 @@ class CallMessage {
   int end;
   String media;
 
-  CallMessage(this.callId, this.sender, this.receiver, this.state, this.start,
-      this.end, this.media);
+  CallMessage(
+    this.callId,
+    this.sender,
+    this.receiver,
+    this.state,
+    this.start,
+    this.end,
+    this.media,
+  );
 }
 
 class Contacts {
@@ -73,14 +80,24 @@ class Contacts {
   Map<String, bool> offlinePrivateMessageFinish = {};
   ConnectStatusListenerHandle? _connectStatusListener;
 
-  void Function(String friend, SignalingState state, String data,
-      String? callId, String? callType)? onCallStateChange;
+  void Function(
+    String friend,
+    SignalingState state,
+    String data,
+    String? callId,
+    String? callType,
+  )?
+  onCallStateChange;
 
   /// Called when an incoming call was missed (disconnect before answer, e.g. timeout/cancel).
   /// Parameters: callId, callerPubkey, media ('audio'|'video'), startTimeMs.
   void Function(
-          String callId, String callerPubkey, String media, int startTimeMs)?
-      onMissedCallFromRelay;
+    String callId,
+    String callerPubkey,
+    String media,
+    int startTimeMs,
+  )?
+  onMissedCallFromRelay;
 
   Future<void> init({ContactUpdatedCallBack? callBack}) async {
     privkey = Account.sharedInstance.currentPrivkey;
@@ -92,8 +109,11 @@ class Contacts {
     };
     // subscript friend requests
     _connectStatusListener?.dispose();
-    _connectStatusListener = Connect.sharedInstance
-        .addConnectStatusListener((relay, status, relayKinds) async {
+    _connectStatusListener = Connect.sharedInstance.addConnectStatusListener((
+      relay,
+      status,
+      relayKinds,
+    ) async {
       if (status == 1 &&
           Account.sharedInstance.me != null &&
           (relayKinds.contains(RelayKind.general) ||
@@ -126,22 +146,33 @@ class Contacts {
   Future<void> _syncContactsToRelay({OKCallBack? okCallBack}) async {
     List<People> friendList = [];
     for (UserDBISAR user in allContacts.values) {
-      People p =
-          People(user.pubKey, user.mainRelay, user.nickName, user.aliasPubkey);
+      People p = People(
+        user.pubKey,
+        user.mainRelay,
+        user.nickName,
+        user.aliasPubkey,
+      );
       friendList.add(p);
     }
     Event event = await Nip51.createCategorizedPeople(
-        identifier, [], friendList, privkey, pubkey);
+      identifier,
+      [],
+      friendList,
+      privkey,
+      pubkey,
+    );
     if (event.content.isNotEmpty) {
-      Connect.sharedInstance.sendEvent(event,
-          sendCallBack: (OKEvent ok, String relay) async {
-        if (ok.status) {
-          Account.sharedInstance.me!.lastFriendsListUpdatedTime =
-              event.createdAt;
-          await _syncContactsToDB(event.content);
-        }
-        okCallBack?.call(ok, relay);
-      });
+      Connect.sharedInstance.sendEvent(
+        event,
+        sendCallBack: (OKEvent ok, String relay) async {
+          if (ok.status) {
+            Account.sharedInstance.me!.lastFriendsListUpdatedTime =
+                event.createdAt;
+            await _syncContactsToDB(event.content);
+          }
+          okCallBack?.call(ok, relay);
+        },
+      );
     } else {
       throw Exception('_syncFriendsToRelay error content!, $friendList');
     }
@@ -151,12 +182,21 @@ class Contacts {
     await _syncContactsProfilesFromDB(peoples);
     List<People> friendList = [];
     for (UserDBISAR user in allContacts.values) {
-      People p =
-          People(user.pubKey, user.mainRelay, user.nickName, user.aliasPubkey);
+      People p = People(
+        user.pubKey,
+        user.mainRelay,
+        user.nickName,
+        user.aliasPubkey,
+      );
       friendList.add(p);
     }
     Event event = await Nip51.createCategorizedPeople(
-        identifier, [], friendList, privkey, pubkey);
+      identifier,
+      [],
+      friendList,
+      privkey,
+      pubkey,
+    );
     if (event.content.isNotEmpty) {
       _syncContactsToDB(event.content);
     } else {
@@ -179,14 +219,17 @@ class Contacts {
     Completer<OKEvent> completer = Completer<OKEvent>();
 
     await Future.forEach(pubkeys, (friendPubkey) async {
-      UserDBISAR? friend =
-          await Account.sharedInstance.getUserInfo(friendPubkey);
+      UserDBISAR? friend = await Account.sharedInstance.getUserInfo(
+        friendPubkey,
+      );
       friend ??= UserDBISAR(pubKey: friendPubkey);
       allContacts[friendPubkey] = friend;
     });
-    _syncContactsToRelay(okCallBack: (OKEvent ok, String relay) {
-      if (!completer.isCompleted) completer.complete(ok);
-    });
+    _syncContactsToRelay(
+      okCallBack: (OKEvent ok, String relay) {
+        if (!completer.isCompleted) completer.complete(ok);
+      },
+    );
     contactUpdatedCallBack?.call();
     return completer.future;
   }
@@ -196,29 +239,37 @@ class Contacts {
 
     UserDBISAR? friend = allContacts.remove(friendPubkey);
     if (friend != null) {
-      _syncContactsToRelay(okCallBack: (OKEvent ok, String relay) {
-        if (!completer.isCompleted) completer.complete(ok);
-      });
+      _syncContactsToRelay(
+        okCallBack: (OKEvent ok, String relay) {
+          if (!completer.isCompleted) completer.complete(ok);
+        },
+      );
       contactUpdatedCallBack?.call();
     }
     return completer.future;
   }
 
   Future<OKEvent> updateContactNickName(
-      String friendPubkey, String nickName) async {
+    String friendPubkey,
+    String nickName,
+  ) async {
     Completer<OKEvent> completer = Completer<OKEvent>();
 
     UserDBISAR? friend = allContacts[friendPubkey];
     if (friend != null) {
       friend.nickName = nickName;
       await Account.saveUserToDB(friend);
-      _syncContactsToRelay(okCallBack: (ok, relay) {
-        if (!completer.isCompleted) completer.complete(ok);
-        if (ok.status) {
-          Account.sharedInstance
-              .updateOrCreateUserNotifier(friend.pubKey, friend);
-        }
-      });
+      _syncContactsToRelay(
+        okCallBack: (ok, relay) {
+          if (!completer.isCompleted) completer.complete(ok);
+          if (ok.status) {
+            Account.sharedInstance.updateOrCreateUserNotifier(
+              friend.pubKey,
+              friend,
+            );
+          }
+        },
+      );
     } else if (!completer.isCompleted) {
       completer.complete(OKEvent(friendPubkey, false, ''));
     }
@@ -229,10 +280,12 @@ class Contacts {
     if (keyword.isNotEmpty) {
       RegExp regex = RegExp(keyword, caseSensitive: false);
       List<UserDBISAR> filteredFriends = allContacts.values
-          .where((person) =>
-              regex.hasMatch(person.name ?? '') ||
-              regex.hasMatch(person.dns ?? '') ||
-              regex.hasMatch(person.nickName ?? ''))
+          .where(
+            (person) =>
+                regex.hasMatch(person.name ?? '') ||
+                regex.hasMatch(person.dns ?? '') ||
+                regex.hasMatch(person.nickName ?? ''),
+          )
           .toList();
       return filteredFriends;
     }
@@ -293,158 +346,192 @@ class Contacts {
 
   Future<void> _subscriptMessages({String? relay}) async {
     if (friendMessageSubscription.isNotEmpty) {
-      await Connect.sharedInstance
-          .closeRequests(friendMessageSubscription, relay: relay);
+      await Connect.sharedInstance.closeRequests(
+        friendMessageSubscription,
+        relay: relay,
+      );
     }
 
     Map<String, List<Filter>> subscriptions = {};
     if (relay == null) {
-      List<String> relays =
-          Connect.sharedInstance.relays(relayKinds: [RelayKind.inbox]);
+      List<String> relays = Connect.sharedInstance.relays(
+        relayKinds: [RelayKind.inbox],
+      );
       relays.addAll(Connect.sharedInstance.relays(relayKinds: [RelayKind.dm]));
       relays.addAll(
-          Connect.sharedInstance.relays(relayKinds: [RelayKind.general]));
+        Connect.sharedInstance.relays(relayKinds: [RelayKind.general]),
+      );
       for (String relayURL in relays) {
-        int friendMessageUntil =
-            Relays.sharedInstance.getCommonMessageUntil(relayURL);
+        int friendMessageUntil = Relays.sharedInstance.getCommonMessageUntil(
+          relayURL,
+        );
 
         /// all messages, contacts & unknown contacts
         Filter f1 = Filter(
-            kinds: [4, 1059, 21059],
-            p: [pubkey],
-            since: friendMessageUntil > offset2
-                ? (friendMessageUntil - offset2 + 1)
-                : 1,
-            limit: maxLimit);
-        Filter f2 = Filter(
-            kinds: [4],
-            authors: [pubkey],
-            since: (friendMessageUntil + 1),
-            limit: maxLimit);
-        subscriptions[relayURL] = [f1, f2];
-      }
-    } else {
-      int friendMessageUntil =
-          Relays.sharedInstance.getCommonMessageUntil(relay);
-
-      /// all messages, contacts & unknown contacts
-      Filter f1 = Filter(
           kinds: [4, 1059, 21059],
           p: [pubkey],
           since: friendMessageUntil > offset2
               ? (friendMessageUntil - offset2 + 1)
               : 1,
-          limit: maxLimit);
-      Filter f2 = Filter(
+          limit: maxLimit,
+        );
+        Filter f2 = Filter(
           kinds: [4],
           authors: [pubkey],
           since: (friendMessageUntil + 1),
-          limit: maxLimit);
+          limit: maxLimit,
+        );
+        subscriptions[relayURL] = [f1, f2];
+      }
+    } else {
+      int friendMessageUntil = Relays.sharedInstance.getCommonMessageUntil(
+        relay,
+      );
+
+      /// all messages, contacts & unknown contacts
+      Filter f1 = Filter(
+        kinds: [4, 1059, 21059],
+        p: [pubkey],
+        since: friendMessageUntil > offset2
+            ? (friendMessageUntil - offset2 + 1)
+            : 1,
+        limit: maxLimit,
+      );
+      Filter f2 = Filter(
+        kinds: [4],
+        authors: [pubkey],
+        since: (friendMessageUntil + 1),
+        limit: maxLimit,
+      );
       subscriptions[relay] = [f1, f2];
     }
-    friendMessageSubscription = Connect.sharedInstance
-        .addSubscriptions(subscriptions, closeSubscription: false,
-            eventCallBack: (event, relay) async {
-      if (!ChatCoreManager().isAcceptedEventKind(event.kind)) return;
-      if (event.kind == 4 || event.kind == 44) {
-        if (EventCache.sharedInstance.cacheIds.contains(event.id)) return;
-        if (inBlockList(event.pubkey)) return;
-        EventCache.sharedInstance.receiveEvent(event, relay);
-        final messageDB =
-            await MessageDBISAR.fromPrivateMessage(event, pubkey, privkey);
-        if (messageDB != null) {
-          await Messages.saveMessageToDB(messageDB);
-          updateFriendMessageTime(event.createdAt, relay);
-          privateChatMessageCallBack?.call(messageDB);
-          if (messageDB.type ==
-              MessageDBISAR.messageTypeToString(MessageType.voice)) {
-            if (messageDB.sender != pubkey) {
-              final sender =
-                  Account.sharedInstance.getUserNotifier(messageDB.sender).value;
-              LocalNotificationService.instance.showVoiceMessage(
-                senderPubkey: messageDB.sender,
-                senderName: sender.displayName(),
-              ).ignore();
-            }
-            VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
-          }
-        }
-        return;
-      }
-      if (event.kind == 1059) {
-        Event? innerEvent = await decodeNip17Event(event);
-        if (innerEvent == null ||
-            EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
-          return;
-        }
-        EventCache.sharedInstance.receiveEvent(innerEvent, relay);
-        if (!inBlockList(innerEvent.pubkey) &&
-            ChatCoreManager().isAcceptedEventKind(innerEvent.kind)) {
-          updateFriendMessageTime(innerEvent.createdAt, relay);
-          switch (innerEvent.kind) {
-            case 4:
-            case 44:
-              final messageDB = await MessageDBISAR.fromPrivateMessage(
-                  innerEvent, pubkey, privkey);
-              if (messageDB != null) {
-                await Messages.saveMessageToDB(messageDB);
-                privateChatMessageCallBack?.call(messageDB);
-                if (messageDB.type ==
-                    MessageDBISAR.messageTypeToString(MessageType.voice)) {
-                  if (messageDB.sender != pubkey) {
-                    final sender = Account.sharedInstance
-                        .getUserNotifier(messageDB.sender)
-                        .value;
-                    LocalNotificationService.instance.showVoiceMessage(
+    friendMessageSubscription = Connect.sharedInstance.addSubscriptions(
+      subscriptions,
+      closeSubscription: false,
+      eventCallBack: (event, relay) async {
+        if (!ChatCoreManager().isAcceptedEventKind(event.kind)) return;
+        if (event.kind == 4 || event.kind == 44) {
+          if (EventCache.sharedInstance.cacheIds.contains(event.id)) return;
+          if (inBlockList(event.pubkey)) return;
+          EventCache.sharedInstance.receiveEvent(event, relay);
+          final messageDB = await MessageDBISAR.fromPrivateMessage(
+            event,
+            pubkey,
+            privkey,
+          );
+          if (messageDB != null) {
+            await Messages.saveMessageToDB(messageDB);
+            updateFriendMessageTime(event.createdAt, relay);
+            privateChatMessageCallBack?.call(messageDB);
+            if (messageDB.type ==
+                MessageDBISAR.messageTypeToString(MessageType.voice)) {
+              if (messageDB.sender != pubkey) {
+                final sender = Account.sharedInstance
+                    .getUserNotifier(messageDB.sender)
+                    .value;
+                LocalNotificationService.instance
+                    .showVoiceMessage(
                       senderPubkey: messageDB.sender,
                       senderName: sender.displayName(),
-                    ).ignore();
-                  }
-                  VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
-                }
+                    )
+                    .ignore();
               }
-              break;
-            default:
-              LogUtils.v(
-                  () => 'contacts unhandled message ${innerEvent.toJson()}');
-              break;
+              VoiceCacheManager.instance.getOrDownload(messageDB).ignore();
+            }
+          }
+          return;
+        }
+        if (event.kind == 1059) {
+          Event? innerEvent = await decodeNip17Event(event);
+          if (innerEvent == null ||
+              EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
+            return;
+          }
+          EventCache.sharedInstance.receiveEvent(innerEvent, relay);
+          if (!inBlockList(innerEvent.pubkey) &&
+              ChatCoreManager().isAcceptedEventKind(innerEvent.kind)) {
+            updateFriendMessageTime(innerEvent.createdAt, relay);
+            switch (innerEvent.kind) {
+              case 4:
+              case 44:
+                final messageDB = await MessageDBISAR.fromPrivateMessage(
+                  innerEvent,
+                  pubkey,
+                  privkey,
+                );
+                if (messageDB != null) {
+                  await Messages.saveMessageToDB(messageDB);
+                  privateChatMessageCallBack?.call(messageDB);
+                  if (messageDB.type ==
+                      MessageDBISAR.messageTypeToString(MessageType.voice)) {
+                    if (messageDB.sender != pubkey) {
+                      final sender = Account.sharedInstance
+                          .getUserNotifier(messageDB.sender)
+                          .value;
+                      LocalNotificationService.instance
+                          .showVoiceMessage(
+                            senderPubkey: messageDB.sender,
+                            senderName: sender.displayName(),
+                          )
+                          .ignore();
+                    }
+                    VoiceCacheManager.instance
+                        .getOrDownload(messageDB)
+                        .ignore();
+                  }
+                }
+                break;
+              default:
+                LogUtils.v(
+                  () => 'contacts unhandled message ${innerEvent.toJson()}',
+                );
+                break;
+            }
           }
         }
-      }
-      if (event.kind == 21059) {
-        Event? innerEvent = await decodeNipAcWrapEvent(event);
-        if (innerEvent == null) {
-          LogUtils.v(() => 'Drop call event: unwrap failed, outer=${event.id}');
-          return;
+        if (event.kind == 21059) {
+          Event? innerEvent = await decodeNipAcWrapEvent(event);
+          if (innerEvent == null) {
+            LogUtils.v(
+              () => 'Drop call event: unwrap failed, outer=${event.id}',
+            );
+            return;
+          }
+          if (EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
+            LogUtils.v(
+              () => 'Drop call event: duplicate inner=${innerEvent.id}',
+            );
+            return;
+          }
+          if (_isCallEventStale(innerEvent)) {
+            LogUtils.v(
+              () =>
+                  'Drop call event: stale inner=${innerEvent.id}, createdAt=${innerEvent.createdAt}',
+            );
+            return;
+          }
+          if (!_isFollowedCaller(innerEvent.pubkey)) {
+            LogUtils.v(
+              () => 'Drop call event: not-followed caller=${innerEvent.pubkey}',
+            );
+            return;
+          }
+          EventCache.sharedInstance.receiveEvent(innerEvent, relay);
+          if (!inBlockList(innerEvent.pubkey) &&
+              innerEvent.kind >= 25050 &&
+              innerEvent.kind <= 25054) {
+            updateFriendMessageTime(innerEvent.createdAt, relay);
+            handleCallEvent(innerEvent, relay);
+          }
         }
-        if (EventCache.sharedInstance.cacheIds.contains(innerEvent.id)) {
-          LogUtils.v(() => 'Drop call event: duplicate inner=${innerEvent.id}');
-          return;
+      },
+      eoseCallBack: (requestId, ok, relay, unCompletedRelays) {
+        offlinePrivateMessageFinish[relay] = true;
+        if (ok.status) {
+          updateFriendMessageTime(currentUnixTimestampSeconds() - 1, relay);
         }
-        if (_isCallEventStale(innerEvent)) {
-          LogUtils.v(() =>
-              'Drop call event: stale inner=${innerEvent.id}, createdAt=${innerEvent.createdAt}');
-          return;
-        }
-        if (!_isFollowedCaller(innerEvent.pubkey)) {
-          LogUtils.v(() =>
-              'Drop call event: not-followed caller=${innerEvent.pubkey}');
-          return;
-        }
-        EventCache.sharedInstance.receiveEvent(innerEvent, relay);
-        if (!inBlockList(innerEvent.pubkey) &&
-            innerEvent.kind >= 25050 &&
-            innerEvent.kind <= 25054) {
-          updateFriendMessageTime(innerEvent.createdAt, relay);
-          handleCallEvent(innerEvent, relay);
-        }
-      }
-    }, eoseCallBack: (requestId, ok, relay, unCompletedRelays) {
-      offlinePrivateMessageFinish[relay] = true;
-      if (ok.status) {
-        updateFriendMessageTime(currentUnixTimestampSeconds() - 1, relay);
-      }
-    });
+      },
+    );
   }
 
   Future<bool> connectUserDMRelays(String pubkey) async {
@@ -458,8 +545,10 @@ class Contacts {
         return true;
       }
     }
-    await Connect.sharedInstance
-        .connectRelays(relays, relayKind: RelayKind.temp);
+    await Connect.sharedInstance.connectRelays(
+      relays,
+      relayKind: RelayKind.temp,
+    );
     for (var relay in relays) {
       int? status = Connect.sharedInstance.webSockets[relay]?.connectStatus;
       if (status == 1 || status == 0) return true;
@@ -492,9 +581,10 @@ class Contacts {
       Relays.sharedInstance.setCommonMessageUntil(eventTime, relay);
     } else {
       Relays.sharedInstance.relays[relay] = RelayDBISAR(
-          url: relay,
-          commonMessagesUntil: eventTime,
-          commonMessagesSince: eventTime);
+        url: relay,
+        commonMessagesUntil: eventTime,
+        commonMessagesSince: eventTime,
+      );
     }
     if (offlinePrivateMessageFinish[relay] == true) {
       Relays.sharedInstance.syncRelaysToDB(r: relay);

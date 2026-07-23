@@ -4,7 +4,7 @@ import 'package:isar/isar.dart';
 
 import 'package:noscall/core/account/account.dart';
 
-part 'userDB_isar.g.dart';
+part 'user_db_isar.g.dart';
 
 extension UserDBISARExtensions on UserDBISAR {
   UserDBISAR withGrowableLevels() => this

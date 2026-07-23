@@ -3,7 +3,7 @@ import 'package:nostr_core_dart/nostr.dart';
 
 import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
-import 'eventDB_isar.dart';
+import 'event_db_isar.dart';
 
 class EventCache {
   /// singleton

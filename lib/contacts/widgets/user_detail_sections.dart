@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/contacts/user_avatar.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 
 import '../services/contact_remark_service.dart';
 

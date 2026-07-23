@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/auth/auth_service_dependencies.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/config/call_core_init_config.dart';
 
 class FakeAuthPreferencesStore implements AuthPreferencesStore {

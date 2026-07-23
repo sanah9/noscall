@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+relay.dart';
+import 'package:noscall/core/account/account_relay.dart';
 import 'package:noscall/core/account/account_dependencies.dart';
 import 'package:noscall/core/account/account_relay_dependencies.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../helpers/test_data.dart';
@@ -100,9 +100,7 @@ void main() {
       Account.setTestDependencies(persistence: persistence);
       setAccountRelayRuntimeForTest(relayRuntime);
 
-      account.me = TestHelpers.createTestUser(
-        pubKey: keychain.public,
-      );
+      account.me = TestHelpers.createTestUser(pubKey: keychain.public);
       account.currentPubkey = keychain.public;
       account.currentPrivkey = keychain.private;
       account.me!.relayList = [];
@@ -247,19 +245,21 @@ void main() {
     });
 
     group('DM relay management', () {
-      test('setDMRelayListToRelay updates list and sends encoded event',
-          () async {
-        final relays = [TestData.validRelayUrl];
+      test(
+        'setDMRelayListToRelay updates list and sends encoded event',
+        () async {
+          final relays = [TestData.validRelayUrl];
 
-        final result = await account.setDMRelayListToRelay(relays);
+          final result = await account.setDMRelayListToRelay(relays);
 
-        expect(result.status, isTrue);
-        expect(account.me?.dmRelayList, relays);
-        expect(account.me?.lastDMRelayListUpdatedTime, greaterThan(0));
-        expect(relayRuntime.connectDMRelaysCalls, 1);
-        expect(relayRuntime.sentEvents, hasLength(1));
-        expect(relayRuntime.sentEvents.single.pubkey, account.currentPubkey);
-      });
+          expect(result.status, isTrue);
+          expect(account.me?.dmRelayList, relays);
+          expect(account.me?.lastDMRelayListUpdatedTime, greaterThan(0));
+          expect(relayRuntime.connectDMRelaysCalls, 1);
+          expect(relayRuntime.sentEvents, hasLength(1));
+          expect(relayRuntime.sentEvents.single.pubkey, account.currentPubkey);
+        },
+      );
 
       test('addDMRelay connects relay and updates the DM list', () async {
         const relay = TestData.validRelayUrl;
@@ -308,18 +308,20 @@ void main() {
         expect(relayRuntime.sentEvents, hasLength(1));
       });
 
-      test('removeInboxRelay closes inbox relay and resends relay list',
-          () async {
-        const relay = TestData.validRelayUrl;
-        account.me!.inboxRelayList = [relay];
+      test(
+        'removeInboxRelay closes inbox relay and resends relay list',
+        () async {
+          const relay = TestData.validRelayUrl;
+          account.me!.inboxRelayList = [relay];
 
-        final result = await account.removeInboxRelay(relay);
+          final result = await account.removeInboxRelay(relay);
 
-        expect(result.status, isTrue);
-        expect(account.me?.inboxRelayList, isEmpty);
-        expect(relayRuntime.closedRelays, ['$relay|inbox']);
-        expect(relayRuntime.sentEvents, hasLength(1));
-      });
+          expect(result.status, isTrue);
+          expect(account.me?.inboxRelayList, isEmpty);
+          expect(relayRuntime.closedRelays, ['$relay|inbox']);
+          expect(relayRuntime.sentEvents, hasLength(1));
+        },
+      );
     });
 
     group('Runtime passthrough', () {
