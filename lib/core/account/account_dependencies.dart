@@ -1,5 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
 
 abstract class AccountPersistence {

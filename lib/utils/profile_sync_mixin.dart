@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+profile.dart';
+import 'package:noscall/core/account/account_profile.dart';
 import 'package:noscall/core/common/network/connect.dart';
 
 /// Mixin that syncs profile once when general relay connects.
@@ -17,7 +17,11 @@ mixin ProfileSyncOnConnectMixin<T extends StatefulWidget> on State<T> {
     Connect.sharedInstance.removeConnectStatusListener(_onConnectStatusChanged);
   }
 
-  void _onConnectStatusChanged(String relay, int status, List<RelayKind> relayKinds) {
+  void _onConnectStatusChanged(
+    String relay,
+    int status,
+    List<RelayKind> relayKinds,
+  ) {
     if (status == 1 && relayKinds.contains(RelayKind.general)) {
       _syncProfileIfNeeded();
     }
@@ -26,7 +30,9 @@ mixin ProfileSyncOnConnectMixin<T extends StatefulWidget> on State<T> {
   Future<void> _syncProfileIfNeeded() async {
     if (_profileSynced) return;
 
-    final connectedRelays = Connect.sharedInstance.relays(relayKinds: [RelayKind.general]);
+    final connectedRelays = Connect.sharedInstance.relays(
+      relayKinds: [RelayKind.general],
+    );
     if (connectedRelays.isEmpty) return;
 
     final me = Account.sharedInstance.me;

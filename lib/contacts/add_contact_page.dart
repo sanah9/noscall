@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+profile.dart';
+import 'package:noscall/core/account/account_profile.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/utils/search_field_mixin.dart';
 
@@ -92,10 +92,9 @@ class _AddContactPageState extends State<AddContactPage>
 
       final suggestions = users.whereType<UserDBISAR>().toList()
         ..sort(
-          (a, b) => a
-              .displayName()
-              .toLowerCase()
-              .compareTo(b.displayName().toLowerCase()),
+          (a, b) => a.displayName().toLowerCase().compareTo(
+            b.displayName().toLowerCase(),
+          ),
         );
 
       _followerSuggestions.addAll(suggestions);
@@ -119,9 +118,7 @@ class _AddContactPageState extends State<AddContactPage>
         child: Column(
           children: [
             _buildSearchSection(context),
-            Expanded(
-              child: _buildMainContent(context),
-            ),
+            Expanded(child: _buildMainContent(context)),
           ],
         ),
       ),
@@ -137,10 +134,7 @@ class _AddContactPageState extends State<AddContactPage>
       duration: const Duration(milliseconds: 250),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
-      child: KeyedSubtree(
-        key: ValueKey<bool>(_isSearchMode),
-        child: child,
-      ),
+      child: KeyedSubtree(key: ValueKey<bool>(_isSearchMode), child: child),
     );
   }
 
@@ -175,15 +169,9 @@ class _AddContactPageState extends State<AddContactPage>
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 50,
-            child: _buildSearchInputRow(context),
-          ),
+          SizedBox(height: 50, child: _buildSearchInputRow(context)),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 50,
-            child: _buildSearchButton(),
-          ),
+          SizedBox(height: 50, child: _buildSearchButton()),
         ],
       ),
     );
@@ -192,9 +180,7 @@ class _AddContactPageState extends State<AddContactPage>
   Widget _buildSearchInputRow(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: _buildSearchTextField(),
-        ),
+        Expanded(child: _buildSearchTextField()),
         const SizedBox(width: 12),
         _buildScanButton(),
       ],
@@ -209,40 +195,25 @@ class _AddContactPageState extends State<AddContactPage>
       decoration: InputDecoration(
         hintText:
             'Enter npub (e.g., npub1abc...) or DNS (e.g., user@domain.com)',
-        hintStyle: TextStyle(
-          color: onSurfaceVariant,
-        ),
-        prefixIcon: Icon(
-          Icons.search,
-          color: onSurfaceVariant,
-        ),
+        hintStyle: TextStyle(color: onSurfaceVariant),
+        prefixIcon: Icon(Icons.search, color: onSurfaceVariant),
         suffixIcon: searchQuery.isNotEmpty
             ? IconButton(
-                icon: Icon(
-                  Icons.clear,
-                  color: onSurfaceVariant,
-                ),
+                icon: Icon(Icons.clear, color: onSurfaceVariant),
                 onPressed: _clearSearch,
               )
             : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: outline,
-          ),
+          borderSide: BorderSide(color: outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: outline,
-          ),
+          borderSide: BorderSide(color: outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: primary,
-            width: 2,
-          ),
+          borderSide: BorderSide(color: primary, width: 2),
         ),
       ),
       onSubmitted: (value) {
@@ -257,16 +228,11 @@ class _AddContactPageState extends State<AddContactPage>
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: outline,
-        ),
+        border: Border.all(color: outline),
       ),
       child: IconButton(
         onPressed: () => _navigateToScanPage(),
-        icon: Icon(
-          Icons.qr_code_scanner,
-          color: onSurface,
-        ),
+        icon: Icon(Icons.qr_code_scanner, color: onSurface),
         tooltip: 'Scan QR Code',
       ),
     );
@@ -279,9 +245,7 @@ class _AddContactPageState extends State<AddContactPage>
         backgroundColor: primary,
         foregroundColor: onPrimary,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       child: _isSearching
           ? SizedBox(
@@ -289,9 +253,7 @@ class _AddContactPageState extends State<AddContactPage>
               height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  onPrimary,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(onPrimary),
               ),
             )
           : const Text('Search'),
@@ -336,9 +298,7 @@ class _AddContactPageState extends State<AddContactPage>
             ),
           ),
         ),
-        Expanded(
-          child: _buildResultsList(context, _followerSuggestions),
-        ),
+        Expanded(child: _buildResultsList(context, _followerSuggestions)),
       ],
     );
   }
@@ -348,11 +308,7 @@ class _AddContactPageState extends State<AddContactPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.search,
-            size: 64,
-            color: onSurfaceVariant,
-          ),
+          Icon(Icons.search, size: 64, color: onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             'Search for users by npub or DNS',
@@ -379,11 +335,7 @@ class _AddContactPageState extends State<AddContactPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.people_outline,
-              size: 64,
-              color: onSurfaceVariant,
-            ),
+            Icon(Icons.people_outline, size: 64, color: onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
               'No followers to suggest',
@@ -443,12 +395,14 @@ class _AddContactPageState extends State<AddContactPage>
         _dismissKeyboard();
 
         final pubkey = user.pubKey;
-        await AppNavigatorScope.requireOf(context)
-            .pushUserDetail(context, pubkey);
+        await AppNavigatorScope.requireOf(
+          context,
+        ).pushUserDetail(context, pubkey);
         if (!mounted) return;
 
-        final isContact =
-            Contacts.sharedInstance.allContacts.containsKey(pubkey);
+        final isContact = Contacts.sharedInstance.allContacts.containsKey(
+          pubkey,
+        );
         if (isContact) {
           _followerSuggestions.remove(user);
         }
@@ -495,7 +449,8 @@ class _AddContactPageState extends State<AddContactPage>
       if (isPubkeyFormat) {
         pubkey = UserDBISAR.decodePubkey(query) ?? '';
       } else if (isDnsFormat) {
-        pubkey = await Account.getDNSPubkey(
+        pubkey =
+            await Account.getDNSPubkey(
               query.substring(0, query.indexOf('@')),
               query.substring(query.indexOf('@') + 1),
             ) ??
@@ -521,13 +476,14 @@ class _AddContactPageState extends State<AddContactPage>
       }
 
       // Search user profile from relay with 15s timeout
-      final user =
-          await Account.sharedInstance.reloadProfileFromRelay(pubkey).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () {
-          throw Exception('Search timeout');
-        },
-      );
+      final user = await Account.sharedInstance
+          .reloadProfileFromRelay(pubkey)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw Exception('Search timeout');
+            },
+          );
       if (!mounted) return;
 
       setState(() {

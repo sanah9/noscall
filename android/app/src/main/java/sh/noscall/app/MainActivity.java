@@ -33,6 +33,8 @@ public class MainActivity extends FlutterFragmentActivity {
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
                 .setMethodCallHandler(new NativeMethodHandler());
 
+        AccountSecretStore.register(this, flutterEngine);
+
         new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), PIP_CHANNEL)
                 .setMethodCallHandler((call, result) -> {
                     switch (call.method) {

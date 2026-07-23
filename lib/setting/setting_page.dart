@@ -11,7 +11,7 @@ import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/setting/widgets/setting_section_widgets.dart';
 import 'package:nostr_core_dart/nostr.dart';
 

@@ -1,20 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:noscall/core/call/contacts/contacts+isolateEvent.dart';
+import 'package:noscall/core/call/contacts/contacts_isolate_event.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:isar/isar.dart';
 
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 
-part 'messageDB_isar.g.dart';
+part 'message_db_isar.g.dart';
 
-enum MessageType {
-  unknown,
-  call,
-  voice,
-}
+enum MessageType { unknown, call, voice }
 
 extension MessageDBISARExtensions on MessageDBISAR {
   MessageDBISAR withGrowableLevels() => this
@@ -52,7 +48,7 @@ class MessageDBISAR {
 
   /// add type
   int?
-      chatType; // 0 private chat 1 group chat 2 channel chat 3 secret chat 4 relay group chat 5 ble channel chat 6 ble private chat
+  chatType; // 0 private chat 1 group chat 2 channel chat 3 secret chat 4 relay group chat 5 ble channel chat 6 ble private chat
   String? subType; // subtype of template/system type
 
   /// add previewData
@@ -126,31 +122,31 @@ class MessageDBISAR {
     List<String>? zapEventIds,
   }) {
     return MessageDBISAR(
-      messageId: messageId ?? this.messageId,
-      sender: sender ?? this.sender,
-      receiver: receiver ?? this.receiver,
-      groupId: groupId ?? this.groupId,
-      sessionId: sessionId ?? this.sessionId,
-      kind: kind ?? this.kind,
-      tags: tags ?? this.tags,
-      content: content ?? this.content,
-      createTime: createTime ?? this.createTime,
-      read: read ?? this.read,
-      replyId: replyId ?? this.replyId,
-      decryptContent: decryptContent ?? this.decryptContent,
-      type: type ?? this.type,
-      status: status ?? this.status,
-      plaintEvent: plaintEvent ?? this.plaintEvent,
-      chatType: chatType ?? this.chatType,
-      subType: subType ?? this.subType,
-      previewData: previewData ?? this.previewData,
-      expiration: expiration ?? this.expiration,
-      decryptSecret: decryptSecret ?? this.decryptSecret,
-      decryptNonce: decryptNonce ?? this.decryptNonce,
-      decryptAlgo: decryptAlgo ?? this.decryptAlgo,
-      reactionEventIds: reactionEventIds ?? this.reactionEventIds,
-      zapEventIds: zapEventIds ?? this.zapEventIds,
-    )
+        messageId: messageId ?? this.messageId,
+        sender: sender ?? this.sender,
+        receiver: receiver ?? this.receiver,
+        groupId: groupId ?? this.groupId,
+        sessionId: sessionId ?? this.sessionId,
+        kind: kind ?? this.kind,
+        tags: tags ?? this.tags,
+        content: content ?? this.content,
+        createTime: createTime ?? this.createTime,
+        read: read ?? this.read,
+        replyId: replyId ?? this.replyId,
+        decryptContent: decryptContent ?? this.decryptContent,
+        type: type ?? this.type,
+        status: status ?? this.status,
+        plaintEvent: plaintEvent ?? this.plaintEvent,
+        chatType: chatType ?? this.chatType,
+        subType: subType ?? this.subType,
+        previewData: previewData ?? this.previewData,
+        expiration: expiration ?? this.expiration,
+        decryptSecret: decryptSecret ?? this.decryptSecret,
+        decryptNonce: decryptNonce ?? this.decryptNonce,
+        decryptAlgo: decryptAlgo ?? this.decryptAlgo,
+        reactionEventIds: reactionEventIds ?? this.reactionEventIds,
+        zapEventIds: zapEventIds ?? this.zapEventIds,
+      )
       ..id = id ?? this.id
       ..reportList = reportList ?? this.reportList;
   }
@@ -196,13 +192,15 @@ class MessageDBISAR {
   }
 
   static Future<Map<String, dynamic>> decodeContent(String content) async {
-    var result = await ThreadPoolManager.sharedInstance
-        .runOtherTask(() => _decodeContentInIsolate(content));
+    var result = await ThreadPoolManager.sharedInstance.runOtherTask(
+      () => _decodeContentInIsolate(content),
+    );
     return result;
   }
 
   static Future<Map<String, dynamic>> _decodeContentInIsolate(
-      String content) async {
+    String content,
+  ) async {
     content = content.trim();
     try {
       Map<String, dynamic> map = jsonDecode(content) as Map<String, dynamic>;
@@ -222,7 +220,7 @@ class MessageDBISAR {
     } catch (e) {
       return {
         'contentType': messageTypeToString(MessageType.unknown),
-        'content': content
+        'content': content,
       };
     }
   }
@@ -248,8 +246,10 @@ class MessageDBISAR {
   static String? getSubContent(MessageType type, String content) {
     switch (type) {
       case MessageType.call:
-        return jsonEncode(
-            {'contentType': messageTypeToString(type), 'content': content});
+        return jsonEncode({
+          'contentType': messageTypeToString(type),
+          'content': content,
+        });
       case MessageType.voice:
         return content;
       default:
@@ -291,37 +291,50 @@ class MessageDBISAR {
   }
 
   static Future<MessageDBISAR?> fromPrivateMessage(
-      Event event, String receiver, String privkey,
-      {int chatType = 0}) async {
+    Event event,
+    String receiver,
+    String privkey, {
+    int chatType = 0,
+  }) async {
     EDMessage? message;
     if (event.kind == 44) {
-      message = await Contacts.sharedInstance
-          .decodeNip44Event(event, receiver, privkey);
+      message = await Contacts.sharedInstance.decodeNip44Event(
+        event,
+        receiver,
+        privkey,
+      );
     } else if (event.kind == 4) {
-      message = await Contacts.sharedInstance
-          .decodeNip4Event(event, receiver, privkey);
+      message = await Contacts.sharedInstance.decodeNip4Event(
+        event,
+        receiver,
+        privkey,
+      );
     } else if (event.kind == 14 || event.kind == 15) {
-      message =
-          await Contacts.sharedInstance.decodeKind14Event(event, receiver);
+      message = await Contacts.sharedInstance.decodeKind14Event(
+        event,
+        receiver,
+      );
     }
     if (message == null) return null;
     MessageDBISAR messageDB = MessageDBISAR(
-        messageId: event.id,
-        sender: message.sender,
-        receiver: message.receiver,
-        groupId: message.groupId ?? '',
-        kind: event.kind,
-        tags: jsonEncode(event.tags),
-        content: message.content,
-        createTime: event.createdAt,
-        replyId: message.replyId,
-        plaintEvent: jsonEncode(event),
-        chatType: chatType,
-        expiration:
-            message.expiration == null ? null : int.parse(message.expiration!),
-        decryptAlgo: message.algorithm,
-        decryptNonce: message.nonce,
-        decryptSecret: message.secret);
+      messageId: event.id,
+      sender: message.sender,
+      receiver: message.receiver,
+      groupId: message.groupId ?? '',
+      kind: event.kind,
+      tags: jsonEncode(event.tags),
+      content: message.content,
+      createTime: event.createdAt,
+      replyId: message.replyId,
+      plaintEvent: jsonEncode(event),
+      chatType: chatType,
+      expiration: message.expiration == null
+          ? null
+          : int.parse(message.expiration!),
+      decryptAlgo: message.algorithm,
+      decryptNonce: message.nonce,
+      decryptSecret: message.secret,
+    );
     var map = await decodeContent(message.content);
     messageDB.decryptContent = map['content'];
     messageDB.type = map['contentType'];
@@ -365,8 +378,9 @@ MessageDBISAR _messageInfoFromMap(Map<String, dynamic> map) {
     previewData: map['previewData']?.toString(),
     expiration: map['expiration'],
     decryptSecret: map['decryptSecret']?.toString(),
-    reactionEventIds:
-        UserDBISAR.decodeStringList(map['reactionEventIds'].toString()),
+    reactionEventIds: UserDBISAR.decodeStringList(
+      map['reactionEventIds'].toString(),
+    ),
     zapEventIds: UserDBISAR.decodeStringList(map['zapEventIds'].toString()),
   );
 }

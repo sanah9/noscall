@@ -6,19 +6,16 @@ import 'services/contact_navigation_service.dart';
 import 'services/contact_group_service.dart';
 
 class ContactNavigator extends StatefulWidget {
-  const ContactNavigator({
-    super.key,
-    this.favoritesOnlyRoot = false,
-  });
+  const ContactNavigator({super.key, this.favoritesOnlyRoot = false});
 
   /// When true, shows a single [ContactsPage] with favorites filter (mobile Favorites tab).
   final bool favoritesOnlyRoot;
 
   @override
-  State<ContactNavigator> createState() => _ContactNavigatorState();
+  State<ContactNavigator> createState() => ContactNavigatorState();
 }
 
-class _ContactNavigatorState extends State<ContactNavigator> {
+class ContactNavigatorState extends State<ContactNavigator> {
   List<Page> _pages = [];
   late Future _initialize;
 
@@ -43,21 +40,13 @@ class _ContactNavigatorState extends State<ContactNavigator> {
 
     final navService = ContactNavigationService.sharedInstance;
     final groupId = await navService.getLastGroupId();
-    _pages = [
-      const MaterialPage(
-        child: ContactGroupListPage(),
-      ),
-    ];
+    _pages = [const MaterialPage(child: ContactGroupListPage())];
 
     Widget page = const ContactsPage();
     if (groupId != null) {
       page = await _getGroupPage(groupId) ?? page;
     }
-    _pages.add(
-      MaterialPage(
-        child: page,
-      ),
-    );
+    _pages.add(MaterialPage(child: page));
   }
 
   Future<Widget?> _getGroupPage(int groupId) async {
@@ -69,10 +58,7 @@ class _ContactNavigatorState extends State<ContactNavigator> {
         orElse: () => throw Exception('Group not found'),
       );
 
-      return GroupContactsPage(
-        groupId: groupId,
-        groupName: group.name,
-      );
+      return GroupContactsPage(groupId: groupId, groupName: group.name);
     } catch (e) {
       ContactNavigationService.sharedInstance.clearLastGroupId();
     }
@@ -84,13 +70,7 @@ class _ContactNavigatorState extends State<ContactNavigator> {
     if (!mounted) return;
     final pageKey = ValueKey(key);
     setState(() {
-      _pages = [
-        ..._pages,
-        MaterialPage(
-          key: pageKey,
-          child: page,
-        ),
-      ];
+      _pages = [..._pages, MaterialPage(key: pageKey, child: page)];
     });
   }
 
@@ -119,10 +99,7 @@ class _ContactNavigatorState extends State<ContactNavigator> {
         }
         return ContactNavigatorProvider(
           state: this,
-          child: Navigator(
-            pages: _pages,
-            onDidRemovePage: _onDidRemovePage,
-          ),
+          child: Navigator(pages: _pages, onDidRemovePage: _onDidRemovePage),
         );
       },
     );
@@ -131,7 +108,7 @@ class _ContactNavigatorState extends State<ContactNavigator> {
 
 /// Provider for accessing ContactNavigator state
 class ContactNavigatorProvider extends InheritedWidget {
-  final _ContactNavigatorState state;
+  final ContactNavigatorState state;
 
   const ContactNavigatorProvider({
     super.key,
@@ -139,9 +116,9 @@ class ContactNavigatorProvider extends InheritedWidget {
     required super.child,
   });
 
-  static _ContactNavigatorState? of(BuildContext context) {
-    final provider =
-        context.dependOnInheritedWidgetOfExactType<ContactNavigatorProvider>();
+  static ContactNavigatorState? of(BuildContext context) {
+    final provider = context
+        .dependOnInheritedWidgetOfExactType<ContactNavigatorProvider>();
     return provider?.state;
   }
 

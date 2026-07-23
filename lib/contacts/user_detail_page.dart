@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
-import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
+import 'package:noscall/core/call/contacts/contacts_blocklist.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+profile.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/account_profile.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
@@ -21,11 +21,7 @@ class UserDetailPage extends StatefulWidget {
   final String pubkey;
   final List<CallEntry>? callHistory;
 
-  const UserDetailPage({
-    super.key,
-    required this.pubkey,
-    this.callHistory,
-  });
+  const UserDetailPage({super.key, required this.pubkey, this.callHistory});
 
   @override
   State<UserDetailPage> createState() => _UserDetailPageState();
@@ -58,9 +54,11 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void _initializeData() {
     user = Account.sharedInstance.getUserNotifier(widget.pubkey);
     isContact = ValueNotifier(
-        Contacts.sharedInstance.allContacts.containsKey(widget.pubkey));
-    isBlocked =
-        ValueNotifier(Contacts.sharedInstance.inBlockList(widget.pubkey));
+      Contacts.sharedInstance.allContacts.containsKey(widget.pubkey),
+    );
+    isBlocked = ValueNotifier(
+      Contacts.sharedInstance.inBlockList(widget.pubkey),
+    );
     isLoading = ValueNotifier(false);
     isUpdatingFromRemote = ValueNotifier(false);
   }
@@ -134,8 +132,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
   }
 
   void _sendVoiceMessage() {
-    AppNavigatorScope.requireOf(context)
-        .pushSendVoiceMessage(context, widget.pubkey);
+    AppNavigatorScope.requireOf(
+      context,
+    ).pushSendVoiceMessage(context, widget.pubkey);
   }
 
   Widget _buildCallHistorySection() {
@@ -178,10 +177,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
           child: ValueListenableBuilder<bool>(
             valueListenable: isLoading,
             builder: (context, isLoadingValue, child) {
-              final title =
-                  isContactValue ? 'Remove from Contacts' : 'Add to Contacts';
-              final icon =
-                  isContactValue ? Icons.person_remove : Icons.person_add;
+              final title = isContactValue
+                  ? 'Remove from Contacts'
+                  : 'Add to Contacts';
+              final icon = isContactValue
+                  ? Icons.person_remove
+                  : Icons.person_add;
               final onTap = isContactValue ? _removeContact : _addContact;
 
               return Column(
@@ -239,8 +240,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
           return ValueListenableBuilder<bool>(
             valueListenable: isLoading,
             builder: (context, isLoadingValue, child) {
-              final title =
-                  isBlockedValue ? 'Unblock Contact' : 'Block Contact';
+              final title = isBlockedValue
+                  ? 'Unblock Contact'
+                  : 'Block Contact';
               return _buildSectionTile(
                 title: title,
                 icon: Icons.block,
@@ -260,10 +262,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       decoration: _buildBlurBackgroundDecoration(),
       child: ClipRRect(
         borderRadius: sectionRadius,
-        child: Material(
-          color: Colors.transparent,
-          child: child,
-        ),
+        child: Material(color: Colors.transparent, child: child),
       ),
     );
   }
@@ -272,10 +271,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
     return BoxDecoration(
       color: primaryContainer,
       borderRadius: sectionRadius,
-      border: Border.all(
-        color: borderColor,
-        width: 0.5,
-      ),
+      border: Border.all(color: borderColor, width: 0.5),
     );
   }
 
@@ -344,17 +340,23 @@ class _UserDetailPageState extends State<UserDetailPage> {
       return;
     }
 
-    context.push('/edit-nickname', extra: {
-      'pubkey': widget.pubkey,
-      'currentNickname': userData.nickName ?? '',
-    });
+    context.push(
+      '/edit-nickname',
+      extra: {
+        'pubkey': widget.pubkey,
+        'currentNickname': userData.nickName ?? '',
+      },
+    );
   }
 
   void _editRemark(UserDBISAR userData) {
-    context.push('/edit-remark', extra: {
-      'pubkey': widget.pubkey,
-      'currentRemark': ContactRemarkService().getRemark(widget.pubkey) ?? '',
-    });
+    context.push(
+      '/edit-remark',
+      extra: {
+        'pubkey': widget.pubkey,
+        'currentRemark': ContactRemarkService().getRemark(widget.pubkey) ?? '',
+      },
+    );
   }
 
   String _formatCallTime(DateTime startTime) {
@@ -405,8 +407,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
   void _addContact() async {
     await _handleAsyncOperation(
       operation: () async {
-        final result =
-            await Contacts.sharedInstance.addToContact([widget.pubkey]);
+        final result = await Contacts.sharedInstance.addToContact([
+          widget.pubkey,
+        ]);
         if (result.status) {
           isContact.value = true;
         } else {
@@ -424,8 +427,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
     await _handleAsyncOperation(
       operation: () async {
-        final result =
-            await Contacts.sharedInstance.removeContact(widget.pubkey);
+        final result = await Contacts.sharedInstance.removeContact(
+          widget.pubkey,
+        );
         if (result.status) {
           isContact.value = false;
         } else {
@@ -443,7 +447,8 @@ class _UserDetailPageState extends State<UserDetailPage> {
       builder: (context) => AlertDialog(
         title: const Text('Remove Contact'),
         content: const Text(
-            'Are you sure you want to remove this contact from your contacts list?'),
+          'Are you sure you want to remove this contact from your contacts list?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -466,16 +471,18 @@ class _UserDetailPageState extends State<UserDetailPage> {
     await _handleAsyncOperation(
       operation: () async {
         if (isBlocked.value) {
-          final result =
-              await Contacts.sharedInstance.removeBlockList([widget.pubkey]);
+          final result = await Contacts.sharedInstance.removeBlockList([
+            widget.pubkey,
+          ]);
           if (result.status) {
             isBlocked.value = false;
           } else {
             throw Exception('Failed to unblock contact');
           }
         } else {
-          final result =
-              await Contacts.sharedInstance.addToBlockList(widget.pubkey);
+          final result = await Contacts.sharedInstance.addToBlockList(
+            widget.pubkey,
+          );
           if (result.status) {
             isBlocked.value = true;
           } else {

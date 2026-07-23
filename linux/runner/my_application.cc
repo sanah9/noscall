@@ -5,6 +5,7 @@
 #include <gdk/gdkx.h>
 #endif
 
+#include "account_secret_store.h"
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
@@ -58,6 +59,10 @@ static void my_application_activate(GApplication* application) {
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  g_autoptr(FlPluginRegistrar) account_secret_store_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(FL_PLUGIN_REGISTRY(view),
+                                                  "AccountSecretStore");
+  account_secret_store_register_with_registrar(account_secret_store_registrar);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

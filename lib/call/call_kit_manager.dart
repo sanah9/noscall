@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
-import 'package:noscall/core/core.dart' as ChatCore;
+import 'package:noscall/core/core.dart' as chat_core;
 import 'package:noscall/utils/router.dart';
 
 import 'package:nostr_core_dart/nostr.dart';
@@ -63,7 +63,8 @@ class CallKitManager with WidgetsBindingObserver {
         // Desktop platforms rely on OS-level media access and device selection.
         // Do not block call setup with mobile permission APIs.
         LogUtils.i(
-            () => 'Desktop platform detected, skip mobile permission requests');
+          () => 'Desktop platform detected, skip mobile permission requests',
+        );
         return true;
       }
 
@@ -98,7 +99,8 @@ class CallKitManager with WidgetsBindingObserver {
       }
 
       LogUtils.i(
-          () => 'All required permissions granted for ${callType.value} call');
+        () => 'All required permissions granted for ${callType.value} call',
+      );
       return true;
     } catch (e) {
       LogUtils.e(() => 'Error checking permissions: $e');
@@ -124,11 +126,11 @@ class CallKitManager with WidgetsBindingObserver {
       _setupCallKeepHandlers();
 
       // Setup Nostr call state handler
-      ChatCore.Contacts.sharedInstance.onCallStateChange =
+      chat_core.Contacts.sharedInstance.onCallStateChange =
           nostrCallStateChangeHandler;
 
       // When user was offline and receives missed call (disconnect before answer), add to history and badge
-      ChatCore.Contacts.sharedInstance.onMissedCallFromRelay =
+      chat_core.Contacts.sharedInstance.onMissedCallFromRelay =
           _onMissedCallFromRelay;
 
       // Initialize VoIP push service (iOS only)
@@ -136,8 +138,10 @@ class CallKitManager with WidgetsBindingObserver {
         _voipPushService = VoIPPushService();
         await _voipPushService?.initialize(this);
       } else if (Platform.isWindows || Platform.isLinux) {
-        LogUtils.i(() =>
-            'CallKitManager: ${Platform.isLinux ? 'Linux' : 'Windows'} desktop uses in-app call UI only');
+        LogUtils.i(
+          () =>
+              'CallKitManager: ${Platform.isLinux ? 'Linux' : 'Windows'} desktop uses in-app call UI only',
+        );
       }
 
       // Initialize PiP manager
@@ -156,8 +160,9 @@ class CallKitManager with WidgetsBindingObserver {
 
   void _setupCallKeepHandlers() {
     _callKeepEventSubscription?.cancel();
-    _callKeepEventSubscription =
-        _callKeepManager?.callEventStream.listen((event) {
+    _callKeepEventSubscription = _callKeepManager?.callEventStream.listen((
+      event,
+    ) {
       final action = event['action'] as String;
       final callId = event['callId'] as String;
 
@@ -204,20 +209,23 @@ class CallKitManager with WidgetsBindingObserver {
       // Check if we can start a new call
       if (!_canStartNewCall()) {
         LogUtils.e(
-            () => 'Cannot start new call: maximum concurrent calls reached');
+          () => 'Cannot start new call: maximum concurrent calls reached',
+        );
         throw Exception('Maximum concurrent calls reached');
       }
 
       // Check permissions
       final hasPermissions = await _checkPermissions(callType);
       if (!hasPermissions) {
-        LogUtils.e(() =>
-            'Required permissions not granted for ${callType.value} call');
+        LogUtils.e(
+          () => 'Required permissions not granted for ${callType.value} call',
+        );
         throw Exception('Required permissions not granted');
       }
 
-      final user =
-          ChatCore.Account.sharedInstance.getUserNotifier(peerId).value;
+      final user = chat_core.Account.sharedInstance
+          .getUserNotifier(peerId)
+          .value;
       final controller = await openCallModule(
         user: user,
         callType: callType,
@@ -270,12 +278,9 @@ class CallKitManager with WidgetsBindingObserver {
     String data = '',
     CallType? mediaType,
   }) async {
-    final myPubkey = ChatCore.Account.sharedInstance.currentPubkey;
+    final myPubkey = chat_core.Account.sharedInstance.currentPubkey;
     if (friend == myPubkey) {
-      await _handleSelfEchoEvent(
-        state: state,
-        offerId: offerId,
-      );
+      await _handleSelfEchoEvent(state: state, offerId: offerId);
       return;
     }
 
@@ -327,8 +332,9 @@ class CallKitManager with WidgetsBindingObserver {
 
       mediaType ??= CallType.audio;
 
-      final user =
-          ChatCore.Account.sharedInstance.getUserNotifier(friend).value;
+      final user = chat_core.Account.sharedInstance
+          .getUserNotifier(friend)
+          .value;
 
       final controller = await openCallModule(
         user: user,
@@ -337,10 +343,7 @@ class CallKitManager with WidgetsBindingObserver {
         offerId: offerId,
       );
 
-      controller.signalingCallbackHandler(
-        nostrState: state,
-        content: data,
-      );
+      controller.signalingCallbackHandler(nostrState: state, content: data);
       _flushGlobalCandidates(offerId, controller);
 
       controller.callId.then((callId) async {
@@ -372,8 +375,10 @@ class CallKitManager with WidgetsBindingObserver {
 
     disconnectOfferId.add(offerId);
     await activeController.hangup(CallEndReason.disconnect, false, false);
-    LogUtils.i(() =>
-        'Handled self echo event, ended local call: state=$state callId=$offerId');
+    LogUtils.i(
+      () =>
+          'Handled self echo event, ended local call: state=$state callId=$offerId',
+    );
   }
 
   static bool shouldHandleSelfEchoEvent({
@@ -405,12 +410,13 @@ class CallKitManager with WidgetsBindingObserver {
         content: candidateJson,
       );
     }
-    LogUtils.i(() =>
-        'Flushed buffered ICE candidates: ${queue.length}, callId=$callId');
+    LogUtils.i(
+      () => 'Flushed buffered ICE candidates: ${queue.length}, callId=$callId',
+    );
   }
 
   Future<CallingController> openCallModule({
-    required ChatCore.UserDBISAR user,
+    required chat_core.UserDBISAR user,
     required CallType callType,
     required CallingRole role,
     String? sessionId,
@@ -445,9 +451,11 @@ class CallKitManager with WidgetsBindingObserver {
 
     switch (role) {
       case CallingRole.caller:
-        final isSuccess = await controller.invitePeer(timeoutHandler: () {
-          controller.hangup(CallEndReason.timeout);
-        });
+        final isSuccess = await controller.invitePeer(
+          timeoutHandler: () {
+            controller.hangup(CallEndReason.timeout);
+          },
+        );
         if (!isSuccess) {
           controller.hangup(CallEndReason.timeout);
           return controller;
@@ -485,21 +493,23 @@ class CallKitManager with WidgetsBindingObserver {
 
     manager
         .addCallRecord(
-      callId: callId,
-      peerPubkey: callerPubkey,
-      direction: CallDirection.incoming,
-      type: callType,
-      status: CallStatus.cancelled,
-      startTime: startTime,
-      duration: null,
-    )
+          callId: callId,
+          peerPubkey: callerPubkey,
+          direction: CallDirection.incoming,
+          type: callType,
+          status: CallStatus.cancelled,
+          startTime: startTime,
+          duration: null,
+        )
         .then((added) {
-      if (added) {
-        manager.incrementUnreadMissed();
-        LogUtils.i(() =>
-            'Missed call from relay recorded: $callId from $callerPubkey, unread count: ${manager.unreadMissedCountNotifier.value}');
-      }
-    });
+          if (added) {
+            manager.incrementUnreadMissed();
+            LogUtils.i(
+              () =>
+                  'Missed call from relay recorded: $callId from $callerPubkey, unread count: ${manager.unreadMissedCountNotifier.value}',
+            );
+          }
+        });
   }
 
   void clean() {

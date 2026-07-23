@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
-import 'package:noscall/core/account/account.dart' as ChatCore;
+import 'package:noscall/core/account/model/user_db_isar.dart';
+import 'package:noscall/core/account/account.dart' as chat_core;
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 
 class ContactSelectPage extends StatefulWidget {
   final List<String>? excludePubKeys;
 
-  const ContactSelectPage({
-    super.key,
-    this.excludePubKeys,
-  });
+  const ContactSelectPage({super.key, this.excludePubKeys});
 
   @override
   State<ContactSelectPage> createState() => _ContactSelectPageState();
@@ -20,8 +17,7 @@ class _ContactSelectPageState extends State<ContactSelectPage> {
   final Set<String> _selectedPubKeys = {};
   final Set<String> _excludePubKeys;
 
-  _ContactSelectPageState()
-      : _excludePubKeys = {};
+  _ContactSelectPageState() : _excludePubKeys = {};
 
   @override
   void initState() {
@@ -96,10 +92,7 @@ class _ContactSelectPageState extends State<ContactSelectPage> {
           const SizedBox(height: 16),
           Text(
             'No contacts available',
-            style: TextStyle(
-              fontSize: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -118,11 +111,17 @@ class _ContactSelectPageState extends State<ContactSelectPage> {
     );
   }
 
-  Widget _buildContactCard(BuildContext context, UserDBISAR contact,
-      bool isSelected, ColorScheme colorScheme) {
+  Widget _buildContactCard(
+    BuildContext context,
+    UserDBISAR contact,
+    bool isSelected,
+    ColorScheme colorScheme,
+  ) {
     final theme = Theme.of(context);
     return ValueListenableBuilder<UserDBISAR>(
-      valueListenable: ChatCore.Account.sharedInstance.getUserNotifier(contact.pubKey),
+      valueListenable: chat_core.Account.sharedInstance.getUserNotifier(
+        contact.pubKey,
+      ),
       builder: (context, updatedUser, child) {
         return Material(
           color: Colors.transparent,
@@ -137,10 +136,7 @@ class _ContactSelectPageState extends State<ContactSelectPage> {
                     onChanged: (_) => _toggleSelection(contact.pubKey),
                   ),
                   const SizedBox(width: 12),
-                  UserAvatar(
-                    user: updatedUser,
-                    size: 48,
-                  ),
+                  UserAvatar(user: updatedUser, size: 48),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -173,4 +169,3 @@ class _ContactSelectPageState extends State<ContactSelectPage> {
     );
   }
 }
-

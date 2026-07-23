@@ -38,8 +38,7 @@ class AccessibilitySettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(
@@ -57,24 +56,26 @@ class AccessibilitySettingsPage extends StatelessWidget {
           ValueListenableBuilder<double?>(
             valueListenable: service.textScaleFactorNotifier,
             builder: (context, current, _) {
-              return Column(
-                children: kTextScaleOptions.map((value) {
-                  return RadioListTile<double?>(
-                    secondary: Icon(
-                      Icons.text_fields,
-                      color: colorScheme.primary,
-                    ),
-                    title: Text(
-                      _label(value),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface,
+              return RadioGroup<double?>(
+                groupValue: current,
+                onChanged: (v) => service.setTextScaleFactor(v),
+                child: Column(
+                  children: kTextScaleOptions.map((value) {
+                    return RadioListTile<double?>(
+                      secondary: Icon(
+                        Icons.text_fields,
+                        color: colorScheme.primary,
                       ),
-                    ),
-                    value: value,
-                    groupValue: current,
-                    onChanged: (v) => service.setTextScaleFactor(v),
-                  );
-                }).toList(),
+                      title: Text(
+                        _label(value),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      value: value,
+                    );
+                  }).toList(),
+                ),
               );
             },
           ),

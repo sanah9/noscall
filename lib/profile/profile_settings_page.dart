@@ -4,8 +4,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+profile.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/account_profile.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/utils/file_upload_manager.dart';
@@ -83,9 +83,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           backgroundColor: primary,
           foregroundColor: onPrimary,
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -96,9 +94,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           backgroundColor: primary,
           foregroundColor: onPrimary,
         ),
-        body: const Center(
-          child: Text('Failed to load user data'),
-        ),
+        body: const Center(child: Text('Failed to load user data')),
       );
     }
 
@@ -112,10 +108,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             onPressed: _isLoading ? null : _saveProfile,
             child: Text(
               'Save',
-              style: TextStyle(
-                color: onPrimary,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: onPrimary, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -130,10 +123,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             const SizedBox(height: 32),
             _buildNameField(),
             const SizedBox(height: 32),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
           ],
         ),
       ),
@@ -149,10 +139,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                 radius: 40,
                 backgroundImage: FileImage(_selectedAvatarFile!),
               )
-            : UserAvatar(
-                user: _user!,
-                size: 120,
-              ),
+            : UserAvatar(user: _user!, size: 120),
       ),
     );
   }
@@ -178,7 +165,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     if (requested.isPermanentlyDenied) {
       if (!mounted) return false;
       AppToast.showError(
-          context, 'Permission denied. Please enable it in Settings.');
+        context,
+        'Permission denied. Please enable it in Settings.',
+      );
       await openAppSettings();
     }
     return false;
@@ -189,8 +178,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     final ok = Platform.isIOS
         ? await _ensurePermission(Permission.photos)
         : Platform.isAndroid
-            ? await _ensurePermission(Permission.storage)
-            : true;
+        ? await _ensurePermission(Permission.storage)
+        : true;
     if (!ok) return;
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -222,7 +211,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
     if (!ok) {
       AppToast.showError(
-          context, 'Camera permission denied. Please enable it in Settings.');
+        context,
+        'Camera permission denied. Please enable it in Settings.',
+      );
       return;
     }
 
@@ -321,8 +312,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         }
 
         // Upload file
-        final uploadedUrl =
-            await FileUploadManager.uploadImage(_selectedAvatarFile!);
+        final uploadedUrl = await FileUploadManager.uploadImage(
+          _selectedAvatarFile!,
+        );
         if (!mounted) return;
         if (uploadedUrl != null) {
           pictureUrl = uploadedUrl;
@@ -343,8 +335,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         picture: pictureUrl,
         // Copy other existing fields
         encryptedPrivKey: _user!.encryptedPrivKey,
-        privkey: _user!.privkey,
-        defaultPassword: _user!.defaultPassword,
         nickName: _user!.nickName,
         mainRelay: _user!.mainRelay,
         dns: _user!.dns,
@@ -377,7 +367,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         otherField: _user!.otherField,
         nwcURI: _user!.nwcURI,
         remoteSignerURI: _user!.remoteSignerURI,
-        clientPrivateKey: _user!.clientPrivateKey,
         remotePubkey: _user!.remotePubkey,
         settings: _user!.settings,
       );

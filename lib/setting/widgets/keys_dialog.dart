@@ -6,15 +6,17 @@ import 'package:noscall/utils/toast.dart';
 import 'package:noscall/utils/modal_dialog.dart';
 
 class KeysDialog extends StatelessWidget {
-  KeysDialog({super.key});
+  const KeysDialog({super.key, required this.theme});
 
-  late ThemeData theme;
+  final ThemeData theme;
   final FontWeight fontWeight = FontWeight.w500;
   Color get primary => theme.colorScheme.primary;
-  Color get primaryContainer => theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+  Color get primaryContainer =>
+      theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
   Color get onPrimaryContainer => theme.colorScheme.onPrimaryContainer;
   Color get onSurface => theme.colorScheme.onSurface;
-  Color get onSurfaceVariant => theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+  Color get onSurfaceVariant =>
+      theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
   Color get borderColor => theme.colorScheme.outline.withValues(alpha: 0.1);
 
   static void show(BuildContext context) {
@@ -22,13 +24,12 @@ class KeysDialog extends StatelessWidget {
       context: context,
       headerIcon: Icons.key,
       title: 'Your Keys',
-      content: KeysDialog(),
+      content: KeysDialog(theme: Theme.of(context)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    theme = Theme.of(context);
     final account = Account.sharedInstance;
     final npub = Nip19.encodePubkey(account.currentPubkey);
     final nsec = Nip19.encodePrivkey(account.currentPrivkey);
@@ -107,7 +108,10 @@ class KeysDialog extends StatelessWidget {
                 value: privateKey,
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: privateKey));
-                  AppToast.showSuccess(context, 'Private key copied to clipboard');
+                  AppToast.showSuccess(
+                    context,
+                    'Private key copied to clipboard',
+                  );
                 },
               ),
               const SizedBox(height: 12),
@@ -182,11 +186,7 @@ class KeysDialog extends StatelessWidget {
   }
 
   Widget _buildShieldIcon(Color color) {
-    return Icon(
-      Icons.shield_outlined,
-      color: color,
-      size: 20,
-    );
+    return Icon(Icons.shield_outlined, color: color, size: 20);
   }
 
   Widget _buildItemTitle(String text) {
@@ -208,11 +208,7 @@ class KeysDialog extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 9,
-          color: color,
-          fontWeight: fontWeight,
-        ),
+        style: TextStyle(fontSize: 9, color: color, fontWeight: fontWeight),
       ),
     );
   }
@@ -241,11 +237,7 @@ class KeysDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-              Icons.copy,
-              color: primary,
-              size: 16,
-            ),
+            Icon(Icons.copy, color: primary, size: 16),
           ],
         ),
       ),

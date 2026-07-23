@@ -28,7 +28,9 @@ void main() {
 
     group('username', () {
       test('should extract username from TURN URL', () {
-        final server = ICEServerModel(url: 'turn:testuser:testpass@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:testuser:testpass@turn.example.com:3478',
+        );
         expect(server.username, equals('testuser'));
       });
 
@@ -38,14 +40,18 @@ void main() {
       });
 
       test('should handle complex usernames', () {
-        final server = ICEServerModel(url: 'turn:user_name-123:pass@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:user_name-123:pass@turn.example.com:3478',
+        );
         expect(server.username, equals('user_name-123'));
       });
     });
 
     group('credential', () {
       test('should extract credential from TURN URL', () {
-        final server = ICEServerModel(url: 'turn:testuser:testpass@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:testuser:testpass@turn.example.com:3478',
+        );
         expect(server.credential, equals('testpass'));
       });
 
@@ -55,14 +61,18 @@ void main() {
       });
 
       test('should handle complex passwords', () {
-        final server = ICEServerModel(url: 'turn:user:pass-word_123@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:user:pass-word_123@turn.example.com:3478',
+        );
         expect(server.credential, equals('pass-word_123'));
       });
     });
 
     group('domain', () {
       test('should extract domain from TURN URL', () {
-        final server = ICEServerModel(url: 'turn:user:pass@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:user:pass@turn.example.com:3478',
+        );
         expect(server.domain, equals('turn.example.com:3478'));
       });
 
@@ -79,7 +89,9 @@ void main() {
 
     group('host', () {
       test('should extract host from TURN URL', () {
-        final server = ICEServerModel(url: 'turn:user:pass@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:user:pass@turn.example.com:3478',
+        );
         expect(server.host, equals('turn.example.com'));
       });
 
@@ -93,7 +105,7 @@ void main() {
       test('should return STUN config for STUN URL', () {
         final server = ICEServerModel(url: TestData.validStunUrl);
         final configs = server.serverConfigs;
-        
+
         expect(configs.length, equals(1));
         expect(configs[0]['url'], equals(TestData.validStunUrl));
         expect(configs[0].containsKey('urls'), isFalse);
@@ -102,9 +114,11 @@ void main() {
       });
 
       test('should return TURN config for TURN URL', () {
-        final server = ICEServerModel(url: 'turn:user:pass@turn.example.com:3478');
+        final server = ICEServerModel(
+          url: 'turn:user:pass@turn.example.com:3478',
+        );
         final configs = server.serverConfigs;
-        
+
         expect(configs.length, equals(1));
         expect(configs[0]['urls'], equals('turn:turn.example.com:3478'));
         expect(configs[0]['username'], equals('user'));
@@ -115,7 +129,7 @@ void main() {
       test('should return TURN config for TURNS URL', () {
         final server = ICEServerModel(url: TestData.validTurnsUrl);
         final configs = server.serverConfigs;
-        
+
         expect(configs.length, equals(1));
         expect(configs[0].containsKey('urls'), isTrue);
         expect(configs[0].containsKey('username'), isTrue);
@@ -127,21 +141,21 @@ void main() {
       test('should create ICEServerModel from JSON', () {
         final json = {'url': TestData.validStunUrl};
         final server = ICEServerModel.fromJson(json);
-        
+
         expect(server.url, equals(TestData.validStunUrl));
       });
 
       test('should handle missing url field', () {
         final json = <String, dynamic>{};
         final server = ICEServerModel.fromJson(json);
-        
+
         expect(server.url, isEmpty);
       });
 
       test('should handle null url field', () {
         final json = {'url': null};
         final server = ICEServerModel.fromJson(json);
-        
+
         expect(server.url, isEmpty);
       });
     });
@@ -150,14 +164,14 @@ void main() {
       test('should convert ICEServerModel to JSON', () {
         final server = ICEServerModel(url: TestData.validStunUrl);
         final json = server.toJson();
-        
+
         expect(json['url'], equals(TestData.validStunUrl));
       });
 
       test('should handle TURN URL in JSON', () {
         final server = ICEServerModel(url: TestData.validTurnUrl);
         final json = server.toJson();
-        
+
         expect(json['url'], equals(TestData.validTurnUrl));
       });
     });
@@ -166,7 +180,7 @@ void main() {
       test('should be equal when URLs are the same', () {
         final server1 = ICEServerModel(url: TestData.validStunUrl);
         final server2 = ICEServerModel(url: TestData.validStunUrl);
-        
+
         expect(server1 == server2, isTrue);
         expect(server1.hashCode, equals(server2.hashCode));
       });
@@ -174,19 +188,20 @@ void main() {
       test('should not be equal when URLs are different', () {
         final server1 = ICEServerModel(url: TestData.validStunUrl);
         final server2 = ICEServerModel(url: TestData.validTurnUrl);
-        
+
         expect(server1 == server2, isFalse);
       });
 
       test('should not be equal to different type', () {
         final server = ICEServerModel(url: TestData.validStunUrl);
-        
-        expect(server == 'string', isFalse);
+        const Object other = 'string';
+
+        expect(server == other, isFalse);
       });
 
       test('should be equal to itself', () {
         final server = ICEServerModel(url: TestData.validStunUrl);
-        
+
         expect(server == server, isTrue);
       });
     });
@@ -194,7 +209,7 @@ void main() {
     group('edge cases', () {
       test('should handle empty URL', () {
         final server = ICEServerModel(url: '');
-        
+
         expect(server.url, isEmpty);
         expect(server.isTurnAddress, isFalse);
         expect(server.username, isEmpty);
@@ -211,14 +226,17 @@ void main() {
         expect(() => server.credential, throwsA(isA<RangeError>()));
       });
 
-      test('should not throw when reading domain/host for TURN URL without @', () {
-        // url 'turn:invalid' has no '@', so domain returns url; host = domain.split(':')[0] = 'turn'.
-        final server = ICEServerModel(url: 'turn:invalid');
+      test(
+        'should not throw when reading domain/host for TURN URL without @',
+        () {
+          // url 'turn:invalid' has no '@', so domain returns url; host = domain.split(':')[0] = 'turn'.
+          final server = ICEServerModel(url: 'turn:invalid');
 
-        expect(server.isTurnAddress, isTrue);
-        expect(server.domain, 'turn:invalid');
-        expect(server.host, 'turn');
-      });
+          expect(server.isTurnAddress, isTrue);
+          expect(server.domain, 'turn:invalid');
+          expect(server.host, 'turn');
+        },
+      );
     });
   });
 }

@@ -5,7 +5,7 @@ import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/relayDB_isar.dart';
+import 'package:noscall/core/account/model/relay_db_isar.dart';
 
 class Relays {
   /// singleton

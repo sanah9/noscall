@@ -39,14 +39,20 @@ class _SignUpPageState extends State<SignUpPage> {
       _generatedPrivateKey = _authService.generatePrivateKey();
     } catch (e) {
       // If key generation fails, show error and retry
-      AppToast.showError(context, 'Failed to generate secure key. Please try again.');
+      AppToast.showError(
+        context,
+        'Failed to generate secure key. Please try again.',
+      );
       // Retry once after a short delay
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
           try {
             _generatedPrivateKey = _authService.generatePrivateKey();
           } catch (retryError) {
-            AppToast.showError(context, 'Critical error: Unable to generate secure key. Please restart the app.');
+            AppToast.showError(
+              context,
+              'Critical error: Unable to generate secure key. Please restart the app.',
+            );
           }
         }
       });
@@ -141,10 +147,7 @@ class _SignUpPageState extends State<SignUpPage> {
         SizedBox(height: 8),
         Text(
           'Enter your name to create a new account',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.white70,
-          ),
+          style: TextStyle(fontSize: 16, color: Colors.white70),
         ),
       ],
     );
@@ -191,9 +194,7 @@ class _SignUpPageState extends State<SignUpPage> {
         decoration: InputDecoration(
           labelText: 'Your Name',
           hintText: 'Enter your display name',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           prefixIcon: const Icon(Icons.person),
         ),
       ),
@@ -205,9 +206,7 @@ class _SignUpPageState extends State<SignUpPage> {
       decoration: BoxDecoration(
         color: Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -235,18 +234,11 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget _buildAccountInfoHeader() {
     return Row(
       children: [
-        const Icon(
-          Icons.account_circle,
-          color: Colors.grey,
-          size: 20,
-        ),
+        const Icon(Icons.account_circle, color: Colors.grey, size: 20),
         const SizedBox(width: 8),
         const Text(
           'Nostr Account',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.grey,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
         ),
         const Spacer(),
         IconButton(
@@ -262,17 +254,6 @@ class _SignUpPageState extends State<SignUpPage> {
           iconSize: 20,
         ),
       ],
-    );
-  }
-
-  Widget _buildPrivateKeyInfo() {
-    return Text(
-      'Private Key: $_generatedPrivateKey',
-      style: const TextStyle(
-        fontSize: 12,
-        color: Colors.grey,
-        fontFamily: 'monospace',
-      ),
     );
   }
 
@@ -292,10 +273,12 @@ class _SignUpPageState extends State<SignUpPage> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton.icon(
-        onPressed: _isLoading ? null : () {
-          _dismissKeyboard();
-          _createAccount();
-        },
+        onPressed: _isLoading
+            ? null
+            : () {
+                _dismissKeyboard();
+                _createAccount();
+              },
         icon: _isLoading
             ? const SizedBox(
                 width: 20,
@@ -308,10 +291,7 @@ class _SignUpPageState extends State<SignUpPage> {
             : const Icon(Icons.person_add),
         label: Text(
           _isLoading ? 'Creating Account...' : 'Create Account',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1E3A8A),
@@ -325,35 +305,6 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  Widget _buildInfoContainer() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.info_outline,
-            color: Colors.green,
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'A new account with a unique private key has been generated for you. Your private key will be stored securely on this device.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.green[700],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFooter() {
     return Text(
       'Powered by Nostr Protocol',
@@ -363,7 +314,6 @@ class _SignUpPageState extends State<SignUpPage> {
       ),
     );
   }
-
 
   String? _validateName(String? value) {
     if (value == null || value.trim().isEmpty) {

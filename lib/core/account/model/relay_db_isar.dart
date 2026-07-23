@@ -4,7 +4,7 @@ import 'package:isar/isar.dart';
 
 import 'package:noscall/core/common/network/connect.dart';
 
-part 'relayDB_isar.g.dart';
+part 'relay_db_isar.g.dart';
 
 @collection
 class RelayDBISAR {

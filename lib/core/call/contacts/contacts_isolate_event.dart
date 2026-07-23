@@ -8,7 +8,9 @@ import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 
 extension IsolateEvent on Contacts {
-  static Future<Map<String, dynamic>?> _decodeNip17InIsolate(Map<String, dynamic> params) async {
+  static Future<Map<String, dynamic>?> _decodeNip17InIsolate(
+    Map<String, dynamic> params,
+  ) async {
     String privkey = params['privkey'] ?? '';
     String pubkey = params['pubkey'] ?? '';
     Event event = await Event.fromJson(params['event'], verify: false);
@@ -22,13 +24,16 @@ extension IsolateEvent on Contacts {
       'privkey': privkey,
       'pubkey': pubkey,
     };
-    var message;
-    SignerApplication signerApplication = SignerHelper.getSignerApplication(privkey);
+    Map<String, dynamic>? message;
+    SignerApplication signerApplication = SignerHelper.getSignerApplication(
+      privkey,
+    );
     if (signerApplication == SignerApplication.remoteSigner) {
       message = await _decodeNip17InIsolate(map);
     } else {
-      message =
-          await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeNip17InIsolate(map));
+      message = await ThreadPoolManager.sharedInstance.runOtherTask(
+        () => _decodeNip17InIsolate(map),
+      );
     }
     if (message != null) {
       return Event.fromJson(message, verify: false);
@@ -36,7 +41,9 @@ extension IsolateEvent on Contacts {
     return null;
   }
 
-  static Future<Map<String, dynamic>?> _decodeNip4InIsolate(Map<String, dynamic> params) async {
+  static Future<Map<String, dynamic>?> _decodeNip4InIsolate(
+    Map<String, dynamic> params,
+  ) async {
     String privkey = params['privkey'] ?? '';
     String receiver = params['receiver'] ?? '';
     Event event = await Event.fromJson(params['event'], verify: false);
@@ -44,20 +51,27 @@ extension IsolateEvent on Contacts {
     return message?.toMap();
   }
 
-  Future<EDMessage?> decodeNip4Event(Event event, String receiver, String privkey) async {
+  Future<EDMessage?> decodeNip4Event(
+    Event event,
+    String receiver,
+    String privkey,
+  ) async {
     Map<String, dynamic> map = {
       'event': event.toJson(),
       'privkey': privkey,
       'receiver': receiver,
     };
 
-    var message;
-    SignerApplication signerApplication = SignerHelper.getSignerApplication(privkey);
+    Map<String, dynamic>? message;
+    SignerApplication signerApplication = SignerHelper.getSignerApplication(
+      privkey,
+    );
     if (signerApplication == SignerApplication.remoteSigner) {
       message = await _decodeNip4InIsolate(map);
     } else {
-      message =
-          await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeNip4InIsolate(map));
+      message = await ThreadPoolManager.sharedInstance.runOtherTask(
+        () => _decodeNip4InIsolate(map),
+      );
     }
 
     if (message != null) {
@@ -66,7 +80,9 @@ extension IsolateEvent on Contacts {
     return null;
   }
 
-  static Future<Map<String, dynamic>?> _decodeNip44InIsolate(Map<String, dynamic> params) async {
+  static Future<Map<String, dynamic>?> _decodeNip44InIsolate(
+    Map<String, dynamic> params,
+  ) async {
     String privkey = params['privkey'] ?? '';
     String receiver = params['receiver'] ?? '';
     Event event = await Event.fromJson(params['event'], verify: false);
@@ -74,20 +90,27 @@ extension IsolateEvent on Contacts {
     return message?.toMap();
   }
 
-  Future<EDMessage?> decodeNip44Event(Event event, String receiver, String privkey) async {
+  Future<EDMessage?> decodeNip44Event(
+    Event event,
+    String receiver,
+    String privkey,
+  ) async {
     Map<String, dynamic> map = {
       'event': event.toJson(),
       'privkey': privkey,
       'receiver': receiver,
     };
 
-    var message;
-    SignerApplication signerApplication = SignerHelper.getSignerApplication(privkey);
+    Map<String, dynamic>? message;
+    SignerApplication signerApplication = SignerHelper.getSignerApplication(
+      privkey,
+    );
     if (signerApplication == SignerApplication.remoteSigner) {
       message = await _decodeNip44InIsolate(map);
     } else {
-      message =
-          await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeNip44InIsolate(map));
+      message = await ThreadPoolManager.sharedInstance.runOtherTask(
+        () => _decodeNip44InIsolate(map),
+      );
     }
 
     if (message != null) {
@@ -96,10 +119,16 @@ extension IsolateEvent on Contacts {
     return null;
   }
 
-  static Future<Map<String, dynamic>?> _decodeKind14InIsolate(Map<String, dynamic> params) async {
+  static Future<Map<String, dynamic>?> _decodeKind14InIsolate(
+    Map<String, dynamic> params,
+  ) async {
     String receiver = params['receiver'] ?? '';
     Event event = await Event.fromJson(params['event'], verify: false);
-    EDMessage? message = await Nip17.decodeSealedGossipDM(event, receiver, params['pubkey']);
+    EDMessage? message = await Nip17.decodeSealedGossipDM(
+      event,
+      receiver,
+      params['pubkey'],
+    );
     return message?.toMap();
   }
 
@@ -107,35 +136,45 @@ extension IsolateEvent on Contacts {
     Map<String, dynamic> map = {
       'event': event.toJson(),
       'receiver': receiver,
-      'pubkey': Account.sharedInstance.currentPubkey
+      'pubkey': Account.sharedInstance.currentPubkey,
     };
-    var message =
-        await ThreadPoolManager.sharedInstance.runOtherTask(() => _decodeKind14InIsolate(map));
+    var message = await ThreadPoolManager.sharedInstance.runOtherTask(
+      () => _decodeKind14InIsolate(map),
+    );
     if (message != null) {
       return EDMessage.fromMap(message);
     }
     return null;
   }
 
-  static Future<Map<String, dynamic>> _encodeNip17InIsolate(Map<String, dynamic> params) async {
+  static Future<Map<String, dynamic>> _encodeNip17InIsolate(
+    Map<String, dynamic> params,
+  ) async {
     Event event = await Event.fromJson(params['event'], verify: false);
     String receiver = params['receiver'] ?? '';
     Event sealedEvent = await Nip17.encode(
-        event, receiver, params['pubkey'] ?? '', params['privkey'] ?? '',
-        sealedPrivkey: params['sealedPrivkey'],
-        sealedReceiver: params['sealedReceiver'],
-        expiration: params['expiration'],
-        kind: params['kind'],
-        createAt: params['createAt']);
+      event,
+      receiver,
+      params['pubkey'] ?? '',
+      params['privkey'] ?? '',
+      sealedPrivkey: params['sealedPrivkey'],
+      sealedReceiver: params['sealedReceiver'],
+      expiration: params['expiration'],
+      kind: params['kind'],
+      createAt: params['createAt'],
+    );
     return sealedEvent.toJson();
   }
 
-  Future<Event?> encodeNip17Event(Event event, String receiver,
-      {String? sealedReceiver,
-      String? sealedPrivkey,
-      int? kind,
-      int? expiration,
-      int? createAt}) async {
+  Future<Event?> encodeNip17Event(
+    Event event,
+    String receiver, {
+    String? sealedReceiver,
+    String? sealedPrivkey,
+    int? kind,
+    int? expiration,
+    int? createAt,
+  }) async {
     Map<String, dynamic> map = {
       'event': event.toJson(),
       'receiver': receiver,
@@ -145,16 +184,19 @@ extension IsolateEvent on Contacts {
       'sealedReceiver': sealedReceiver,
       'kind': kind,
       'expiration': expiration,
-      'createAt': createAt
+      'createAt': createAt,
     };
 
-    var message;
-    SignerApplication signerApplication = SignerHelper.getSignerApplication(privkey);
+    Map<String, dynamic>? message;
+    SignerApplication signerApplication = SignerHelper.getSignerApplication(
+      privkey,
+    );
     if (signerApplication == SignerApplication.remoteSigner) {
       message = await _encodeNip17InIsolate(map);
     } else {
-      message =
-          await ThreadPoolManager.sharedInstance.runOtherTask(() => _encodeNip17InIsolate(map));
+      message = await ThreadPoolManager.sharedInstance.runOtherTask(
+        () => _encodeNip17InIsolate(map),
+      );
     }
 
     if (message != null) {
@@ -164,7 +206,8 @@ extension IsolateEvent on Contacts {
   }
 
   static Future<Map<String, dynamic>?> _decodeNipAcWrapInIsolate(
-      Map<String, dynamic> params) async {
+    Map<String, dynamic> params,
+  ) async {
     final privkey = params['privkey'] ?? '';
     final pubkey = params['pubkey'] ?? '';
     final event = await Event.fromJson(params['event'], verify: false);
@@ -179,13 +222,14 @@ extension IsolateEvent on Contacts {
       'pubkey': pubkey,
     };
 
-    var message;
+    Map<String, dynamic>? message;
     final signerApplication = SignerHelper.getSignerApplication(privkey);
     if (signerApplication == SignerApplication.remoteSigner) {
       message = await _decodeNipAcWrapInIsolate(map);
     } else {
-      message = await ThreadPoolManager.sharedInstance
-          .runOtherTask(() => _decodeNipAcWrapInIsolate(map));
+      message = await ThreadPoolManager.sharedInstance.runOtherTask(
+        () => _decodeNipAcWrapInIsolate(map),
+      );
     }
     if (message != null) {
       return Event.fromJson(message, verify: false);

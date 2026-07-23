@@ -7,8 +7,8 @@ import 'package:noscall/core/common/config/call_core_init_config.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/core/core_manager.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/account+nip46.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/account_nip46.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,7 +43,9 @@ class SharedPreferencesAuthStore implements AuthPreferencesStore {
 abstract class AuthAccountGateway {
   Future<UserDBISAR?> loginWithPubKeyAndPassword(String pubkey);
   Future<UserDBISAR?> loginWithPubKey(
-      String pubkey, SignerApplication signerApplication);
+    String pubkey,
+    SignerApplication signerApplication,
+  );
   Future<UserDBISAR?> loginWithPriKey(String privkey);
   Future<UserDBISAR?> loginWithNip46URI(String uri);
   Future<void> initAccount();
@@ -74,7 +76,9 @@ class DefaultAuthAccountGateway implements AuthAccountGateway {
 
   @override
   Future<UserDBISAR?> loginWithPubKey(
-      String pubkey, SignerApplication signerApplication) {
+    String pubkey,
+    SignerApplication signerApplication,
+  ) {
     return Account.sharedInstance.loginWithPubKey(pubkey, signerApplication);
   }
 

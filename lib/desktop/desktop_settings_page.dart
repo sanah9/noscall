@@ -4,7 +4,7 @@ import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/setting/widgets/keys_dialog.dart';
 import 'package:noscall/setting/widgets/about_dialog.dart' as app_about;
 import 'desktop_page_wrapper.dart';

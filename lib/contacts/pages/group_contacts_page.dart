@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:noscall/core/account/model/userDB_isar.dart';
+import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
-import 'package:noscall/core/call/contacts/contacts+blocklist.dart';
+import 'package:noscall/core/call/contacts/contacts_blocklist.dart';
 import 'package:noscall/contacts/services/contact_group_service.dart';
 import 'package:noscall/contacts/services/contact_navigation_service.dart';
 import 'package:noscall/contacts/contact_navigation_extension.dart';
@@ -107,7 +107,7 @@ class _GroupContactsPageState extends State<GroupContactsPage>
     return contacts.where((contact) {
       final name = (contact.name ?? '').toLowerCase();
       final nickName = (contact.nickName ?? '').toLowerCase();
-      
+
       return name.contains(query) || nickName.contains(query);
     }).toList();
   }
@@ -168,17 +168,17 @@ class _GroupContactsPageState extends State<GroupContactsPage>
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : hasOrphansOnly
-                        ? _buildOrphanOnlyState(theme, colorScheme)
-                        : !hasContacts
-                            ? _buildEmptyState(theme, colorScheme)
-                            : !hasSearchResults && searchQuery.isNotEmpty
-                                ? _buildNoSearchResultsState(colorScheme)
-                                : _buildContactsList(
-                                    theme,
-                                    colorScheme,
-                                    filteredContacts,
-                                    orphanMemberCount,
-                                  ),
+                    ? _buildOrphanOnlyState(theme, colorScheme)
+                    : !hasContacts
+                    ? _buildEmptyState(theme, colorScheme)
+                    : !hasSearchResults && searchQuery.isNotEmpty
+                    ? _buildNoSearchResultsState(colorScheme)
+                    : _buildContactsList(
+                        theme,
+                        colorScheme,
+                        filteredContacts,
+                        orphanMemberCount,
+                      ),
               ),
             ],
           ),
@@ -320,7 +320,11 @@ class _GroupContactsPageState extends State<GroupContactsPage>
       AppToast.showError(context, 'Cannot call blocked user');
       return;
     }
-    await StartCallHelper.startCall(context, peerId: pubKey, callType: CallType.audio);
+    await StartCallHelper.startCall(
+      context,
+      peerId: pubKey,
+      callType: CallType.audio,
+    );
   }
 
   Future<void> _startVideoCall(String pubKey) async {
@@ -328,17 +332,26 @@ class _GroupContactsPageState extends State<GroupContactsPage>
       AppToast.showError(context, 'Cannot call blocked user');
       return;
     }
-    await StartCallHelper.startCall(context, peerId: pubKey, callType: CallType.video);
+    await StartCallHelper.startCall(
+      context,
+      peerId: pubKey,
+      callType: CallType.video,
+    );
   }
 
   Widget _buildContactCard(
-      BuildContext context, UserDBISAR contact, ColorScheme colorScheme) {
+    BuildContext context,
+    UserDBISAR contact,
+    ColorScheme colorScheme,
+  ) {
     return ContactListTile(
       user: contact,
       searchQuery: searchQuery.isEmpty ? null : searchQuery,
       showFavoriteStar: false,
       onTap: () {
-        AppNavigatorScope.requireOf(context).pushUserDetail(context, contact.pubKey);
+        AppNavigatorScope.requireOf(
+          context,
+        ).pushUserDetail(context, contact.pubKey);
       },
       onLongPress: () => _removeContact(contact.pubKey, contact.displayName()),
       onCallVoice: () => _startVoiceCall(contact.pubKey),
@@ -346,4 +359,3 @@ class _GroupContactsPageState extends State<GroupContactsPage>
     );
   }
 }
-

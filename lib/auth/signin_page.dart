@@ -53,9 +53,7 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Widget _buildBody() {
-    return GradientBackground(
-      child: _buildContent(),
-    );
+    return GradientBackground(child: _buildContent());
   }
 
   Widget _buildContent() {
@@ -148,13 +146,11 @@ class _SignInPageState extends State<SignInPage> {
         maxLines: 1,
         decoration: InputDecoration(
           hintText: 'nsec or bunker://',
-          hintStyle: const TextStyle(
-            fontSize: 12,
+          hintStyle: const TextStyle(fontSize: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          prefixIconConstraints: BoxConstraints.tight(
+            const Size.square(iconSize),
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          prefixIconConstraints: BoxConstraints.tight(const Size.square(iconSize)),
           prefixIcon: const Icon(Icons.key, size: 20),
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
@@ -179,9 +175,7 @@ class _SignInPageState extends State<SignInPage> {
                   visualDensity: VisualDensity.compact,
                   onPressed: _clearInput,
                   iconSize: 20,
-                  icon: const Icon(
-                    Icons.clear,
-                  ),
+                  icon: const Icon(Icons.clear),
                   tooltip: 'Clear',
                 ),
               ),
@@ -197,26 +191,25 @@ class _SignInPageState extends State<SignInPage> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton.icon(
-        onPressed: _isLoading ? null : () {
-          _dismissKeyboard();
-          _signIn();
-        },
+        onPressed: _isLoading
+            ? null
+            : () {
+                _dismissKeyboard();
+                _signIn();
+              },
         icon: _isLoading
             ? const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
             : const Icon(Icons.login),
         label: Text(
           _isLoading ? 'Signing in...' : 'Sign In',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1E3A8A),
@@ -230,44 +223,10 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  Widget _buildInfoContainer() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Row(
-        children: [
-          Icon(
-            Icons.info_outline,
-            color: Colors.blue,
-            size: 20,
-          ),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Enter your private key (nsec/hex) or Bunker URL (bunker:///nostrconnect://). Keep your private key secure!',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF1976D2),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildOrDivider() {
     return Row(
       children: [
-        Expanded(
-          child: Container(
-            height: 1,
-            color: Colors.grey.shade300,
-          ),
-        ),
+        Expanded(child: Container(height: 1, color: Colors.grey.shade300)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
@@ -279,12 +238,7 @@ class _SignInPageState extends State<SignInPage> {
             ),
           ),
         ),
-        Expanded(
-          child: Container(
-            height: 1,
-            color: Colors.grey.shade300,
-          ),
-        ),
+        Expanded(child: Container(height: 1, color: Colors.grey.shade300)),
       ],
     );
   }
@@ -297,20 +251,17 @@ class _SignInPageState extends State<SignInPage> {
         onPressed: _isAmberLoading ? null : _loginWithAmber,
         icon: _isAmberLoading
             ? const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
             : const Icon(Icons.phone_android),
         label: Text(
           _isAmberLoading ? 'Connecting...' : 'Sign in with Amber',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFF6B35),
@@ -379,7 +330,8 @@ class _SignInPageState extends State<SignInPage> {
       bool success = false;
 
       // Check if input is a Bunker URL
-      if (input.startsWith('bunker://') || input.startsWith('nostrconnect://')) {
+      if (input.startsWith('bunker://') ||
+          input.startsWith('nostrconnect://')) {
         success = await _authService.loginWithBunkerUrl(input);
       } else {
         // Assume it's a private key
