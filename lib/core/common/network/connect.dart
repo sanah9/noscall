@@ -9,6 +9,7 @@ import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
+import 'connect_relay_sender.dart';
 import 'connect_request_tracker.dart';
 import 'connect_send_tracker.dart';
 import 'connect_socket_registry.dart';
@@ -76,6 +77,7 @@ class Connect {
       _subscriptionQueue.waitingByRelay;
 
   final ConnectAuthState _authState = ConnectAuthState();
+  final ConnectRelaySender _relaySender = ConnectRelaySender();
   final ConnectRequestTracker _requestTracker = ConnectRequestTracker();
   final ConnectSendTracker _sendTracker = ConnectSendTracker();
   final ConnectSocketRegistry _socketRegistry = ConnectSocketRegistry();
@@ -410,35 +412,15 @@ class Connect {
     String? eventId,
     String? subscriptionId,
   }) {
-    if (toRelays != null && toRelays.isNotEmpty) {
-      toRelays = Set.from(toRelays).cast<String>().toList();
-      for (var relay in toRelays) {
-        if (_socketRegistry.contains(relay)) {
-          var socket = _socketRegistry.socketFor(relay);
-          if (_socketRegistry.isOpen(relay) && socket != null) {
-            socket.add(data);
-          } else if (eventId != null) {
-            _handleOk(OKEvent(eventId, false, 'not connect to relay'), relay);
-          } else if (subscriptionId != null) {
-            _handleCLOSED(Closed(subscriptionId), relay);
-          }
-        } else if (eventId != null) {
-          _handleOk(OKEvent(eventId, false, 'not connect to relay'), relay);
-        } else if (subscriptionId != null) {
-          _handleCLOSED(Closed(subscriptionId), relay);
-        }
-      }
-    } else {
-      webSockets.forEach((url, socket) {
-        if (_socketRegistry.isOpen(url) && socket.socket != null) {
-          socket.socket?.add(data);
-        } else if (eventId != null) {
-          _handleOk(OKEvent(eventId, false, 'not connect to relay'), url);
-        } else if (subscriptionId != null) {
-          _handleCLOSED(Closed(subscriptionId), url);
-        }
-      });
-    }
+    _relaySender.send(
+      data,
+      socketRegistry: _socketRegistry,
+      onOkFailure: (ok, relay) => _handleOk(ok, relay),
+      onClosed: (closed, relay) => _handleCLOSED(closed, relay),
+      toRelays: toRelays,
+      eventId: eventId,
+      subscriptionId: subscriptionId,
+    );
   }
 
   static Future<Message> _deserializeMessage(String message) async {
