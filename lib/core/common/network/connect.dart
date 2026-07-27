@@ -13,6 +13,7 @@ import 'connect_request_tracker.dart';
 import 'connect_send_tracker.dart';
 import 'connect_socket_registry.dart';
 import 'connect_status_notifier.dart';
+import 'connect_subscription_planner.dart';
 import 'connect_subscription_queue.dart';
 import 'connect_timeout_checker.dart';
 import 'event_cache.dart';
@@ -79,6 +80,8 @@ class Connect {
   final ConnectSendTracker _sendTracker = ConnectSendTracker();
   final ConnectSocketRegistry _socketRegistry = ConnectSocketRegistry();
   final ConnectStatusNotifier _statusNotifier = ConnectStatusNotifier();
+  final ConnectSubscriptionPlanner _subscriptionPlanner =
+      ConnectSubscriptionPlanner();
   final ConnectSubscriptionQueue _subscriptionQueue = ConnectSubscriptionQueue(
     maxInFlight: maxSubscriptionsCount,
   );
@@ -300,31 +303,17 @@ class Connect {
     List<RelayKind> relayKinds = const [RelayKind.general],
     bool closeSubscription = true,
   }) {
-    Map<String, List<Filter>> result = {};
-    List<String> rs = [];
-    if (relays != null) {
-      rs = List.from(
-        relays
-            .where(
-              (relay) =>
-                  relay.isNotEmpty &&
-                  (relay.startsWith('ws://') || relay.startsWith('wss://')),
-            )
-            .toList(),
-      );
-    }
-    List<String> subscriptionRelays = rs.isNotEmpty == true
-        ? rs
-        : Connect.sharedInstance.relays(relayKinds: relayKinds);
-    if (subscriptionRelays.isEmpty) {
+    final plan = _subscriptionPlanner.plan(
+      filters,
+      explicitRelays: relays,
+      connectedRelays: this.relays(relayKinds: relayKinds),
+    );
+    if (plan.isEmpty) {
       eoseCallBack?.call('', OKEvent('', false, 'no relays connected'), '', []);
       return '';
     }
-    for (var relay in subscriptionRelays) {
-      result[relay] = filters;
-    }
     return addSubscriptions(
-      result,
+      plan.filtersByRelay,
       eventCallBack: eventCallBack,
       eoseCallBack: eoseCallBack,
       closeSubscription: closeSubscription,
