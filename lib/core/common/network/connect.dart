@@ -7,6 +7,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
+import 'connect_event_processor.dart';
 import 'connect_lifecycle.dart';
 import 'connect_message_router.dart';
 import 'connect_relay_sender.dart';
@@ -18,7 +19,6 @@ import 'connect_subscription_dispatcher.dart';
 import 'connect_subscription_planner.dart';
 import 'connect_subscription_queue.dart';
 import 'connect_timeout_checker.dart';
-import 'event_cache.dart';
 import 'reconnection_scheduler.dart';
 
 import 'connect_types.dart';
@@ -77,6 +77,7 @@ class Connect {
       _subscriptionQueue.waitingByRelay;
 
   final ConnectAuthState _authState = ConnectAuthState();
+  final ConnectEventProcessor _eventProcessor = ConnectEventProcessor();
   final ConnectLifecycle _lifecycle = ConnectLifecycle();
   final ConnectMessageRouter _messageRouter = ConnectMessageRouter();
   final ConnectRelaySender _relaySender = ConnectRelaySender();
@@ -429,28 +430,8 @@ class Connect {
     );
   }
 
-  Future<bool> _checkValidEvent(Event event, String relay) async {
-    return _requestTracker.checkValidEvent(event, relay);
-  }
-
   Future<void> _handleEvent(Event event, String relay) async {
-    LogUtils.v(
-      () =>
-          'Received event, subscriptionId: ${event.subscriptionId}, ${event.toJson()}',
-    );
-    if (EventCache.sharedInstance.cacheIds.contains(event.id)) {
-      return;
-    }
-    // ignore the expired event
-    if (Nip40.expired(event)) {
-      EventCache.sharedInstance.receiveEvent(event, relay);
-      return;
-    }
-
-    Future<bool> future = _checkValidEvent(event, relay);
-    if (event.subscriptionId != null && event.subscriptionId!.isNotEmpty) {
-      _requestTracker.trackEventCheck(event.subscriptionId!, relay, future);
-    }
+    await _eventProcessor.handle(event, relay, requestTracker: _requestTracker);
   }
 
   Future<void> _handleEOSE(String eose, String relay, bool timeout) async {
