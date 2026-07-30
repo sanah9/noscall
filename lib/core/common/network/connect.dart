@@ -14,6 +14,7 @@ import 'connect_request_tracker.dart';
 import 'connect_send_tracker.dart';
 import 'connect_socket_registry.dart';
 import 'connect_status_notifier.dart';
+import 'connect_subscription_dispatcher.dart';
 import 'connect_subscription_planner.dart';
 import 'connect_subscription_queue.dart';
 import 'connect_timeout_checker.dart';
@@ -88,6 +89,11 @@ class Connect {
   final ConnectSubscriptionQueue _subscriptionQueue = ConnectSubscriptionQueue(
     maxInFlight: maxSubscriptionsCount,
   );
+  late final ConnectSubscriptionDispatcher _subscriptionDispatcher =
+      ConnectSubscriptionDispatcher(
+        requestTracker: _requestTracker,
+        subscriptionQueue: _subscriptionQueue,
+      );
   final ConnectTimeoutChecker _timeoutChecker = ConnectTimeoutChecker(
     timeoutSeconds: timeout,
   );
@@ -319,42 +325,41 @@ class Connect {
       eoseCallBack: eoseCallBack,
       closeSubscription: closeSubscription,
       onSubscription: (requestId, relay, subscriptionString) {
-        _addSubscriptionToQueue(requestId, relay);
+        _subscriptionDispatcher.enqueue(
+          requestId,
+          relay,
+          requestsMap: requestsMap,
+          send: _sendToRelays,
+          onIdle: _logSubscriptionQueueState,
+        );
         LogUtils.v(() => '$subscriptionString, $relay');
       },
     );
   }
 
-  void _addSubscriptionToQueue(String subscriptionId, String relay) {
-    _subscriptionQueue.add(subscriptionId, relay);
-    _sendSubscription(relay);
+  void _sendToRelays(String data, List<String> relays) {
+    _send(data, toRelays: relays);
   }
 
-  void _sendSubscription(String relay) {
-    final subscriptionId = _subscriptionQueue.takeNext(relay, requestsMap);
-    if (subscriptionId != null) {
-      var request = _requestTracker.markSubscriptionSent(subscriptionId, relay);
-      if (request != null) {
-        _send(request.subscriptionString, toRelays: [relay]);
-      }
-    } else {
-      final sendingQueue = _subscriptionQueue.activeCount(relay, requestsMap);
-      final waitingQueue = _subscriptionQueue.waitingCount(relay);
-      LogUtils.v(
-        () =>
-            'sendingQueue: $sendingQueue, waitingQueue: $waitingQueue, $relay',
-      );
-    }
+  void _logSubscriptionQueueState(
+    int sendingQueue,
+    int waitingQueue,
+    String relay,
+  ) {
+    LogUtils.v(
+      () => 'sendingQueue: $sendingQueue, waitingQueue: $waitingQueue, $relay',
+    );
   }
 
   Future _closeSubscription(String subscriptionId, String relay) async {
     LogUtils.v(() => 'send ${Close(subscriptionId).serialize()}, $relay');
-    if (subscriptionId.isNotEmpty) {
-      _send(Close(subscriptionId).serialize(), toRelays: [relay]);
-      // remove the mapping
-      _requestTracker.removeSubscription(subscriptionId, relay);
-      _sendSubscription(relay);
-    }
+    _subscriptionDispatcher.close(
+      subscriptionId,
+      relay,
+      requestsMap: requestsMap,
+      send: _sendToRelays,
+      onIdle: _logSubscriptionQueueState,
+    );
   }
 
   Future closeRequests(String requestId, {String? relay}) async {
