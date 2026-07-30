@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
 import 'package:nostr_core_dart/nostr.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
+import 'connect_lifecycle.dart';
 import 'connect_message_router.dart';
 import 'connect_relay_sender.dart';
 import 'connect_request_tracker.dart';
@@ -57,7 +57,6 @@ class Connect {
   static const int maxSubscriptionsCount = 15;
 
   NoticeCallBack? noticeCallBack;
-  StreamSubscription? _connectivitySubscription;
 
   /// sockets
   Map<String, ISocket> get webSockets => _socketRegistry.sockets;
@@ -67,7 +66,7 @@ class Connect {
   List<ConnectStatusCallBack> get connectStatusListeners =>
       _statusNotifier.listeners;
   // for timeout
-  Timer? timer;
+  Timer? get timer => _lifecycle.timer;
   Map<String, AuthData> get auths => _authState.auths;
 
   Map<String, List<Future<bool>>> get eventCheckerFutures =>
@@ -77,6 +76,7 @@ class Connect {
       _subscriptionQueue.waitingByRelay;
 
   final ConnectAuthState _authState = ConnectAuthState();
+  final ConnectLifecycle _lifecycle = ConnectLifecycle();
   final ConnectMessageRouter _messageRouter = ConnectMessageRouter();
   final ConnectRelaySender _relaySender = ConnectRelaySender();
   final ConnectRequestTracker _requestTracker = ConnectRequestTracker();
@@ -92,7 +92,6 @@ class Connect {
     timeoutSeconds: timeout,
   );
   final ReconnectionScheduler _reconnectionScheduler = ReconnectionScheduler();
-  ConnectivityResult? _currentConnectivity;
 
   bool get isInitialized => _isInitialized;
 
@@ -112,12 +111,10 @@ class Connect {
   }
 
   void startHeartBeat() {
-    if (timer == null || timer!.isActive == false) {
-      timer = Timer.periodic(const Duration(seconds: 5), (Timer t) {
-        _checkTimeout();
-      });
-    }
-    resetConnection(force: false);
+    _lifecycle.startHeartbeat(
+      onTimeoutCheck: _checkTimeout,
+      onResetConnection: () => resetConnection(force: false),
+    );
   }
 
   Future<void> resetConnection({bool force = true}) async {
@@ -133,23 +130,17 @@ class Connect {
   }
 
   Future<void> listenConnectivity() async {
-    final results = await _connectivity.checkConnectivity();
-    _currentConnectivity = results.isNotEmpty ? results.first : null;
-
-    _connectivitySubscription ??= _connectivity.onConnectivityChanged.listen((
-      List<ConnectivityResult> results,
-    ) async {
-      _currentConnectivity = results.isNotEmpty ? results.first : null;
-      if (results.any((result) => result != ConnectivityResult.none)) {
+    await _lifecycle.listenConnectivity(
+      _connectivity,
+      onNetworkAvailable: () {
         _reconnectionScheduler.resetAll();
         resetConnection(force: false);
-      }
-    });
+      },
+    );
   }
 
   bool _hasNetworkConnectivity() {
-    return _currentConnectivity != null &&
-        _currentConnectivity != ConnectivityResult.none;
+    return _lifecycle.hasNetworkConnectivity;
   }
 
   // void _stopCheckTimeOut() {
@@ -264,13 +255,7 @@ class Connect {
   }
 
   Future closeAllConnects() async {
-    // Cancel heartbeat timer
-    timer?.cancel();
-    timer = null;
-
-    // Cancel connectivity subscription
-    _connectivitySubscription?.cancel();
-    _connectivitySubscription = null;
+    await _lifecycle.stop();
 
     _reconnectionScheduler.cancelAll();
 
@@ -285,7 +270,6 @@ class Connect {
     _requestTracker.clear();
     _authState.clear();
     _subscriptionQueue.clear();
-    _currentConnectivity = null;
     _isInitialized = false;
   }
 
