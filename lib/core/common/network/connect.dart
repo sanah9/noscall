@@ -5,10 +5,10 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/common/thread/thread_pool_manager.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
+import 'connect_message_router.dart';
 import 'connect_relay_sender.dart';
 import 'connect_request_tracker.dart';
 import 'connect_send_tracker.dart';
@@ -77,6 +77,7 @@ class Connect {
       _subscriptionQueue.waitingByRelay;
 
   final ConnectAuthState _authState = ConnectAuthState();
+  final ConnectMessageRouter _messageRouter = ConnectMessageRouter();
   final ConnectRelaySender _relaySender = ConnectRelaySender();
   final ConnectRequestTracker _requestTracker = ConnectRequestTracker();
   final ConnectSendTracker _sendTracker = ConnectSendTracker();
@@ -423,38 +424,20 @@ class Connect {
     );
   }
 
-  static Future<Message> _deserializeMessage(String message) async {
-    return await Message.deserialize(message);
-  }
-
   Future<void> _handleMessage(String message, String relay) async {
-    var m = await ThreadPoolManager.sharedInstance.runOtherTask(
-      () => _deserializeMessage(message),
-    );
-    switch (m.type) {
-      case "EVENT":
-        _handleEvent(m.message, relay);
-        break;
-      case "EOSE":
-        _handleEOSE(m.message, relay, false);
-        break;
-      case "CLOSED":
-        _handleCLOSED(m.message, relay);
-        break;
-      case "NOTICE":
-      case "NOTIFY":
-        _handleNotice(m.message, relay);
-        break;
-      case "OK":
-        _handleOk(m.message, relay);
-        break;
-      case "AUTH":
-        _handleAuth(m.message, relay);
-        break;
-      default:
+    await _messageRouter.route(
+      message,
+      relay,
+      onEvent: (event, relay) => _handleEvent(event, relay),
+      onEose: (eose, relay, timeout) => _handleEOSE(eose, relay, timeout),
+      onClosed: (closed, relay) => _handleCLOSED(closed, relay),
+      onNotice: (notice, relay) => _handleNotice(notice, relay),
+      onOk: (ok, relay) => _handleOk(ok, relay),
+      onAuth: (auth, relay) => _handleAuth(auth, relay),
+      onUnsupported: (message) {
         LogUtils.v(() => 'Received message not supported: $message');
-        break;
-    }
+      },
+    );
   }
 
   Future<bool> _checkValidEvent(Event event, String relay) async {
