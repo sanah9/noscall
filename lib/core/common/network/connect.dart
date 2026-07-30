@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:core';
 import 'package:nostr_core_dart/nostr.dart';
 
-import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
+import 'connect_auth_sender.dart';
 import 'connect_auth_state.dart';
 import 'connect_dependencies.dart';
 import 'connect_event_processor.dart';
@@ -77,6 +77,9 @@ class Connect {
       _subscriptionQueue.waitingByRelay;
 
   final ConnectAuthState _authState = ConnectAuthState();
+  late final ConnectAuthSender _authSender = ConnectAuthSender(
+    authState: _authState,
+  );
   final ConnectEventProcessor _eventProcessor = ConnectEventProcessor();
   final ConnectLifecycle _lifecycle = ConnectLifecycle();
   final ConnectMessageRouter _messageRouter = ConnectMessageRouter();
@@ -524,19 +527,7 @@ class Connect {
   }
 
   Future<void> _sendAuth(String relay) async {
-    String? challenge = _authState.challengeFor(relay);
-    if (challenge == null || challenge.isEmpty) return;
-    if (!_authState.markSending(relay)) return;
-    Event event = await Nip42.encode(
-      challenge,
-      relay,
-      Account.sharedInstance.currentPubkey,
-      Account.sharedInstance.currentPrivkey,
-    );
-    var authJson = Nip42.authString(event);
-    _authState.markSent(relay, event.id);
-    LogUtils.v(() => 'send auth: $authJson');
-    _send(authJson, toRelays: [relay]);
+    await _authSender.sendAuth(relay, send: _sendToRelays);
   }
 
   Future<void> _reConnectToRelay(String relay, RelayKind relayKind) async {
