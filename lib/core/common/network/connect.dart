@@ -11,6 +11,7 @@ import 'connect_event_processor.dart';
 import 'connect_lifecycle.dart';
 import 'connect_message_router.dart';
 import 'connect_relay_sender.dart';
+import 'connect_request_completion_handler.dart';
 import 'connect_request_tracker.dart';
 import 'connect_send_tracker.dart';
 import 'connect_socket_registry.dart';
@@ -84,6 +85,11 @@ class Connect {
   final ConnectLifecycle _lifecycle = ConnectLifecycle();
   final ConnectMessageRouter _messageRouter = ConnectMessageRouter();
   final ConnectRelaySender _relaySender = ConnectRelaySender();
+  late final ConnectRequestCompletionHandler _requestCompletionHandler =
+      ConnectRequestCompletionHandler(
+        requestTracker: _requestTracker,
+        authState: _authState,
+      );
   final ConnectRequestTracker _requestTracker = ConnectRequestTracker();
   final ConnectSendTracker _sendTracker = ConnectSendTracker();
   final ConnectSocketRegistry _socketRegistry = ConnectSocketRegistry();
@@ -438,41 +444,30 @@ class Connect {
   }
 
   Future<void> _handleEOSE(String eose, String relay, bool timeout) async {
-    LogUtils.v(() => 'receive EOSE: $eose, $relay, timeout: $timeout');
-    String subscriptionId = _requestTracker.requestIdFromEose(eose);
-    if (_requestTracker.containsSubscription(subscriptionId, relay)) {
-      await _requestTracker.waitForEventChecks(subscriptionId, relay);
-      _removeRequestsMapRelay(subscriptionId, relay, timeout);
-    }
+    await _requestCompletionHandler.handleEose(
+      eose,
+      relay,
+      timeout,
+      closeSubscription: _closeSubscription,
+    );
   }
 
-  void _handleCLOSED(Closed closed, String relay) {
-    LogUtils.v(() => 'receive closed: ${closed.serialize()}, $relay');
-    String subscriptionId = closed.subscriptionId;
-    if (_requestTracker.containsSubscription(subscriptionId, relay)) {
-      // check auth
-      if (Nip42.authRequired(closed.message)) {
-        final subscriptionString = _requestTracker.subscriptionStringFor(
-          subscriptionId,
-          relay,
-        );
-        if (subscriptionString != null) {
-          _authState.queueResend(relay, subscriptionString);
-        }
-        _sendAuth(relay);
-        return;
-      }
-      _removeRequestsMapRelay(subscriptionId, relay, true);
-    }
+  Future<void> _handleCLOSED(Closed closed, String relay) async {
+    await _requestCompletionHandler.handleClosed(
+      closed,
+      relay,
+      closeSubscription: _closeSubscription,
+      sendAuth: _sendAuth,
+    );
   }
 
-  void _handleNotice(String notice, String relay) {
-    LogUtils.v(() => 'receive notice: $notice, $relay');
-    String n = jsonDecode(notice)[0];
-
-    _removeRequestsForRelay(relay);
-
-    noticeCallBack?.call(n, relay);
+  Future<void> _handleNotice(String notice, String relay) async {
+    await _requestCompletionHandler.handleNotice(
+      notice,
+      relay,
+      noticeCallBack: noticeCallBack,
+      closeSubscription: _closeSubscription,
+    );
   }
 
   Future<void> _handleOk(OKEvent ok, String relay) async {
@@ -494,36 +489,16 @@ class Connect {
     }
     final failedRelay = sendResult.failedRelayForRequests;
     if (failedRelay != null) {
-      _removeRequestsForRelay(failedRelay);
+      await _requestCompletionHandler.completeAllForRelay(
+        failedRelay,
+        closeSubscription: _closeSubscription,
+      );
     }
   }
 
   void _handleAuth(Auth auth, String relay) {
     LogUtils.v(() => 'receive auth: ${auth.challenge}');
     _authState.registerChallenge(auth, relay);
-  }
-
-  void _removeRequestsMapRelay(
-    String subscriptionId,
-    String removeRelay,
-    bool error,
-  ) {
-    final closeSubscription = _requestTracker.completeRelay(
-      subscriptionId,
-      removeRelay,
-      error,
-    );
-    if (closeSubscription) {
-      _closeSubscription(subscriptionId, removeRelay);
-    }
-  }
-
-  void _removeRequestsForRelay(String relay) {
-    for (final subscriptionId in _requestTracker.subscriptionIdsForRelay(
-      relay,
-    )) {
-      _removeRequestsMapRelay(subscriptionId, relay, true);
-    }
   }
 
   Future<void> _sendAuth(String relay) async {
