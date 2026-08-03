@@ -221,6 +221,11 @@ class Account {
     }
   }
 
+  Future<void> _writeSecretRequired(String key, String value) async {
+    if (await _writeSecret(key, value)) return;
+    throw AccountSecretStoreUnavailableException(key);
+  }
+
   Future<String?> _privateKeyPasswordFor(UserDBISAR user) async {
     final key = AccountSecretKeys.privateKeyPassword(user.pubKey);
     final storedPassword = await _readSecret(key);
@@ -231,10 +236,9 @@ class Account {
     final legacyPassword = user.defaultPassword;
     if (legacyPassword == null || legacyPassword.isEmpty) return null;
 
-    if (await _writeSecret(key, legacyPassword)) {
-      user.defaultPassword = '';
-      await saveUserToDB(user);
-    }
+    await _writeSecretRequired(key, legacyPassword);
+    user.defaultPassword = '';
+    await saveUserToDB(user);
     return legacyPassword;
   }
 
@@ -243,11 +247,8 @@ class Account {
     String password,
   ) async {
     final key = AccountSecretKeys.privateKeyPassword(user.pubKey);
-    if (await _writeSecret(key, password)) {
-      user.defaultPassword = '';
-    } else {
-      user.defaultPassword = password;
-    }
+    await _writeSecretRequired(key, password);
+    user.defaultPassword = '';
   }
 
   Future<String?> remoteSignerClientPrivateKeyFor(UserDBISAR? user) async {
@@ -261,10 +262,9 @@ class Account {
     final legacyClientKey = user.clientPrivateKey;
     if (legacyClientKey == null || legacyClientKey.isEmpty) return null;
 
-    if (await _writeSecret(key, legacyClientKey)) {
-      user.clientPrivateKey = null;
-      await saveUserToDB(user);
-    }
+    await _writeSecretRequired(key, legacyClientKey);
+    user.clientPrivateKey = null;
+    await saveUserToDB(user);
     return legacyClientKey;
   }
 
@@ -273,11 +273,8 @@ class Account {
     String clientPrivateKey,
   ) async {
     final key = AccountSecretKeys.remoteSignerClientPrivateKey(user.pubKey);
-    if (await _writeSecret(key, clientPrivateKey)) {
-      user.clientPrivateKey = null;
-    } else {
-      user.clientPrivateKey = clientPrivateKey;
-    }
+    await _writeSecretRequired(key, clientPrivateKey);
+    user.clientPrivateKey = null;
   }
 
   bool isValidPubKey(String pubKey) {

@@ -29,6 +29,7 @@ class UserDBISAR {
   @ignore
   String? privkey;
 
+  /// Legacy migration field only. New writes must use AccountSecretStore.
   String? defaultPassword;
 
   String? name;
@@ -90,6 +91,8 @@ class UserDBISAR {
 
   // nip46
   String? remoteSignerURI;
+
+  /// Legacy migration field only. New writes must use AccountSecretStore.
   String? clientPrivateKey;
   String? remotePubkey;
 
@@ -250,7 +253,6 @@ UserDBISAR _userInfoFromMap(Map<String, dynamic> map) {
   return UserDBISAR(
     pubKey: map['pubKey'].toString(),
     encryptedPrivKey: map['encryptedPrivKey'].toString(),
-    defaultPassword: map['defaultPassword']?.toString() ?? '',
     name: map['name'].toString(),
     nickName: map['nickName'].toString(),
     mainRelay: map['mainRelay'].toString(),
@@ -279,7 +281,6 @@ UserDBISAR _userInfoFromMap(Map<String, dynamic> map) {
     otherField: map['otherField']?.toString(),
     nwcURI: map['nwcURI']?.toString(),
     remoteSignerURI: map['remoteSignerURI']?.toString(),
-    clientPrivateKey: map['clientPrivateKey']?.toString(),
     remotePubkey: map['remotePubkey']?.toString(),
     settings: map['settings']?.toString(),
   );

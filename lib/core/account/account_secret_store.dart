@@ -6,6 +6,17 @@ abstract class AccountSecretStore {
   Future<void> delete(String key);
 }
 
+class AccountSecretStoreUnavailableException implements Exception {
+  const AccountSecretStoreUnavailableException(this.key);
+
+  final String key;
+
+  @override
+  String toString() {
+    return 'AccountSecretStoreUnavailableException: secure storage is required for $key';
+  }
+}
+
 class MethodChannelAccountSecretStore implements AccountSecretStore {
   const MethodChannelAccountSecretStore();
 

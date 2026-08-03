@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test runner script
-# Usage: ./scripts/run_tests.sh [unit|widget|integration|all]
+# Usage: ./scripts/run_tests.sh [unit|widget|integration|account|relay|core|all]
 
 set -e
 

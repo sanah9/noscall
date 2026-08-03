@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/account_dependencies.dart';
@@ -52,6 +53,19 @@ class FakeAccountSecretStore implements AccountSecretStore {
   @override
   Future<void> write(String key, String value) async {
     values[key] = value;
+  }
+}
+
+class FailingAccountSecretStore implements AccountSecretStore {
+  @override
+  Future<void> delete(String key) async {}
+
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<void> write(String key, String value) {
+    throw MissingPluginException('secure store unavailable');
   }
 }
 
@@ -214,6 +228,43 @@ void main() {
           expect(secretStore.values[secretKey], legacyPassword);
           expect(persistence.lastSavedUser?.defaultPassword, isEmpty);
           expect(account.currentPrivkey, keychain.private);
+        },
+      );
+
+      test(
+        'loginWithPriKey fails instead of persisting password in UserDBISAR when secure storage is unavailable',
+        () async {
+          final keychain = Keychain.generate();
+          Account.setTestDependencies(
+            persistence: persistence,
+            secretStore: FailingAccountSecretStore(),
+          );
+
+          expect(
+            () => account.loginWithPriKey(keychain.private),
+            throwsA(isA<AccountSecretStoreUnavailableException>()),
+          );
+          expect(persistence.users, isEmpty);
+        },
+      );
+
+      test(
+        'persistRemoteSignerClientPrivateKey fails instead of persisting client key in UserDBISAR when secure storage is unavailable',
+        () async {
+          final user = UserDBISAR(pubKey: TestData.validPubkey);
+          Account.setTestDependencies(
+            persistence: persistence,
+            secretStore: FailingAccountSecretStore(),
+          );
+
+          expect(
+            () => account.persistRemoteSignerClientPrivateKey(
+              user,
+              'client-private-key',
+            ),
+            throwsA(isA<AccountSecretStoreUnavailableException>()),
+          );
+          expect(user.clientPrivateKey, isNull);
         },
       );
     });

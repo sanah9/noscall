@@ -6,10 +6,12 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
 import 'connect_auth_sender.dart';
 import 'connect_auth_state.dart';
+import 'connect_connection_manager.dart';
 import 'connect_dependencies.dart';
 import 'connect_event_processor.dart';
 import 'connect_lifecycle.dart';
 import 'connect_message_router.dart';
+import 'connect_ok_handler.dart';
 import 'connect_relay_sender.dart';
 import 'connect_request_completion_handler.dart';
 import 'connect_request_tracker.dart';
@@ -81,9 +83,23 @@ class Connect {
   late final ConnectAuthSender _authSender = ConnectAuthSender(
     authState: _authState,
   );
+  late final ConnectConnectionManager _connectionManager =
+      ConnectConnectionManager(
+        socketRegistry: _socketRegistry,
+        reconnectionScheduler: _reconnectionScheduler,
+        socketConnector: () => _socketConnector,
+        hasNetworkConnectivity: _hasNetworkConnectivity,
+        setConnectStatus: _setConnectStatus,
+        handleMessage: _handleMessage,
+        connectionTimeoutSeconds: connectionTimeout,
+      );
   final ConnectEventProcessor _eventProcessor = ConnectEventProcessor();
   final ConnectLifecycle _lifecycle = ConnectLifecycle();
   final ConnectMessageRouter _messageRouter = ConnectMessageRouter();
+  late final ConnectOkHandler _okHandler = ConnectOkHandler(
+    authState: _authState,
+    sendTracker: _sendTracker,
+  );
   final ConnectRelaySender _relaySender = ConnectRelaySender();
   late final ConnectRequestCompletionHandler _requestCompletionHandler =
       ConnectRequestCompletionHandler(
@@ -134,15 +150,7 @@ class Connect {
   }
 
   Future<void> resetConnection({bool force = true}) async {
-    for (final relay in List<String>.from(_socketRegistry.relays)) {
-      if (webSockets[relay]?.connectStatus != 3 && force) {
-        _socketRegistry.setStatus(relay, 3);
-        await _socketRegistry.socketFor(relay)?.close();
-      }
-      for (final relayKind in _socketRegistry.relayKindsFor(relay)) {
-        connect(relay, relayKind: relayKind);
-      }
-    }
+    await _connectionManager.resetConnection(force: force);
   }
 
   Future<void> listenConnectivity() async {
@@ -199,39 +207,11 @@ class Connect {
     String relay, {
     RelayKind relayKind = RelayKind.general,
   }) async {
-    LogUtils.v(() => 'connect to $relay, kind: ${relayKind.name}');
-    if (relay.isEmpty) return;
-    if (!_isInitialized) {
-      LogUtils.w(
-        () =>
-            'Connect used before init(); continuing without lifecycle watchers.',
-      );
-    }
-
-    final relayKinds = _socketRegistry.mergeRelayKind(relay, relayKind);
-
-    if (_socketRegistry.isConnectingOrOpen(relay)) {
-      return;
-    }
-
-    _reconnectionScheduler.resetRelay(relay);
-
-    LogUtils.v(() => "connecting... $relay");
-    _socketRegistry.markConnecting(relay, relayKinds);
-    try {
-      RelaySocket? socket;
-      socket = await _connectWs(relay);
-      if (socket != null) {
-        socket.done.then((dynamic _) => _onDisconnected(relay, relayKind));
-        _listenEvent(socket, relay, relayKind);
-        _socketRegistry.markOpen(relay, socket, relayKinds);
-        LogUtils.v(() => "$relay connection initialized");
-        _setConnectStatus(relay, 1);
-        _reconnectionScheduler.recordSuccess(relay);
-      }
-    } catch (_) {
-      _onDisconnected(relay, relayKind);
-    }
+    await _connectionManager.connect(
+      relay,
+      relayKind: relayKind,
+      isInitialized: _isInitialized,
+    );
   }
 
   Future<bool> connectRelays(
@@ -258,12 +238,7 @@ class Connect {
   }
 
   Future closeConnects(List<String> relays, RelayKind relayKind) async {
-    await Future.forEach(relays, (relay) async {
-      final relayKinds = _socketRegistry.removeRelayKind(relay, relayKind);
-      if (_socketRegistry.contains(relay) && relayKinds.isEmpty) {
-        await closeConnect(relay);
-      }
-    });
+    await _connectionManager.closeConnects(relays, relayKind);
   }
 
   Future closeTempConnects(List<String> relays) async {
@@ -290,12 +265,7 @@ class Connect {
   }
 
   Future closeConnect(String relay) async {
-    LogUtils.v(() => 'closeConnect ${webSockets[relay]?.socket}');
-    final socket = _socketRegistry.remove(relay);
-
-    _reconnectionScheduler.cancelRelay(relay);
-
-    await socket?.close();
+    await _connectionManager.closeConnect(relay);
   }
 
   String addSubscription(
@@ -471,29 +441,14 @@ class Connect {
   }
 
   Future<void> _handleOk(OKEvent ok, String relay) async {
-    LogUtils.v(() => 'receive ok: ${ok.serialize()}, $relay');
-    // check auth response
-    if (_authState.isAuthResponse(ok, relay)) {
-      for (var data in _authState.completeAuthResponse(ok, relay)) {
-        LogUtils.v(() => 're-send: $data');
-        _send(data, toRelays: [relay]);
-      }
-      return;
-    }
-    final sendResult = _sendTracker.handleOk(ok, relay);
-    final authEventString = sendResult.authRequiredEventString;
-    if (authEventString != null) {
-      _authState.queueResend(relay, authEventString);
-      _sendAuth(relay);
-      return;
-    }
-    final failedRelay = sendResult.failedRelayForRequests;
-    if (failedRelay != null) {
-      await _requestCompletionHandler.completeAllForRelay(
-        failedRelay,
-        closeSubscription: _closeSubscription,
-      );
-    }
+    await _okHandler.handle(
+      ok,
+      relay,
+      send: _sendToRelays,
+      sendAuth: _sendAuth,
+      completeRelayRequests: (relay) => _requestCompletionHandler
+          .completeAllForRelay(relay, closeSubscription: _closeSubscription),
+    );
   }
 
   void _handleAuth(Auth auth, String relay) {
@@ -503,67 +458,5 @@ class Connect {
 
   Future<void> _sendAuth(String relay) async {
     await _authSender.sendAuth(relay, send: _sendToRelays);
-  }
-
-  Future<void> _reConnectToRelay(String relay, RelayKind relayKind) async {
-    _setConnectStatus(relay, 3);
-
-    _reconnectionScheduler.schedule(
-      relay: relay,
-      hasNetworkConnectivity: _hasNetworkConnectivity(),
-      isRelayManaged: () => _socketRegistry.contains(relay),
-      reconnect: () {
-        connect(relay, relayKind: relayKind);
-      },
-    );
-  }
-
-  void _listenEvent(RelaySocket socket, String relay, RelayKind relayKind) {
-    socket.listen(
-      (message) async {
-        await _handleMessage(message, relay);
-      },
-      onDone: () async {
-        LogUtils.v(() => "connect aborted");
-        await _reConnectToRelay(relay, relayKind);
-      },
-      onError: (e) async {
-        LogUtils.v(() => 'Server error: $e');
-        await _reConnectToRelay(relay, relayKind);
-      },
-    );
-  }
-
-  Future<RelaySocket?> _connectWs(String relay) async {
-    try {
-      _setConnectStatus(relay, 0);
-      return await _connectWsSetting(relay);
-    } catch (e) {
-      LogUtils.v(() => "Error! can not connect WS connectWs $e relay:$relay");
-      _setConnectStatus(relay, 3);
-
-      final relayKind = _socketRegistry.firstPersistentKind(relay);
-      if (relayKind != null && _socketRegistry.contains(relay)) {
-        _reConnectToRelay(relay, relayKind);
-      }
-      return null;
-    }
-  }
-
-  Future<RelaySocket> _connectWsSetting(String relay) async {
-    try {
-      return await _socketConnector.connect(
-        relay,
-        timeout: const Duration(seconds: connectionTimeout),
-      );
-    } on TimeoutException catch (e) {
-      LogUtils.v(() => 'WebSocket connection timeout for $relay');
-      throw TimeoutException(e.message, e.duration);
-    }
-  }
-
-  Future<void> _onDisconnected(String relay, RelayKind relayKind) async {
-    LogUtils.v(() => "_onDisconnected");
-    return await _reConnectToRelay(relay, relayKind);
   }
 }
