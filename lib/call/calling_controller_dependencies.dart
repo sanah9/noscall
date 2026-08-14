@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:nostr_core_dart/nostr.dart';
@@ -77,29 +79,13 @@ abstract class CallingControllerSignalingGateway {
     String sdp,
   );
 
-  Future<OKEvent> sendAnswer(
-    String offerId,
-    String peerId,
-    String sdp,
-  );
+  Future<OKEvent> sendAnswer(String offerId, String peerId, String sdp);
 
-  Future<OKEvent> sendCandidate(
-    String offerId,
-    String peerId,
-    String meta,
-  );
+  Future<OKEvent> sendCandidate(String offerId, String peerId, String meta);
 
-  Future<OKEvent> sendReject(
-    String callId,
-    String peerId,
-    String reason,
-  );
+  Future<OKEvent> sendReject(String callId, String peerId, String reason);
 
-  Future<OKEvent> sendHangup(
-    String callId,
-    String peerId,
-    String reason,
-  );
+  Future<OKEvent> sendHangup(String callId, String peerId, String reason);
 }
 
 class DefaultCallingControllerSignalingGateway
@@ -144,8 +130,8 @@ abstract class CallingControllerConnectivityWatcher {
   void dispose();
 }
 
-typedef CallingControllerConnectivityWatcherFactory
-    = CallingControllerConnectivityWatcher Function();
+typedef CallingControllerConnectivityWatcherFactory =
+    CallingControllerConnectivityWatcher Function();
 
 abstract class CallKeepActions {
   Future<void> endCall(String callId);
@@ -166,17 +152,32 @@ abstract class CallHistoryRecorder {
   });
 }
 
+abstract class CallingControllerLifecycleObserver {
+  FutureOr<void> onConnected({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+  });
+
+  FutureOr<void> onEnded({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+    required CallEndReason reason,
+    required bool hasConnected,
+  });
+}
+
 class CallingControllerDependencies {
   CallingControllerDependencies({
     CallingControllerWebRTCFactory? webRTCFactory,
     CallingControllerSignalingGateway? signalingGateway,
     CallingControllerConnectivityWatcherFactory? connectivityWatcherFactory,
-  })  : webRTCFactory =
-            webRTCFactory ?? DefaultCallingControllerWebRTCFactory(),
-        signalingGateway =
-            signalingGateway ?? DefaultCallingControllerSignalingGateway(),
-        connectivityWatcherFactory =
-            connectivityWatcherFactory ?? CallConnectivityListener.new;
+  }) : webRTCFactory = webRTCFactory ?? DefaultCallingControllerWebRTCFactory(),
+       signalingGateway =
+           signalingGateway ?? DefaultCallingControllerSignalingGateway(),
+       connectivityWatcherFactory =
+           connectivityWatcherFactory ?? CallConnectivityListener.new;
 
   final CallingControllerWebRTCFactory webRTCFactory;
   final CallingControllerSignalingGateway signalingGateway;

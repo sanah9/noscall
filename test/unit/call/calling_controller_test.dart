@@ -254,6 +254,37 @@ class FakeCallHistoryRecorder implements CallHistoryRecorder {
   }
 }
 
+class FakeLifecycleObserver implements CallingControllerLifecycleObserver {
+  final List<Map<String, dynamic>> connected = [];
+  final List<Map<String, dynamic>> ended = [];
+
+  @override
+  Future<void> onConnected({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+  }) async {
+    connected.add({'callId': callId, 'peerPubkey': peerPubkey, 'role': role});
+  }
+
+  @override
+  Future<void> onEnded({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+    required CallEndReason reason,
+    required bool hasConnected,
+  }) async {
+    ended.add({
+      'callId': callId,
+      'peerPubkey': peerPubkey,
+      'role': role,
+      'reason': reason,
+      'hasConnected': hasConnected,
+    });
+  }
+}
+
 Future<void> flushControllerTasks() async {
   await Future<void>.delayed(Duration.zero);
   await Future<void>.delayed(Duration.zero);
@@ -266,6 +297,7 @@ void main() {
     late FakeCallingControllerConnectivityWatcher connectivityWatcher;
     late FakeCallKeepActions callKeepActions;
     late FakeCallHistoryRecorder callHistoryRecorder;
+    late FakeLifecycleObserver lifecycleObserver;
     late CallingControllerDependencies dependencies;
 
     setUp(() {
@@ -274,6 +306,7 @@ void main() {
       connectivityWatcher = FakeCallingControllerConnectivityWatcher();
       callKeepActions = FakeCallKeepActions();
       callHistoryRecorder = FakeCallHistoryRecorder();
+      lifecycleObserver = FakeLifecycleObserver();
       dependencies = CallingControllerDependencies(
         webRTCFactory: FakeCallingControllerWebRTCFactory(webRTCSession),
         signalingGateway: signalingGateway,
@@ -296,6 +329,7 @@ void main() {
         speakerType: speakerType,
         callKeepManager: callKeepActions,
         callHistoryManager: callHistoryRecorder,
+        lifecycleObserver: lifecycleObserver,
         dependencies: dependencies,
       );
     }
@@ -307,6 +341,7 @@ void main() {
         callType: CallType.audio,
         callKeepManager: callKeepActions,
         callHistoryManager: callHistoryRecorder,
+        lifecycleObserver: lifecycleObserver,
         dependencies: dependencies,
       );
 
@@ -331,6 +366,7 @@ void main() {
           callType: CallType.audio,
           callKeepManager: callKeepActions,
           callHistoryManager: callHistoryRecorder,
+          lifecycleObserver: lifecycleObserver,
           dependencies: dependencies,
         );
 
@@ -464,6 +500,26 @@ void main() {
       expect(controller.hasConnected.value, isTrue);
       expect(controller.state.value, CallingState.connected);
       expect(webRTCSession.speakerTypes, [AudioOutputType.bluetooth]);
+      expect(lifecycleObserver.connected.single['callId'], 'call-123');
+      expect(lifecycleObserver.connected.single['role'], CallingRole.caller);
+    });
+
+    test('lifecycle observer is notified when call ends', () async {
+      final controller = await createController(
+        role: CallingRole.caller,
+        state: CallingState.connected,
+      );
+
+      controller.hasConnected.value = true;
+      await controller.hangup(CallEndReason.hangup);
+      await flushControllerTasks();
+
+      expect(lifecycleObserver.ended.single['callId'], 'call-123');
+      expect(
+        lifecycleObserver.ended.single['reason'],
+        CallEndReason.disconnect,
+      );
+      expect(lifecycleObserver.ended.single['hasConnected'], isTrue);
     });
   });
 }

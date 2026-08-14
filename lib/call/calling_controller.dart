@@ -53,6 +53,7 @@ class CallingController {
     required this.dependencies,
     this.callHistoryManager,
     this.callKeepManager,
+    this.lifecycleObserver,
   }) : state = ValueNotifier(state),
        hasConnected = ValueNotifier(state == CallingState.connected),
        speakerType = ValueNotifier(speakerType),
@@ -107,6 +108,7 @@ class CallingController {
   late DateTime callStartTime;
   final CallHistoryRecorder? callHistoryManager;
   final CallKeepActions? callKeepManager;
+  final CallingControllerLifecycleObserver? lifecycleObserver;
 
   static Future<CallingController> create({
     required UserDBISAR user,
@@ -122,6 +124,7 @@ class CallingController {
     Function(String offerId)? disposeCallback,
     CallHistoryRecorder? callHistoryManager,
     CallKeepActions? callKeepManager,
+    CallingControllerLifecycleObserver? lifecycleObserver,
     CallingControllerDependencies? dependencies,
   }) async {
     final resolvedDependencies =
@@ -140,6 +143,7 @@ class CallingController {
       dependencies: resolvedDependencies,
       callHistoryManager: callHistoryManager,
       callKeepManager: callKeepManager,
+      lifecycleObserver: lifecycleObserver,
     );
 
     if (offerId.isNotEmpty) {
@@ -210,6 +214,42 @@ class CallingController {
       hasConnected: hasConnected.value,
       reason: reason,
     );
+  }
+
+  Future<void> _notifyConnected() async {
+    if (lifecycleObserver == null || !callIdCmp.isCompleted) return;
+    try {
+      await lifecycleObserver!.onConnected(
+        callId: await callId,
+        peerPubkey: peerId,
+        role: role,
+      );
+    } catch (e, stack) {
+      LogUtils.error(
+        className: 'CallingController',
+        funcName: '_notifyConnected',
+        message: 'Lifecycle observer failed: $e, $stack',
+      );
+    }
+  }
+
+  Future<void> _notifyEnded(CallEndReason reason) async {
+    if (lifecycleObserver == null || !callIdCmp.isCompleted) return;
+    try {
+      await lifecycleObserver!.onEnded(
+        callId: await callId,
+        peerPubkey: peerId,
+        role: role,
+        reason: reason,
+        hasConnected: hasConnected.value,
+      );
+    } catch (e, stack) {
+      LogUtils.error(
+        className: 'CallingController',
+        funcName: '_notifyEnded',
+        message: 'Lifecycle observer failed: $e, $stack',
+      );
+    }
   }
 }
 
@@ -307,6 +347,7 @@ extension CallingControllerSignalingEx on CallingController {
     _durationTracker.stop();
     await _recordCallHistory(finalReason.value);
     state.value = CallingState.ended;
+    await _notifyEnded(finalReason);
 
     if (shouldInvokeCallKeep) {
       switch (reason) {
@@ -523,6 +564,7 @@ extension CallingControllerNostrSignalingEx on CallingController {
     _durationTracker.stop();
     await _recordCallHistory(CallEndReason.disconnect.value);
     state.value = CallingState.ended;
+    await _notifyEnded(CallEndReason.disconnect);
 
     callKeepManager?.endCall(await callId);
     await webRTCHandler.close();
@@ -566,6 +608,7 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
         state.value = CallingState.connected;
         _durationTracker.start();
         await webRTCHandler.setSpeakerType(speakerType.value);
+        await _notifyConnected();
       },
       onHangup: hangup,
     );

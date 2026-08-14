@@ -13,6 +13,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'constant/call_type.dart';
 import 'callkeep_manager.dart';
 import 'calling_controller.dart';
+import 'calling_controller_dependencies.dart';
 import 'pip_manager.dart';
 import 'voip_push_service.dart';
 import 'package:noscall/core/common/utils/log_utils.dart';
@@ -205,6 +206,7 @@ class CallKitManager with WidgetsBindingObserver {
     required String peerId,
     required CallType callType,
     String? callId,
+    CallingControllerLifecycleObserver? lifecycleObserver,
   }) async {
     try {
       await ensureCanStartCall(callType);
@@ -217,6 +219,7 @@ class CallKitManager with WidgetsBindingObserver {
         callType: callType,
         role: CallingRole.caller,
         callId: callId,
+        lifecycleObserver: lifecycleObserver,
       );
 
       LogUtils.i(() => 'Call started to $peerId with type ${callType.value}');
@@ -426,6 +429,7 @@ class CallKitManager with WidgetsBindingObserver {
     String? sessionId,
     String? offerId,
     String? callId,
+    CallingControllerLifecycleObserver? lifecycleObserver,
   }) async {
     final cmp = Completer<CallingController>();
     activeControllerCmp = cmp;
@@ -444,6 +448,7 @@ class CallKitManager with WidgetsBindingObserver {
       disposeCallback: callControllerDisposeHandler,
       callHistoryManager: callHistoryManager,
       callKeepManager: _callKeepManager,
+      lifecycleObserver: lifecycleObserver,
     );
 
     if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
