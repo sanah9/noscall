@@ -5,6 +5,7 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/common/network/connect.dart';
 
+import '../application/call_payment_initial_payment_service.dart';
 import 'call_payment_event_codec.dart';
 
 abstract interface class CallPaymentRelaySender {
@@ -32,7 +33,7 @@ final class ConnectCallPaymentRelaySender implements CallPaymentRelaySender {
   }
 }
 
-final class CallPaymentNostrGateway {
+final class CallPaymentNostrGateway implements CallPaymentTransferGateway {
   CallPaymentNostrGateway({
     required String pubkey,
     required String privkey,
@@ -72,6 +73,7 @@ final class CallPaymentNostrGateway {
     );
   }
 
+  @override
   Future<OKEvent> send({
     required String receiverPubkey,
     required CallPaymentEventPayload payload,
