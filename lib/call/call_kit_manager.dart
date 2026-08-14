@@ -204,24 +204,10 @@ class CallKitManager with WidgetsBindingObserver {
   Future<CallingController?> startCall({
     required String peerId,
     required CallType callType,
+    String? callId,
   }) async {
     try {
-      // Check if we can start a new call
-      if (!_canStartNewCall()) {
-        LogUtils.e(
-          () => 'Cannot start new call: maximum concurrent calls reached',
-        );
-        throw Exception('Maximum concurrent calls reached');
-      }
-
-      // Check permissions
-      final hasPermissions = await _checkPermissions(callType);
-      if (!hasPermissions) {
-        LogUtils.e(
-          () => 'Required permissions not granted for ${callType.value} call',
-        );
-        throw Exception('Required permissions not granted');
-      }
+      await ensureCanStartCall(callType);
 
       final user = chat_core.Account.sharedInstance
           .getUserNotifier(peerId)
@@ -230,6 +216,7 @@ class CallKitManager with WidgetsBindingObserver {
         user: user,
         callType: callType,
         role: CallingRole.caller,
+        callId: callId,
       );
 
       LogUtils.i(() => 'Call started to $peerId with type ${callType.value}');
@@ -238,6 +225,23 @@ class CallKitManager with WidgetsBindingObserver {
       LogUtils.e(() => 'Failed to start call: $e');
       clean();
       return null;
+    }
+  }
+
+  Future<void> ensureCanStartCall(CallType callType) async {
+    if (!_canStartNewCall()) {
+      LogUtils.e(
+        () => 'Cannot start new call: maximum concurrent calls reached',
+      );
+      throw Exception('Maximum concurrent calls reached');
+    }
+
+    final hasPermissions = await _checkPermissions(callType);
+    if (!hasPermissions) {
+      LogUtils.e(
+        () => 'Required permissions not granted for ${callType.value} call',
+      );
+      throw Exception('Required permissions not granted');
     }
   }
 
@@ -421,6 +425,7 @@ class CallKitManager with WidgetsBindingObserver {
     required CallingRole role,
     String? sessionId,
     String? offerId,
+    String? callId,
   }) async {
     final cmp = Completer<CallingController>();
     activeControllerCmp = cmp;
@@ -452,6 +457,7 @@ class CallKitManager with WidgetsBindingObserver {
     switch (role) {
       case CallingRole.caller:
         final isSuccess = await controller.invitePeer(
+          callId: callId,
           timeoutHandler: () {
             controller.hangup(CallEndReason.timeout);
           },

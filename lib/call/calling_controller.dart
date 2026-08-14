@@ -254,7 +254,7 @@ extension CallingControllerUserActionEx on CallingController {
 }
 
 extension CallingControllerSignalingEx on CallingController {
-  Future<bool> invitePeer({Function? timeoutHandler}) async {
+  Future<bool> invitePeer({Function? timeoutHandler, String? callId}) async {
     _inviteTimeout.cancel();
 
     _inviteTimeout.start(const Duration(seconds: 60), () {
@@ -264,9 +264,15 @@ extension CallingControllerSignalingEx on CallingController {
       }
     });
 
-    final generatedCallId = const Uuid().v4();
-    offerIdCmp.complete(generatedCallId);
-    callIdCmp.complete(generatedCallId);
+    final generatedCallId = callId?.isNotEmpty == true
+        ? callId!
+        : const Uuid().v4();
+    if (!offerIdCmp.isCompleted) {
+      offerIdCmp.complete(generatedCallId);
+    }
+    if (!callIdCmp.isCompleted) {
+      callIdCmp.complete(generatedCallId);
+    }
 
     final sent = await _sendOffer(generatedCallId);
     if (!sent) {

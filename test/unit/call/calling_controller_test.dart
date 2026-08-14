@@ -66,10 +66,7 @@ class FakeCallingControllerWebRTCSession
     required String? remoteSdp,
     required String? remoteType,
   }) async {
-    remoteDescriptions.add({
-      'sdp': remoteSdp,
-      'type': remoteType,
-    });
+    remoteDescriptions.add({'sdp': remoteSdp, 'type': remoteType});
   }
 
   @override
@@ -128,11 +125,7 @@ class FakeCallingControllerSignalingGateway
 
   @override
   Future<OKEvent> sendAnswer(String offerId, String peerId, String sdp) async {
-    answers.add({
-      'offerId': offerId,
-      'peerId': peerId,
-      'sdp': sdp,
-    });
+    answers.add({'offerId': offerId, 'peerId': peerId, 'sdp': sdp});
     return OKEvent(offerId, true, '');
   }
 
@@ -142,11 +135,7 @@ class FakeCallingControllerSignalingGateway
     String peerId,
     String meta,
   ) async {
-    candidates.add({
-      'offerId': offerId,
-      'peerId': peerId,
-      'meta': meta,
-    });
+    candidates.add({'offerId': offerId, 'peerId': peerId, 'meta': meta});
     return OKEvent(offerId, true, '');
   }
 
@@ -156,11 +145,7 @@ class FakeCallingControllerSignalingGateway
     String peerId,
     String reason,
   ) async {
-    hangups.add({
-      'callId': callId,
-      'peerId': peerId,
-      'reason': reason,
-    });
+    hangups.add({'callId': callId, 'peerId': peerId, 'reason': reason});
     return OKEvent(callId, true, '');
   }
 
@@ -186,11 +171,7 @@ class FakeCallingControllerSignalingGateway
     String peerId,
     String reason,
   ) async {
-    rejects.add({
-      'callId': callId,
-      'peerId': peerId,
-      'reason': reason,
-    });
+    rejects.add({'callId': callId, 'peerId': peerId, 'reason': reason});
     return OKEvent(callId, true, '');
   }
 }
@@ -243,10 +224,7 @@ class FakeCallKeepActions implements CallKeepActions {
 
   @override
   Future<void> setMutedCall(String callId, bool shouldMute) async {
-    mutedCalls.add({
-      'callId': callId,
-      'shouldMute': shouldMute,
-    });
+    mutedCalls.add({'callId': callId, 'shouldMute': shouldMute});
   }
 }
 
@@ -344,6 +322,27 @@ void main() {
       expect(signalingGateway.offers.single['callId'], generatedOfferId);
     });
 
+    test(
+      'invitePeer uses provided call id for paid call preparation',
+      () async {
+        final controller = await CallingController.create(
+          user: TestHelpers.createTestUser(pubKey: TestData.validPubkey),
+          role: CallingRole.caller,
+          callType: CallType.audio,
+          callKeepManager: callKeepActions,
+          callHistoryManager: callHistoryRecorder,
+          dependencies: dependencies,
+        );
+
+        final invited = await controller.invitePeer(callId: 'paid-call-1');
+
+        expect(invited, isTrue);
+        expect(await controller.offerId, 'paid-call-1');
+        expect(await controller.callId, 'paid-call-1');
+        expect(signalingGateway.offers.single['callId'], 'paid-call-1');
+      },
+    );
+
     test('accept transitions to connecting and sends answer', () async {
       final controller = await createController(role: CallingRole.callee);
 
@@ -366,56 +365,72 @@ void main() {
 
       expect(controller.state.value, CallingState.ended);
       expect(signalingGateway.rejects, hasLength(1));
-      expect(signalingGateway.rejects.single['reason'],
-          CallEndReason.reject.value);
+      expect(
+        signalingGateway.rejects.single['reason'],
+        CallEndReason.reject.value,
+      );
       expect(callKeepActions.rejectedCallIds, ['call-123']);
       expect(callHistoryRecorder.records, hasLength(1));
       expect(callHistoryRecorder.records.single['status'], CallStatus.declined);
-      expect(callHistoryRecorder.records.single['direction'],
-          CallDirection.incoming);
+      expect(
+        callHistoryRecorder.records.single['direction'],
+        CallDirection.incoming,
+      );
       expect(webRTCSession.closeCalls, 1);
       expect(webRTCSession.disposeCalls, 1);
       expect(connectivityWatcher.disposeCalls, 1);
     });
 
-    test('connected hangup sends disconnect and records completed call',
-        () async {
-      final controller = await createController(
-        role: CallingRole.caller,
-        state: CallingState.connected,
-      );
+    test(
+      'connected hangup sends disconnect and records completed call',
+      () async {
+        final controller = await createController(
+          role: CallingRole.caller,
+          state: CallingState.connected,
+        );
 
-      controller.hasConnected.value = true;
-      await controller.hangup(CallEndReason.hangup);
-      await flushControllerTasks();
+        controller.hasConnected.value = true;
+        await controller.hangup(CallEndReason.hangup);
+        await flushControllerTasks();
 
-      expect(controller.state.value, CallingState.ended);
-      expect(signalingGateway.hangups, hasLength(1));
-      expect(signalingGateway.hangups.single['reason'],
-          CallEndReason.disconnect.value);
-      expect(callKeepActions.endedCallIds, ['call-123']);
-      expect(
-          callHistoryRecorder.records.single['status'], CallStatus.completed);
-      expect(callHistoryRecorder.records.single['direction'],
-          CallDirection.outgoing);
-    });
+        expect(controller.state.value, CallingState.ended);
+        expect(signalingGateway.hangups, hasLength(1));
+        expect(
+          signalingGateway.hangups.single['reason'],
+          CallEndReason.disconnect.value,
+        );
+        expect(callKeepActions.endedCallIds, ['call-123']);
+        expect(
+          callHistoryRecorder.records.single['status'],
+          CallStatus.completed,
+        );
+        expect(
+          callHistoryRecorder.records.single['direction'],
+          CallDirection.outgoing,
+        );
+      },
+    );
 
-    test('signaling disconnect ends call without sending outbound signal',
-        () async {
-      final controller = await createController(role: CallingRole.callee);
+    test(
+      'signaling disconnect ends call without sending outbound signal',
+      () async {
+        final controller = await createController(role: CallingRole.callee);
 
-      controller.signalingDisconnectCallbackHandler();
-      await flushControllerTasks();
+        controller.signalingDisconnectCallbackHandler();
+        await flushControllerTasks();
 
-      expect(controller.state.value, CallingState.ended);
-      expect(signalingGateway.hangups, isEmpty);
-      expect(signalingGateway.rejects, isEmpty);
-      expect(callKeepActions.endedCallIds, ['call-123']);
-      expect(
-          callHistoryRecorder.records.single['status'], CallStatus.cancelled);
-      expect(webRTCSession.closeCalls, 1);
-      expect(webRTCSession.disposeCalls, 1);
-    });
+        expect(controller.state.value, CallingState.ended);
+        expect(signalingGateway.hangups, isEmpty);
+        expect(signalingGateway.rejects, isEmpty);
+        expect(callKeepActions.endedCallIds, ['call-123']);
+        expect(
+          callHistoryRecorder.records.single['status'],
+          CallStatus.cancelled,
+        );
+        expect(webRTCSession.closeCalls, 1);
+        expect(webRTCSession.disposeCalls, 1);
+      },
+    );
 
     test('network disconnect watcher hangs up active call', () async {
       final controller = await createController(role: CallingRole.caller);
@@ -430,7 +445,9 @@ void main() {
         CallEndReason.networkDisconnected.value,
       );
       expect(
-          callHistoryRecorder.records.single['status'], CallStatus.cancelled);
+        callHistoryRecorder.records.single['status'],
+        CallStatus.cancelled,
+      );
     });
 
     test('ice connected updates controller state and speaker route', () async {
