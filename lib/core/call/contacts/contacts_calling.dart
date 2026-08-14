@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:noscall/core/call/call_event_policy.dart';
 import 'package:noscall/core/call/contacts/contacts_isolate_event.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:nostr_core_dart/nostr.dart';
@@ -173,6 +174,19 @@ extension Calling on Contacts {
   }
 
   Future<void> handleCallEvent(Event event, String relay) async {
+    if (CallEventPolicy.isCallPaymentKind(event.kind)) {
+      final handler = onCallPaymentEvent;
+      if (handler == null) {
+        LogUtils.v(
+          () =>
+              'Drop call payment event: no handler, kind=${event.kind}, id=${event.id}',
+        );
+        return;
+      }
+      await handler(event, relay);
+      return;
+    }
+
     NipAcSignaling signaling;
     try {
       signaling = NipAcProtocol.decodeInner(event, pubkey);

@@ -21,6 +21,8 @@ import 'package:noscall/call/local_notification_service.dart';
 
 typedef PrivateChatMessageCallBack = void Function(MessageDBISAR);
 typedef ContactUpdatedCallBack = void Function();
+typedef CallPaymentEventHandler =
+    Future<void> Function(Event event, String relay);
 
 enum CallMessageState {
   disconnect,
@@ -87,6 +89,8 @@ class Contacts {
     String? callType,
   )?
   onCallStateChange;
+
+  CallPaymentEventHandler? onCallPaymentEvent;
 
   /// Called when an incoming call was missed (disconnect before answer, e.g. timeout/cancel).
   /// Parameters: callId, callerPubkey, media ('audio'|'video'), startTimeMs.
@@ -515,8 +519,7 @@ class Contacts {
           }
           EventCache.sharedInstance.receiveEvent(innerEvent, relay);
           if (!inBlockList(innerEvent.pubkey) &&
-              innerEvent.kind >= 25050 &&
-              innerEvent.kind <= 25054) {
+              CallEventPolicy.isNipAcInnerKind(innerEvent.kind)) {
             updateFriendMessageTime(innerEvent.createdAt, relay);
             handleCallEvent(innerEvent, relay);
           }

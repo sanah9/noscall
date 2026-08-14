@@ -59,5 +59,19 @@ void main() {
       );
       expect(result, isFalse);
     });
+
+    test('classifies NIP-AC signaling and payment inner event kinds', () {
+      expect(CallEventPolicy.isNipAcSignalingKind(25050), isTrue);
+      expect(CallEventPolicy.isNipAcSignalingKind(25054), isTrue);
+      expect(CallEventPolicy.isNipAcSignalingKind(25055), isFalse);
+
+      expect(CallEventPolicy.isCallPaymentKind(25055), isTrue);
+      expect(CallEventPolicy.isCallPaymentKind(25058), isTrue);
+      expect(CallEventPolicy.isCallPaymentKind(25054), isFalse);
+
+      expect(CallEventPolicy.isNipAcInnerKind(25050), isTrue);
+      expect(CallEventPolicy.isNipAcInnerKind(25058), isTrue);
+      expect(CallEventPolicy.isNipAcInnerKind(25059), isFalse);
+    });
   });
 }
