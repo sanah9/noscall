@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:isar/isar.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/call_history/models/call_log_group.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_isar.dart';
 import 'package:noscall/contacts/models/contact_group_isar.dart';
 import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -42,6 +43,9 @@ class DBISAR {
     CashuTokenSendOperationRecordSchema,
     CashuLightningReceiveQuoteOperationRecordSchema,
     CashuLightningPayQuoteOperationRecordSchema,
+    CallPaymentPolicyRecordSchema,
+    CallPaymentSessionRecordSchema,
+    CallPaymentInstallmentRecordSchema,
   ];
 
   /// Generate database name for given pubkey and optional circleId
@@ -225,6 +229,18 @@ class DBISAR {
     } else if (type == CashuLightningPayQuoteOperationRecord) {
       await isar.cashuLightningPayQuoteOperationRecords.putAll(
         objects.cast<CashuLightningPayQuoteOperationRecord>(),
+      );
+    } else if (type == CallPaymentPolicyRecord) {
+      await isar.callPaymentPolicyRecords.putAll(
+        objects.cast<CallPaymentPolicyRecord>(),
+      );
+    } else if (type == CallPaymentSessionRecord) {
+      await isar.callPaymentSessionRecords.putAll(
+        objects.cast<CallPaymentSessionRecord>(),
+      );
+    } else if (type == CallPaymentInstallmentRecord) {
+      await isar.callPaymentInstallmentRecords.putAll(
+        objects.cast<CallPaymentInstallmentRecord>(),
       );
     } else {
       LogUtils.w(() => 'DBISAR: unsupported buffered type $type');
