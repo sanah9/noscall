@@ -43,8 +43,9 @@ class _SettingPageState extends State<SettingPage> {
     Connectivity().checkConnectivity().then((r) {
       if (mounted) setState(() => _connectivity = r);
     });
-    _connectivitySubscription =
-        Connectivity().onConnectivityChanged.listen((r) {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      r,
+    ) {
       if (mounted) setState(() => _connectivity = r);
     });
   }
@@ -117,10 +118,7 @@ class _SettingPageState extends State<SettingPage> {
                 navigator.pop();
                 await _logout();
               },
-              child: Text(
-                'Logout',
-                style: TextStyle(color: colorScheme.error),
-              ),
+              child: Text('Logout', style: TextStyle(color: colorScheme.error)),
             ),
           ],
         );
@@ -180,11 +178,7 @@ class _SettingPageState extends State<SettingPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.person_off,
-              size: 64,
-              color: onSurfaceVariant,
-            ),
+            Icon(Icons.person_off, size: 64, color: onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
               'No user data found',
@@ -218,6 +212,15 @@ class _SettingPageState extends State<SettingPage> {
           icon: Icons.account_balance_wallet_outlined,
           title: 'Wallet',
           onTap: () => AppNavigatorScope.requireOf(context).pushWallet(context),
+        ),
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android)
+        SettingMenuItem(
+          icon: Icons.paid_outlined,
+          title: 'Paid Calls',
+          onTap: () => AppNavigatorScope.requireOf(
+            context,
+          ).pushCallPaymentSettings(context),
         ),
       SettingMenuItem(
         icon: Icons.security,
@@ -264,10 +267,7 @@ class _SettingPageState extends State<SettingPage> {
             onShowQrCode: () => _showQrCodeDialog(context),
             onEditProfile: () => _navigateToProfileSettings(context),
           ),
-          SettingMenuSection(
-            connectivity: _connectivity,
-            menuItems: menuItems,
-          ),
+          SettingMenuSection(connectivity: _connectivity, menuItems: menuItems),
         ],
       ),
     );
@@ -289,19 +289,14 @@ class _SettingPageState extends State<SettingPage> {
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         // Combine slide from bottom and fade animation
         return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.0, 0.15), // Slight slide from below
-            end: Offset.zero, // End at center
-          ).animate(
-            CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            ),
-          ),
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          position:
+              Tween<Offset>(
+                begin: const Offset(0.0, 0.15), // Slight slide from below
+                end: Offset.zero, // End at center
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
     );
@@ -357,7 +352,7 @@ class _SettingPageState extends State<SettingPage> {
                         shape: const CircleBorder(),
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -393,17 +388,9 @@ class _SettingPageState extends State<SettingPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 3,
-                        ),
+                        border: Border.all(color: Colors.white, width: 3),
                       ),
-                      child: ClipOval(
-                        child: UserAvatar(
-                          user: user,
-                          size: 58,
-                        ),
-                      ),
+                      child: ClipOval(child: UserAvatar(user: user, size: 58)),
                     ),
                 ],
               ),

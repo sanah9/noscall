@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/call_payments/pages/call_payment_settings_page.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/contacts/pages/contact_select_page.dart';
 import 'package:noscall/contacts/user_detail_page.dart';
@@ -30,6 +31,7 @@ class DesktopTabAppNavigator extends AppNavigator {
   static const _routeIce = '/ice-server-management';
   static const _routeTheme = '/settings/theme';
   static const _routeWallet = '/wallet';
+  static const _routeCallPaymentSettings = '/call-payments/settings';
 
   bool _useTab(NavigationScope scope, String routePath) {
     final effective = NavigationScopeDefaults.resolve(
@@ -47,12 +49,13 @@ class DesktopTabAppNavigator extends AppNavigator {
   }) async {
     if (_useTab(scope, _routeContactSelect)) {
       return Navigator.of(context).push<List<String>>(
-        MaterialPageRoute(
-          builder: (context) => const ContactSelectPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const ContactSelectPage()),
       );
     }
-    return context.push<List<String>>(_routeContactSelect, extra: <String, dynamic>{});
+    return context.push<List<String>>(
+      _routeContactSelect,
+      extra: <String, dynamic>{},
+    );
   }
 
   @override
@@ -64,7 +67,8 @@ class DesktopTabAppNavigator extends AppNavigator {
     if (_useTab(scope, _routeSendVoice)) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => SendVoiceMessagePage(receiverPubkey: receiverPubkey),
+          builder: (context) =>
+              SendVoiceMessagePage(receiverPubkey: receiverPubkey),
         ),
       );
     } else {
@@ -100,17 +104,18 @@ class DesktopTabAppNavigator extends AppNavigator {
       final history = callHistory is List<CallEntry> ? callHistory : null;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => UserDetailPage(
-            pubkey: pubkey,
-            callHistory: history,
-          ),
+          builder: (context) =>
+              UserDetailPage(pubkey: pubkey, callHistory: history),
         ),
       );
     } else {
-      await context.push(_routeUserDetail, extra: {
-        'pubkey': pubkey,
-        if (callHistory != null) 'callHistory': callHistory,
-      });
+      await context.push(
+        _routeUserDetail,
+        extra: {
+          'pubkey': pubkey,
+          if (callHistory != null) 'callHistory': callHistory,
+        },
+      );
     }
   }
 
@@ -121,9 +126,7 @@ class DesktopTabAppNavigator extends AppNavigator {
   }) {
     if (_useTab(scope, _routeProfile)) {
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const ProfileSettingsPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const ProfileSettingsPage()),
       );
     } else {
       context.push(_routeProfile);
@@ -137,9 +140,7 @@ class DesktopTabAppNavigator extends AppNavigator {
   }) {
     if (_useTab(scope, _routeRelay)) {
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const RelayManagementPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const RelayManagementPage()),
       );
     } else {
       context.push(_routeRelay);
@@ -169,9 +170,7 @@ class DesktopTabAppNavigator extends AppNavigator {
   }) {
     if (_useTab(scope, _routeTheme)) {
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const ThemeSettingsPage(),
-        ),
+        MaterialPageRoute(builder: (context) => const ThemeSettingsPage()),
       );
     } else {
       context.push(_routeTheme);
@@ -184,5 +183,21 @@ class DesktopTabAppNavigator extends AppNavigator {
     NavigationScope scope = NavigationScope.automatic,
   }) {
     context.push(_routeWallet);
+  }
+
+  @override
+  void pushCallPaymentSettings(
+    BuildContext context, {
+    NavigationScope scope = NavigationScope.automatic,
+  }) {
+    if (_useTab(scope, _routeCallPaymentSettings)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const CallPaymentSettingsPage(),
+        ),
+      );
+    } else {
+      context.push(_routeCallPaymentSettings);
+    }
   }
 }

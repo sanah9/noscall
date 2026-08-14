@@ -28,7 +28,10 @@ class GoRouterAppNavigator extends AppNavigator {
     String receiverPubkey, {
     NavigationScope scope = NavigationScope.automatic,
   }) {
-    context.push('/send-voice-message', extra: {'receiverPubkey': receiverPubkey});
+    context.push(
+      '/send-voice-message',
+      extra: {'receiverPubkey': receiverPubkey},
+    );
   }
 
   @override
@@ -47,10 +50,13 @@ class GoRouterAppNavigator extends AppNavigator {
     Object? callHistory,
     NavigationScope scope = NavigationScope.automatic,
   }) async {
-    await context.push('/user-detail', extra: {
-      'pubkey': pubkey,
-      if (callHistory != null) 'callHistory': callHistory,
-    });
+    await context.push(
+      '/user-detail',
+      extra: {
+        'pubkey': pubkey,
+        if (callHistory != null) 'callHistory': callHistory,
+      },
+    );
   }
 
   @override
@@ -91,5 +97,13 @@ class GoRouterAppNavigator extends AppNavigator {
     NavigationScope scope = NavigationScope.automatic,
   }) {
     context.push('/wallet');
+  }
+
+  @override
+  void pushCallPaymentSettings(
+    BuildContext context, {
+    NavigationScope scope = NavigationScope.automatic,
+  }) {
+    context.push('/call-payments/settings');
   }
 }

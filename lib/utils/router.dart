@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:noscall/auth/auth_service.dart';
 import 'package:noscall/utils/routes/auth_routes.dart';
+import 'package:noscall/utils/routes/call_payment_routes.dart';
 import 'package:noscall/utils/routes/call_routes.dart';
 import 'package:noscall/utils/routes/contacts_routes.dart';
 import 'package:noscall/utils/routes/settings_routes.dart';
@@ -14,6 +15,7 @@ class AppRouter {
     initialLocation: AuthService().isAuthenticated ? '/' : '/login',
     routes: [
       ...authRoutes,
+      ...callPaymentRoutes,
       ...callRoutes,
       ...contactsRoutes,
       ...settingsRoutes,
