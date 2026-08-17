@@ -24,6 +24,7 @@ final class CallPaymentRuntime {
     CallPaymentClock? clock,
     CallPaymentLifecycleScheduler scheduler =
         const TimerCallPaymentLifecycleScheduler(),
+    Future<void> Function()? dispose,
   }) : _owner = owner,
        _policyRepository = policyRepository,
        _sessionRepository = sessionRepository,
@@ -32,6 +33,7 @@ final class CallPaymentRuntime {
        _peerIsContact = peerIsContact,
        _clock = clock,
        _scheduler = scheduler,
+       _dispose = dispose,
        _walletAdapter = AccountWalletCallPaymentAdapter(wallet);
 
   final CashuAccountId _owner;
@@ -42,7 +44,10 @@ final class CallPaymentRuntime {
   final CallPaymentContactChecker _peerIsContact;
   final CallPaymentClock? _clock;
   final CallPaymentLifecycleScheduler _scheduler;
+  final Future<void> Function()? _dispose;
   final AccountWalletCallPaymentAdapter _walletAdapter;
+
+  CashuAccountId get owner => _owner;
 
   late final CallPaymentStartGuard startGuard = CallPaymentStartGuard(
     loadPeerPolicy: _loadPeerPolicy,
@@ -114,5 +119,9 @@ final class CallPaymentRuntime {
 
   Future<CallPaymentTopUpResult> prepareTopUp(CallPaymentTopUpRequest request) {
     return topUpService.prepareAndSend(request);
+  }
+
+  Future<void> dispose() async {
+    await _dispose?.call();
   }
 }

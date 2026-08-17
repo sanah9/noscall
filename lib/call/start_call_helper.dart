@@ -3,6 +3,7 @@ import 'package:noscall/call/call_kit_manager.dart';
 import 'package:noscall/call/calling_controller_dependencies.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_payments/application/call_payment_initial_payment_service.dart';
+import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/application/call_payment_start_guard.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/pages/call_payment_confirm_page.dart';
@@ -14,6 +15,7 @@ typedef CallPaymentInitialPaymentPreparer =
     Future<CallPaymentInitialPaymentResult> Function(
       CallPaymentInitialPaymentRequest request,
     );
+typedef CallPaymentRuntimeLoader = Future<CallPaymentRuntime> Function();
 typedef CallIdFactory = String Function();
 
 /// Centralized helper to start a voice or video call with permission check,
@@ -29,6 +31,7 @@ class StartCallHelper {
     CallPaymentStartGuard? paymentGuard,
     CashuAccountId? paymentOwner,
     CallPaymentInitialPaymentPreparer? prepareInitialPayment,
+    CallPaymentRuntimeLoader? paymentRuntimeFactory,
     CallingControllerLifecycleObserver? lifecycleObserver,
     CallIdFactory? callIdFactory,
   }) async {
@@ -38,18 +41,49 @@ class StartCallHelper {
     }
 
     final isVideo = callType.isVideo;
+    CallPaymentRuntime? paymentRuntime;
     try {
+      if (paymentRuntimeFactory != null &&
+          (paymentGuard == null ||
+              paymentOwner == null ||
+              prepareInitialPayment == null)) {
+        paymentRuntime = await paymentRuntimeFactory();
+      }
+      if (!context.mounted) {
+        await paymentRuntime?.dispose();
+        paymentRuntime = null;
+        return;
+      }
+
       final paymentStart = await _confirmPaidCallIfNeeded(
         context,
         peerId: peerId,
         callType: callType,
-        paymentGuard: paymentGuard,
-        paymentOwner: paymentOwner,
-        prepareInitialPayment: prepareInitialPayment,
+        paymentGuard: paymentGuard ?? paymentRuntime?.startGuard,
+        paymentOwner: paymentOwner ?? paymentRuntime?.owner,
+        prepareInitialPayment:
+            prepareInitialPayment ?? paymentRuntime?.prepareInitialPayment,
         callIdFactory: callIdFactory,
       );
-      if (!paymentStart.shouldStart) return;
-      if (!context.mounted) return;
+      if (!paymentStart.shouldStart) {
+        await paymentRuntime?.dispose();
+        paymentRuntime = null;
+        return;
+      }
+      if (!context.mounted) {
+        await paymentRuntime?.dispose();
+        paymentRuntime = null;
+        return;
+      }
+
+      final retainedPaymentRuntime = paymentStart.isPaid
+          ? paymentRuntime
+          : null;
+      if (!paymentStart.isPaid) {
+        await paymentRuntime?.dispose();
+        paymentRuntime = null;
+        if (!context.mounted) return;
+      }
 
       AppToast.showInfo(
         context,
@@ -59,21 +93,40 @@ class StartCallHelper {
         peerId: peerId,
         callType: callType,
         callId: paymentStart.callId,
-        lifecycleObserver: lifecycleObserver,
+        lifecycleObserver: _combineLifecycleObservers(
+          lifecycleObserver,
+          retainedPaymentRuntime == null
+              ? null
+              : _DisposingCallPaymentLifecycleObserver(retainedPaymentRuntime),
+        ),
       );
-      if (!context.mounted) return;
       if (controller == null) {
+        if (retainedPaymentRuntime != null && paymentStart.callId != null) {
+          await retainedPaymentRuntime.coordinator.onEnded(
+            callId: paymentStart.callId!,
+            peerPubkey: peerId,
+            role: CallingRole.caller,
+            reason: CallEndReason.hangup,
+            hasConnected: false,
+          );
+          await retainedPaymentRuntime.dispose();
+          paymentRuntime = null;
+        }
+        if (!context.mounted) return;
         AppToast.showError(
           context,
           isVideo ? 'Failed to start video call' : 'Failed to start voice call',
         );
       } else {
+        if (!context.mounted) return;
         AppToast.showSuccess(
           context,
           isVideo ? 'Video call started' : 'Voice call started',
         );
       }
     } catch (e) {
+      await paymentRuntime?.dispose();
+      paymentRuntime = null;
       if (!context.mounted) return;
       final errorMessage = _errorMessage(e.toString(), isVideo);
       AppToast.showError(context, errorMessage);
@@ -161,7 +214,7 @@ class StartCallHelper {
           );
           return const _CallPaymentStartResult.cancel();
         }
-        return _CallPaymentStartResult.start(callId: callId);
+        return _CallPaymentStartResult.start(callId: callId, isPaid: true);
       case CallPaymentStartDecisionKind.noCommonMint:
       case CallPaymentStartDecisionKind.insufficientBalance:
       case CallPaymentStartDecisionKind.unsupported:
@@ -174,12 +227,112 @@ class StartCallHelper {
   }
 }
 
+CallingControllerLifecycleObserver? _combineLifecycleObservers(
+  CallingControllerLifecycleObserver? first,
+  CallingControllerLifecycleObserver? second,
+) {
+  if (first == null) return second;
+  if (second == null) return first;
+  return _CompositeCallingControllerLifecycleObserver([first, second]);
+}
+
+final class _CompositeCallingControllerLifecycleObserver
+    implements CallingControllerLifecycleObserver {
+  const _CompositeCallingControllerLifecycleObserver(this._observers);
+
+  final List<CallingControllerLifecycleObserver> _observers;
+
+  @override
+  Future<void> onConnected({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+  }) async {
+    for (final observer in _observers) {
+      await observer.onConnected(
+        callId: callId,
+        peerPubkey: peerPubkey,
+        role: role,
+      );
+    }
+  }
+
+  @override
+  Future<void> onEnded({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+    required CallEndReason reason,
+    required bool hasConnected,
+  }) async {
+    for (final observer in _observers) {
+      await observer.onEnded(
+        callId: callId,
+        peerPubkey: peerPubkey,
+        role: role,
+        reason: reason,
+        hasConnected: hasConnected,
+      );
+    }
+  }
+}
+
+final class _DisposingCallPaymentLifecycleObserver
+    implements CallingControllerLifecycleObserver {
+  _DisposingCallPaymentLifecycleObserver(this._runtime);
+
+  final CallPaymentRuntime _runtime;
+  bool _disposed = false;
+
+  @override
+  Future<void> onConnected({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+  }) {
+    return _runtime.coordinator.onConnected(
+      callId: callId,
+      peerPubkey: peerPubkey,
+      role: role,
+    );
+  }
+
+  @override
+  Future<void> onEnded({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+    required CallEndReason reason,
+    required bool hasConnected,
+  }) async {
+    try {
+      await _runtime.coordinator.onEnded(
+        callId: callId,
+        peerPubkey: peerPubkey,
+        role: role,
+        reason: reason,
+        hasConnected: hasConnected,
+      );
+    } finally {
+      if (!_disposed) {
+        _disposed = true;
+        await _runtime.dispose();
+      }
+    }
+  }
+}
+
 final class _CallPaymentStartResult {
-  const _CallPaymentStartResult.start({this.callId}) : shouldStart = true;
-  const _CallPaymentStartResult.cancel() : shouldStart = false, callId = null;
+  const _CallPaymentStartResult.start({this.callId, this.isPaid = false})
+    : shouldStart = true;
+  const _CallPaymentStartResult.cancel()
+    : shouldStart = false,
+      callId = null,
+      isPaid = false;
 
   final bool shouldStart;
   final String? callId;
+  final bool isPaid;
 }
 
 extension on CallType {

@@ -92,6 +92,17 @@ void main() {
     expect(wallet.receiveRequests.single.encodedToken, 'cashuAey');
     expect(gateway.payloads.single.type, CallPaymentEventType.ack);
   });
+
+  test('exposes owner and disposes runtime resources', () async {
+    var disposeCalls = 0;
+    final runtime = _runtime(dispose: () async => disposeCalls++);
+
+    expect(runtime.owner, _owner);
+
+    await runtime.dispose();
+
+    expect(disposeCalls, 1);
+  });
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
@@ -105,6 +116,7 @@ CallPaymentRuntime _runtime({
   _Wallet? wallet,
   _PolicyRepository? policyRepository,
   _Gateway? gateway,
+  Future<void> Function()? dispose,
 }) {
   return CallPaymentRuntime(
     owner: _owner,
@@ -116,6 +128,7 @@ CallPaymentRuntime _runtime({
     peerIsContact: (_) => false,
     scheduler: _Scheduler(),
     clock: () => DateTime.utc(2026, 8, 14, 10),
+    dispose: dispose,
   );
 }
 
