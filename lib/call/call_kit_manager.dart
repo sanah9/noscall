@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
+import 'package:noscall/call_payments/application/call_payment_runtime.dart';
+import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/core/core.dart' as chat_core;
@@ -129,6 +131,8 @@ class CallKitManager with WidgetsBindingObserver {
       // Setup Nostr call state handler
       chat_core.Contacts.sharedInstance.onCallStateChange =
           nostrCallStateChangeHandler;
+      chat_core.Contacts.sharedInstance.onCallPaymentEvent =
+          _handleCallPaymentEvent;
 
       // When user was offline and receives missed call (disconnect before answer), add to history and badge
       chat_core.Contacts.sharedInstance.onMissedCallFromRelay =
@@ -179,6 +183,27 @@ class CallKitManager with WidgetsBindingObserver {
           break;
       }
     });
+  }
+
+  Future<void> _handleCallPaymentEvent(Event event, String relay) async {
+    CallPaymentRuntime? runtime;
+    try {
+      runtime = await MobileCallPaymentRuntimeFactory.create();
+      final result = await runtime.eventHandler().handle(event);
+      if (!result.handled) {
+        LogUtils.v(
+          () =>
+              'Ignored call payment event: kind=${event.kind}, id=${event.id}, reason=${result.ignoredReason}, relay=$relay',
+        );
+      }
+    } catch (e, stack) {
+      LogUtils.e(
+        () =>
+            'Failed to handle call payment event: kind=${event.kind}, id=${event.id}, relay=$relay, error=$e, stack=$stack',
+      );
+    } finally {
+      await runtime?.dispose();
+    }
   }
 
   Future<void> _handleCallKeepAnswer(String callId) async {
