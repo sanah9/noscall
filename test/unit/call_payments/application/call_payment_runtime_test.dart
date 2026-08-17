@@ -138,6 +138,7 @@ CallPaymentPolicy _policy({
   required Iterable<CashuMintUrl> mints,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
+  final updatedAt = DateTime.utc(2026, 8, 14, 9, 55);
   return CallPaymentPolicy(
     owner: owner,
     enabled: true,
@@ -151,7 +152,7 @@ CallPaymentPolicy _policy({
     gracePeriodSeconds: CallPaymentPricingService.defaultGracePeriodSeconds,
     acceptedMintUrls: mints,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: updatedAt,
   );
 }
 

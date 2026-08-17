@@ -9,6 +9,7 @@ import 'call_payment_coordinator.dart';
 import 'call_payment_event_handler.dart';
 import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_initial_payment_service.dart';
+import 'call_payment_peer_policy_resolver.dart';
 import 'call_payment_start_guard.dart';
 import 'call_payment_top_up_service.dart';
 
@@ -24,6 +25,9 @@ final class CallPaymentRuntime {
     CallPaymentClock? clock,
     CallPaymentLifecycleScheduler scheduler =
         const TimerCallPaymentLifecycleScheduler(),
+    CallPaymentPeerPolicyQuery? queryPeerPolicy,
+    Duration peerPolicyCacheTtl = const Duration(minutes: 10),
+    Duration peerPolicyQueryTimeout = const Duration(seconds: 10),
     Future<void> Function()? dispose,
   }) : _owner = owner,
        _policyRepository = policyRepository,
@@ -33,6 +37,9 @@ final class CallPaymentRuntime {
        _peerIsContact = peerIsContact,
        _clock = clock,
        _scheduler = scheduler,
+       _queryPeerPolicy = queryPeerPolicy,
+       _peerPolicyCacheTtl = peerPolicyCacheTtl,
+       _peerPolicyQueryTimeout = peerPolicyQueryTimeout,
        _dispose = dispose,
        _walletAdapter = AccountWalletCallPaymentAdapter(wallet);
 
@@ -44,10 +51,22 @@ final class CallPaymentRuntime {
   final CallPaymentContactChecker _peerIsContact;
   final CallPaymentClock? _clock;
   final CallPaymentLifecycleScheduler _scheduler;
+  final CallPaymentPeerPolicyQuery? _queryPeerPolicy;
+  final Duration _peerPolicyCacheTtl;
+  final Duration _peerPolicyQueryTimeout;
   final Future<void> Function()? _dispose;
   final AccountWalletCallPaymentAdapter _walletAdapter;
 
   CashuAccountId get owner => _owner;
+
+  late final CallPaymentPeerPolicyResolver _peerPolicyResolver =
+      CallPaymentPeerPolicyResolver(
+        policyRepository: _policyRepository,
+        queryPeerPolicy: _queryPeerPolicy,
+        cacheTtl: _peerPolicyCacheTtl,
+        queryTimeout: _peerPolicyQueryTimeout,
+        clock: _clock,
+      );
 
   late final CallPaymentStartGuard startGuard = CallPaymentStartGuard(
     loadPeerPolicy: _loadPeerPolicy,
@@ -108,7 +127,7 @@ final class CallPaymentRuntime {
   }
 
   Future<CallPaymentPolicy?> _loadPeerPolicy(String peerPubkey) {
-    return _policyRepository.find(CashuAccountId.fromNostrPubkey(peerPubkey));
+    return _peerPolicyResolver.resolve(peerPubkey);
   }
 
   Future<CallPaymentInitialPaymentResult> prepareInitialPayment(
