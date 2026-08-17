@@ -133,6 +133,7 @@ class CallKitManager with WidgetsBindingObserver {
           nostrCallStateChangeHandler;
       chat_core.Contacts.sharedInstance.onCallPaymentEvent =
           _handleCallPaymentEvent;
+      unawaited(_recoverPendingCallPayments());
 
       // When user was offline and receives missed call (disconnect before answer), add to history and badge
       chat_core.Contacts.sharedInstance.onMissedCallFromRelay =
@@ -203,6 +204,23 @@ class CallKitManager with WidgetsBindingObserver {
       );
     } finally {
       await runtime?.dispose();
+    }
+  }
+
+  Future<void> _recoverPendingCallPayments() async {
+    try {
+      final report =
+          await MobileCallPaymentRuntimeFactory.recoverPendingPayments();
+      if (report.scannedSessions > 0) {
+        LogUtils.i(
+          () =>
+              'Recovered call payments: sessions=${report.scannedSessions}, reclaimed=${report.reclaimedInstallments}, claimed=${report.claimedInstallments}, unknown=${report.unknownInstallments}',
+        );
+      }
+    } catch (e, stack) {
+      LogUtils.e(
+        () => 'Failed to recover pending call payments: error=$e, stack=$stack',
+      );
     }
   }
 

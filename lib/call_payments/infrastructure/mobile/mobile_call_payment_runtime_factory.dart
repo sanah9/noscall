@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:noscall/call_payments/application/call_payment_recovery_service.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_gateway.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
@@ -63,5 +64,14 @@ final class MobileCallPaymentRuntimeFactory {
       peerIsContact: Contacts.sharedInstance.allContacts.containsKey,
       dispose: sessionManager.dispose,
     );
+  }
+
+  static Future<CallPaymentRecoveryReport> recoverPendingPayments() async {
+    final runtime = await create();
+    try {
+      return await runtime.recoveryService.recover(runtime.owner);
+    } finally {
+      await runtime.dispose();
+    }
   }
 }
