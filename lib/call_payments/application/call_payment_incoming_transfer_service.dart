@@ -173,6 +173,7 @@ final class CallPaymentIncomingTransferService {
       paymentSessionId: payload.paymentSessionId,
       sequence: payload.sequence,
       purpose: payload.purpose,
+      callType: payload.callType,
       payerPubkey: payload.payerPubkey,
       payeePubkey: request.owner.value,
       mintUrl: payload.mintUrl,

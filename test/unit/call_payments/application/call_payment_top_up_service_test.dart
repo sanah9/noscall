@@ -41,6 +41,7 @@ void main() {
     );
     expect(gateway.payloads.single.type, CallPaymentEventType.transfer);
     expect(gateway.payloads.single.purpose, CallPaymentPurpose.topUp);
+    expect(gateway.payloads.single.callType, CallPaymentCallType.audio);
     expect(gateway.payloads.single.sequence, 2);
     expect(gateway.payloads.single.token, 'cashuAey-top-up');
   });

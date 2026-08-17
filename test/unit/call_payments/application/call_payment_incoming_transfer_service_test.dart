@@ -182,6 +182,7 @@ CallPaymentEventPayload _payload({
     paymentSessionId: 'payment-session-1',
     sequence: sequence,
     purpose: purpose,
+    callType: CallPaymentCallType.audio,
     payerPubkey: 'a' * 64,
     payeePubkey: payeePubkey ?? _owner.value,
     mintUrl: _mintUrl,

@@ -101,6 +101,7 @@ CallPaymentEventPayload _payload() {
     paymentSessionId: 'payment-session-1',
     sequence: 1,
     purpose: CallPaymentPurpose.initial,
+    callType: CallPaymentCallType.audio,
     payerPubkey: 'a' * 64,
     payeePubkey: 'b' * 64,
     mintUrl: CashuMintUrl.parse('https://mint.example'),

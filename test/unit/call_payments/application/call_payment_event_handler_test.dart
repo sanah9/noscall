@@ -18,18 +18,22 @@ void main() {
         return _incomingResult();
       },
       applyAck: (_) async => throw StateError('ack should not be called'),
-      resolveCallType: (_, _) => CallPaymentCallType.audio,
     );
 
     final result = await handler.handle(
-      await _event(_payload(type: CallPaymentEventType.transfer)),
+      await _event(
+        _payload(
+          type: CallPaymentEventType.transfer,
+          callType: CallPaymentCallType.video,
+        ),
+      ),
     );
 
     expect(result.handled, isTrue);
     expect(result.type, CallPaymentEventType.transfer);
     expect(receivedRequest?.owner, _owner);
     expect(receivedRequest?.senderPubkey, _senderPubkey);
-    expect(receivedRequest?.callType, CallPaymentCallType.audio);
+    expect(receivedRequest?.callType, CallPaymentCallType.video);
     expect(receivedRequest?.payload.type, CallPaymentEventType.transfer);
   });
 
@@ -43,7 +47,6 @@ void main() {
         receivedRequest = request;
         return _ackResult();
       },
-      resolveCallType: (_, _) => CallPaymentCallType.audio,
     );
 
     final result = await handler.handle(
@@ -63,7 +66,6 @@ void main() {
       receiveTransfer: (_) async =>
           throw StateError('transfer should not be called'),
       applyAck: (_) async => throw StateError('ack should not be called'),
-      resolveCallType: (_, _) => CallPaymentCallType.audio,
     );
 
     final result = await handler.handle(
@@ -98,13 +100,17 @@ Future<Event> _event(CallPaymentEventPayload payload) {
   );
 }
 
-CallPaymentEventPayload _payload({required CallPaymentEventType type}) {
+CallPaymentEventPayload _payload({
+  required CallPaymentEventType type,
+  CallPaymentCallType callType = CallPaymentCallType.audio,
+}) {
   return CallPaymentEventPayload(
     type: type,
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
     sequence: 1,
     purpose: CallPaymentPurpose.initial,
+    callType: callType,
     payerPubkey: _senderPubkey,
     payeePubkey: _owner.value,
     mintUrl: _mintUrl,

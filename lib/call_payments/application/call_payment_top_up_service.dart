@@ -124,6 +124,7 @@ final class CallPaymentTopUpService {
       paymentSessionId: paymentSessionId,
       sequence: nextSequence,
       purpose: CallPaymentPurpose.topUp,
+      callType: session.callType,
       payerPubkey: request.owner.value,
       payeePubkey: session.peerPubkey,
       mintUrl: session.mintUrl,

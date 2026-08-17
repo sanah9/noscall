@@ -34,6 +34,7 @@ void main() {
     );
     expect(result.installment.sentAt, isNotNull);
     expect(gateway.payloads.single.type, CallPaymentEventType.transfer);
+    expect(gateway.payloads.single.callType, CallPaymentCallType.audio);
     expect(gateway.payloads.single.token, 'cashuAey-initial');
     expect(gateway.payloads.single.tokenHash, result.installment.tokenHash);
 

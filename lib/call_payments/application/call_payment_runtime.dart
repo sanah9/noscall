@@ -97,7 +97,7 @@ final class CallPaymentRuntime {
   );
 
   CallPaymentEventHandler eventHandler({
-    required CallPaymentEventCallTypeResolver resolveCallType,
+    CallPaymentEventCallTypeResolver? resolveCallType,
   }) {
     return CallPaymentEventHandler(
       owner: _owner,

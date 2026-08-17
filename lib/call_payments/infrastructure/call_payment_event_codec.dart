@@ -29,6 +29,7 @@ final class CallPaymentEventPayload {
     required this.paymentSessionId,
     required this.sequence,
     required this.purpose,
+    required this.callType,
     required this.payerPubkey,
     required this.payeePubkey,
     required this.mintUrl,
@@ -49,6 +50,7 @@ final class CallPaymentEventPayload {
   final String paymentSessionId;
   final int sequence;
   final CallPaymentPurpose purpose;
+  final CallPaymentCallType callType;
   final String payerPubkey;
   final String payeePubkey;
   final CashuMintUrl mintUrl;
@@ -78,6 +80,7 @@ final class CallPaymentEventCodec {
       'paymentSessionId': payload.paymentSessionId,
       'sequence': payload.sequence,
       'purpose': payload.purpose.name,
+      'callType': payload.callType.name,
       'payerPubkey': payload.payerPubkey,
       'payeePubkey': payload.payeePubkey,
       'mintUrl': payload.mintUrl.toString(),
@@ -111,6 +114,7 @@ final class CallPaymentEventCodec {
       paymentSessionId: _readString(map, 'paymentSessionId'),
       sequence: _readInt(map, 'sequence'),
       purpose: CallPaymentPurpose.values.byName(_readString(map, 'purpose')),
+      callType: CallPaymentCallType.values.byName(_readString(map, 'callType')),
       payerPubkey: _readString(map, 'payerPubkey'),
       payeePubkey: _readString(map, 'payeePubkey'),
       mintUrl: CashuMintUrl.parse(_readString(map, 'mintUrl')),

@@ -33,7 +33,7 @@ final class CallPaymentEventHandler {
     required CashuAccountId owner,
     required CallPaymentIncomingTransferCallback receiveTransfer,
     required CallPaymentAckCallback applyAck,
-    required CallPaymentEventCallTypeResolver resolveCallType,
+    CallPaymentEventCallTypeResolver? resolveCallType,
     CallPaymentEventCodec codec = const CallPaymentEventCodec(),
   }) : _owner = owner,
        _receiveTransfer = receiveTransfer,
@@ -44,7 +44,7 @@ final class CallPaymentEventHandler {
   final CashuAccountId _owner;
   final CallPaymentIncomingTransferCallback _receiveTransfer;
   final CallPaymentAckCallback _applyAck;
-  final CallPaymentEventCallTypeResolver _resolveCallType;
+  final CallPaymentEventCallTypeResolver? _resolveCallType;
   final CallPaymentEventCodec _codec;
 
   Future<CallPaymentEventHandleResult> handle(Event event) async {
@@ -55,7 +55,8 @@ final class CallPaymentEventHandler {
           CallPaymentIncomingTransferRequest(
             owner: _owner,
             senderPubkey: event.pubkey,
-            callType: _resolveCallType(event, payload),
+            callType:
+                _resolveCallType?.call(event, payload) ?? payload.callType,
             payload: payload,
           ),
         );

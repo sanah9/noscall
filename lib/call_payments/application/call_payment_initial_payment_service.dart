@@ -144,6 +144,7 @@ final class CallPaymentInitialPaymentService {
       paymentSessionId: paymentSessionId,
       sequence: installment.sequence,
       purpose: installment.purpose,
+      callType: request.callType,
       payerPubkey: request.owner.value,
       payeePubkey: request.peerPubkey,
       mintUrl: request.mintUrl,

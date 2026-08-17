@@ -73,6 +73,7 @@ void main() {
           paymentSessionId: 'payment-session-1',
           sequence: 1,
           purpose: CallPaymentPurpose.initial,
+          callType: CallPaymentCallType.audio,
           payerPubkey: _peer.value,
           payeePubkey: _owner.value,
           mintUrl: mint,

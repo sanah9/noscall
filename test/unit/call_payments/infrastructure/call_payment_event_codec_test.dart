@@ -21,6 +21,7 @@ void main() {
     expect(decoded.paymentSessionId, payload.paymentSessionId);
     expect(decoded.sequence, 1);
     expect(decoded.purpose, CallPaymentPurpose.initial);
+    expect(decoded.callType, CallPaymentCallType.audio);
     expect(decoded.mintUrl, payload.mintUrl);
     expect(decoded.amountSats, 10);
     expect(decoded.tokenHash, 'hash-1');
@@ -73,6 +74,7 @@ CallPaymentEventPayload _payload({
     paymentSessionId: 'payment-session-1',
     sequence: 1,
     purpose: CallPaymentPurpose.initial,
+    callType: CallPaymentCallType.audio,
     payerPubkey: 'a' * 64,
     payeePubkey: 'b' * 64,
     mintUrl: CashuMintUrl.parse('https://mint.example'),
