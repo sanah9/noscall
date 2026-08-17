@@ -10,6 +10,7 @@ import 'call_payment_event_handler.dart';
 import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_initial_payment_service.dart';
 import 'call_payment_peer_policy_resolver.dart';
+import 'call_payment_recovery_service.dart';
 import 'call_payment_start_guard.dart';
 import 'call_payment_top_up_service.dart';
 
@@ -105,6 +106,14 @@ final class CallPaymentRuntime {
     installmentRepository: _installmentRepository,
     clock: _clock,
   );
+
+  late final CallPaymentRecoveryService recoveryService =
+      CallPaymentRecoveryService(
+        sessionRepository: _sessionRepository,
+        installmentRepository: _installmentRepository,
+        tokenRecoverer: _walletAdapter,
+        clock: _clock,
+      );
 
   late final CallPaymentCoordinator coordinator = CallPaymentCoordinator(
     owner: _owner,
