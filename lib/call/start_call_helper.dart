@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/call/call_kit_manager.dart';
+import 'package:noscall/call/calling_controller_dependencies.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_payments/application/call_payment_initial_payment_service.dart';
 import 'package:noscall/call_payments/application/call_payment_start_guard.dart';
@@ -28,6 +29,7 @@ class StartCallHelper {
     CallPaymentStartGuard? paymentGuard,
     CashuAccountId? paymentOwner,
     CallPaymentInitialPaymentPreparer? prepareInitialPayment,
+    CallingControllerLifecycleObserver? lifecycleObserver,
     CallIdFactory? callIdFactory,
   }) async {
     if (CallKitManager.instance.hasActiveCalling) {
@@ -57,6 +59,7 @@ class StartCallHelper {
         peerId: peerId,
         callType: callType,
         callId: paymentStart.callId,
+        lifecycleObserver: lifecycleObserver,
       );
       if (!context.mounted) return;
       if (controller == null) {

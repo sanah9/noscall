@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
+import 'package:noscall/call_payments/application/call_payment_top_up_service.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
@@ -26,6 +28,83 @@ void main() {
     final session = await sessionRepository.find(_owner, 'call-1');
     expect(session?.status, CallPaymentSessionStatus.connected);
     expect(session?.connectedAt, DateTime.utc(2026, 8, 14, 10));
+  });
+
+  test('schedules payer top-up before paid coverage expires', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final scheduler = _Scheduler();
+    await sessionRepository.save(_session());
+    final topUpRequests = <CallPaymentTopUpRequest>[];
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      scheduler: scheduler,
+      prepareTopUp: (request) async {
+        topUpRequests.add(request);
+        return CallPaymentTopUpResult(
+          session: (await sessionRepository.find(_owner, request.callId))!,
+          installment: _installment(status: CallPaymentInstallmentStatus.sent),
+          okEvent: OKEvent('top-up', true, 'ok'),
+        );
+      },
+      times: [DateTime.utc(2026, 8, 14, 10)],
+    );
+
+    await coordinator.onConnected(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
+    expect(scheduler.delays, [const Duration(seconds: 50)]);
+
+    await scheduler.fire(0);
+
+    expect(topUpRequests.single.callId, 'call-1');
+    expect(topUpRequests.single.owner, _owner);
+    expect(scheduler.delays, [
+      const Duration(seconds: 50),
+      const Duration(seconds: 50),
+    ]);
+  });
+
+  test('cancels scheduled top-up when paid call ends', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final scheduler = _Scheduler();
+    await sessionRepository.save(
+      _session(
+        status: CallPaymentSessionStatus.connected,
+        connectedAt: DateTime.utc(2026, 8, 14, 10),
+      ),
+    );
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      scheduler: scheduler,
+      prepareTopUp: (request) async {
+        throw StateError('top-up should be cancelled');
+      },
+      times: [
+        DateTime.utc(2026, 8, 14, 10),
+        DateTime.utc(2026, 8, 14, 10, 0, 5),
+      ],
+    );
+
+    await coordinator.onConnected(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
+    await coordinator.onEnded(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+      reason: CallEndReason.disconnect,
+      hasConnected: true,
+    );
+
+    expect(scheduler.cancelledHandles, [0]);
   });
 
   test('marks connected sessions completed and records duration', () async {
@@ -137,12 +216,16 @@ CallPaymentCoordinator _coordinator({
   required _SessionRepository sessionRepository,
   required _InstallmentRepository installmentRepository,
   required List<DateTime> times,
+  _Scheduler? scheduler,
+  CallPaymentTopUpCallback? prepareTopUp,
 }) {
   var index = 0;
   return CallPaymentCoordinator(
     owner: _owner,
     sessionRepository: sessionRepository,
     installmentRepository: installmentRepository,
+    scheduler: scheduler ?? _Scheduler(),
+    prepareTopUp: prepareTopUp,
     clock: () => times[index++ < times.length ? index - 1 : times.length - 1],
   );
 }
@@ -278,5 +361,27 @@ final class _InstallmentRepository implements CallPaymentInstallmentRepository {
     CallPaymentTransferDirection direction,
   ) {
     return '${owner.value}|$callId|$sequence|${purpose.name}|${direction.name}';
+  }
+}
+
+final class _Scheduler implements CallPaymentLifecycleScheduler {
+  final List<Duration> delays = [];
+  final List<Future<void> Function()> callbacks = [];
+  final List<Object> cancelledHandles = [];
+
+  @override
+  Object schedule(Duration delay, Future<void> Function() callback) {
+    delays.add(delay);
+    callbacks.add(callback);
+    return callbacks.length - 1;
+  }
+
+  @override
+  void cancel(Object handle) {
+    cancelledHandles.add(handle);
+  }
+
+  Future<void> fire(int index) {
+    return callbacks[index]();
   }
 }

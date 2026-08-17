@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:noscall/call/calling_controller_dependencies.dart';
@@ -6,8 +7,32 @@ import 'package:noscall/wallet/domain/cashu_account_id.dart';
 
 import '../domain/call_payment_models.dart';
 import '../domain/call_payment_repositories.dart';
+import 'call_payment_top_up_service.dart';
 
 typedef CallPaymentLifecycleClock = DateTime Function();
+typedef CallPaymentTopUpCallback =
+    Future<CallPaymentTopUpResult> Function(CallPaymentTopUpRequest request);
+
+abstract interface class CallPaymentLifecycleScheduler {
+  Object schedule(Duration delay, Future<void> Function() callback);
+
+  void cancel(Object handle);
+}
+
+final class TimerCallPaymentLifecycleScheduler
+    implements CallPaymentLifecycleScheduler {
+  const TimerCallPaymentLifecycleScheduler();
+
+  @override
+  Object schedule(Duration delay, Future<void> Function() callback) {
+    return Timer(delay, () => callback());
+  }
+
+  @override
+  void cancel(Object handle) {
+    if (handle is Timer) handle.cancel();
+  }
+}
 
 final class CallPaymentCoordinator
     implements CallingControllerLifecycleObserver {
@@ -15,16 +40,27 @@ final class CallPaymentCoordinator
     required CashuAccountId owner,
     required CallPaymentSessionRepository sessionRepository,
     required CallPaymentInstallmentRepository installmentRepository,
+    CallPaymentTopUpCallback? prepareTopUp,
+    CallPaymentLifecycleScheduler scheduler =
+        const TimerCallPaymentLifecycleScheduler(),
+    int topUpLeadSeconds = 10,
     CallPaymentLifecycleClock? clock,
   }) : _owner = owner,
        _sessionRepository = sessionRepository,
        _installmentRepository = installmentRepository,
+       _prepareTopUp = prepareTopUp,
+       _scheduler = scheduler,
+       _topUpLeadSeconds = topUpLeadSeconds,
        _clock = clock ?? DateTime.now;
 
   final CashuAccountId _owner;
   final CallPaymentSessionRepository _sessionRepository;
   final CallPaymentInstallmentRepository _installmentRepository;
+  final CallPaymentTopUpCallback? _prepareTopUp;
+  final CallPaymentLifecycleScheduler _scheduler;
+  final int _topUpLeadSeconds;
   final CallPaymentLifecycleClock _clock;
+  Object? _topUpHandle;
 
   @override
   Future<void> onConnected({
@@ -36,13 +72,13 @@ final class CallPaymentCoordinator
     if (session == null) return;
 
     final now = _clock();
-    await _sessionRepository.save(
-      session.copyWith(
-        status: CallPaymentSessionStatus.connected,
-        connectedAt: session.connectedAt ?? now,
-        updatedAt: now,
-      ),
+    final updatedSession = session.copyWith(
+      status: CallPaymentSessionStatus.connected,
+      connectedAt: session.connectedAt ?? now,
+      updatedAt: now,
     );
+    await _sessionRepository.save(updatedSession);
+    _scheduleTopUp(updatedSession);
   }
 
   @override
@@ -56,6 +92,7 @@ final class CallPaymentCoordinator
     final session = await _sessionRepository.find(_owner, callId);
     if (session == null) return;
 
+    _cancelTopUp();
     final now = _clock();
     final status = await _endedStatus(
       session: session,
@@ -110,5 +147,41 @@ final class CallPaymentCoordinator
       session.connectedDurationSeconds,
       endedAt.difference(connectedAt).inSeconds,
     );
+  }
+
+  void _scheduleTopUp(CallPaymentSession session) {
+    if (_prepareTopUp == null || session.role != CallPaymentRole.payer) return;
+    _cancelTopUp();
+    final delaySeconds = math.max(
+      0,
+      session.billingPeriodSeconds - _topUpLeadSeconds,
+    );
+    _topUpHandle = _scheduler.schedule(
+      Duration(seconds: delaySeconds),
+      () => _runTopUp(session.callId),
+    );
+  }
+
+  Future<void> _runTopUp(String callId) async {
+    final prepareTopUp = _prepareTopUp;
+    if (prepareTopUp == null) return;
+    try {
+      final result = await prepareTopUp(
+        CallPaymentTopUpRequest(owner: _owner, callId: callId),
+      );
+      _topUpHandle = null;
+      if (result.session.status == CallPaymentSessionStatus.connected) {
+        _scheduleTopUp(result.session);
+      }
+    } catch (_) {
+      _topUpHandle = null;
+    }
+  }
+
+  void _cancelTopUp() {
+    final handle = _topUpHandle;
+    if (handle == null) return;
+    _scheduler.cancel(handle);
+    _topUpHandle = null;
   }
 }
