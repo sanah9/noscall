@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
+import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
+import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/core.dart' as chat_core;
 import 'package:noscall/utils/router.dart';
 
@@ -133,6 +135,8 @@ class CallKitManager with WidgetsBindingObserver {
           nostrCallStateChangeHandler;
       chat_core.Contacts.sharedInstance.onCallPaymentEvent =
           _handleCallPaymentEvent;
+      chat_core.Contacts.sharedInstance.onIncomingCallOffer =
+          _allowIncomingCallOffer;
       unawaited(_recoverPendingCallPayments());
 
       // When user was offline and receives missed call (disconnect before answer), add to history and badge
@@ -222,6 +226,48 @@ class CallKitManager with WidgetsBindingObserver {
         () => 'Failed to recover pending call payments: error=$e, stack=$stack',
       );
     }
+  }
+
+  Future<bool> _allowIncomingCallOffer(
+    Event event,
+    NipAcSignaling signaling,
+  ) async {
+    CallPaymentRuntime? runtime;
+    try {
+      runtime = await MobileCallPaymentRuntimeFactory.create();
+      final decision = await runtime.incomingOfferGate.evaluate(
+        callId: signaling.callId,
+        peerPubkey: event.pubkey,
+        callType: _paymentCallTypeFromSignaling(signaling.callType),
+      );
+      if (!decision.allowed) {
+        final reason = decision.rejectReason ?? 'payment_required_upgrade';
+        LogUtils.i(
+          () =>
+              'Reject incoming paid call offer: callId=${signaling.callId}, peer=${event.pubkey}, reason=$reason',
+        );
+        await chat_core.Contacts.sharedInstance.sendReject(
+          signaling.callId,
+          event.pubkey,
+          reason,
+        );
+      }
+      return decision.allowed;
+    } catch (e, stack) {
+      LogUtils.e(
+        () =>
+            'Failed to evaluate incoming call payment offer: callId=${signaling.callId}, peer=${event.pubkey}, error=$e, stack=$stack',
+      );
+      return true;
+    } finally {
+      await runtime?.dispose();
+    }
+  }
+
+  CallPaymentCallType _paymentCallTypeFromSignaling(String? callType) {
+    return callType == 'video'
+        ? CallPaymentCallType.video
+        : CallPaymentCallType.audio;
   }
 
   Future<void> _handleCallKeepAnswer(String callId) async {

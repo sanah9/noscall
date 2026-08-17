@@ -4,6 +4,7 @@ import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/call/contacts/contacts_calling.dart';
+import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
 void main() {
@@ -17,7 +18,9 @@ void main() {
   tearDown(() {
     final contacts = Contacts.sharedInstance;
     contacts.onCallPaymentEvent = null;
+    contacts.onIncomingCallOffer = null;
     contacts.onCallStateChange = null;
+    contacts.callMessages.clear();
   });
 
   test('dispatches call payment events to payment handler only', () async {
@@ -51,6 +54,37 @@ void main() {
     expect(receivedPaymentEvent?.id, event.id);
     expect(receivedRelay, 'wss://relay.example');
     expect(callStateChanges, 0);
+  });
+
+  test('drops incoming offer when payment offer gate rejects it', () async {
+    final contacts = Contacts.sharedInstance;
+    contacts.pubkey = receiverPubkey;
+    var gateCalls = 0;
+    var callStateChanges = 0;
+    contacts.onIncomingCallOffer = (event, signaling) async {
+      gateCalls += 1;
+      expect(event.pubkey, senderPubkey);
+      expect(signaling.callId, 'call-1');
+      return false;
+    };
+    contacts.onCallStateChange = (friend, state, data, callId, callType) {
+      callStateChanges += 1;
+    };
+
+    final offer = await NipAcProtocol.createOffer(
+      toPubkey: receiverPubkey,
+      callId: 'call-1',
+      callType: 'audio',
+      sdp: 'v=0\no=alice',
+      pubkey: senderPubkey,
+      privkey: senderPrivkey,
+    );
+
+    await contacts.handleCallEvent(offer, 'wss://relay.example');
+
+    expect(gateCalls, 1);
+    expect(callStateChanges, 0);
+    expect(contacts.callMessages.containsKey('call-1'), isFalse);
   });
 }
 

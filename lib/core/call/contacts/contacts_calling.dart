@@ -201,6 +201,10 @@ extension Calling on Contacts {
     if (signaling.state == SignalingState.disconnect) {
       reason = signaling.content;
     }
+    if (signaling.state == SignalingState.offer) {
+      final gate = onIncomingCallOffer;
+      if (gate != null && !await gate(event, signaling)) return;
+    }
     bool result = await handleSignalingEvent(event, signaling, reason);
     if (result) {
       onCallStateChange?.call(

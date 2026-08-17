@@ -7,6 +7,7 @@ import '../infrastructure/call_payment_wallet_adapter.dart';
 import 'call_payment_ack_service.dart';
 import 'call_payment_coordinator.dart';
 import 'call_payment_event_handler.dart';
+import 'call_payment_incoming_offer_gate.dart';
 import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_initial_payment_service.dart';
 import 'call_payment_peer_policy_resolver.dart';
@@ -106,6 +107,14 @@ final class CallPaymentRuntime {
     installmentRepository: _installmentRepository,
     clock: _clock,
   );
+
+  late final CallPaymentIncomingOfferGate incomingOfferGate =
+      CallPaymentIncomingOfferGate(
+        owner: _owner,
+        policyRepository: _policyRepository,
+        sessionRepository: _sessionRepository,
+        peerIsContact: _peerIsContact,
+      );
 
   late final CallPaymentRecoveryService recoveryService =
       CallPaymentRecoveryService(

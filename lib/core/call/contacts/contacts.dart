@@ -12,6 +12,7 @@ import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/user_db_isar.dart';
 import 'package:noscall/core/common/network/connect.dart';
 import 'package:noscall/core/call/messages/model/message_db_isar.dart';
+import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/call/call_event_policy.dart';
 import 'package:noscall/core/call/contacts/contacts_blocklist.dart';
 import 'package:noscall/core/call/contacts/contacts_calling.dart';
@@ -23,6 +24,8 @@ typedef PrivateChatMessageCallBack = void Function(MessageDBISAR);
 typedef ContactUpdatedCallBack = void Function();
 typedef CallPaymentEventHandler =
     Future<void> Function(Event event, String relay);
+typedef IncomingCallOfferGate =
+    Future<bool> Function(Event event, NipAcSignaling signaling);
 
 enum CallMessageState {
   disconnect,
@@ -91,6 +94,7 @@ class Contacts {
   onCallStateChange;
 
   CallPaymentEventHandler? onCallPaymentEvent;
+  IncomingCallOfferGate? onIncomingCallOffer;
 
   /// Called when an incoming call was missed (disconnect before answer, e.g. timeout/cancel).
   /// Parameters: callId, callerPubkey, media ('audio'|'video'), startTimeMs.
