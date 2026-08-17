@@ -10,6 +10,7 @@ import 'package:noscall/call_payments/infrastructure/isar_call_payment_repositor
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
+import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/wallet/application/wallet_session_manager.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/wallet_errors.dart';
@@ -20,6 +21,18 @@ typedef CallPaymentRuntimeFactory = Future<CallPaymentRuntime> Function();
 
 final class MobileCallPaymentRuntimeFactory {
   const MobileCallPaymentRuntimeFactory._();
+
+  static Future<CallPaymentRuntime?> tryCreate() async {
+    try {
+      return await create();
+    } catch (e, stack) {
+      LogUtils.e(
+        () =>
+            'Call payment runtime is unavailable; continue without paid call precheck: error=$e, stack=$stack',
+      );
+      return null;
+    }
+  }
 
   static Future<CallPaymentRuntime> create() async {
     if (!kDebugMode) {

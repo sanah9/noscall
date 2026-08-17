@@ -6,6 +6,7 @@ import 'package:noscall/call_payments/application/call_payment_initial_payment_s
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/application/call_payment_start_guard.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
+import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
 import 'package:noscall/call_payments/pages/call_payment_confirm_page.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
@@ -15,7 +16,7 @@ typedef CallPaymentInitialPaymentPreparer =
     Future<CallPaymentInitialPaymentResult> Function(
       CallPaymentInitialPaymentRequest request,
     );
-typedef CallPaymentRuntimeLoader = Future<CallPaymentRuntime> Function();
+typedef CallPaymentRuntimeLoader = Future<CallPaymentRuntime?> Function();
 typedef CallIdFactory = String Function();
 
 /// Centralized helper to start a voice or video call with permission check,
@@ -43,11 +44,12 @@ class StartCallHelper {
     final isVideo = callType.isVideo;
     CallPaymentRuntime? paymentRuntime;
     try {
-      if (paymentRuntimeFactory != null &&
-          (paymentGuard == null ||
-              paymentOwner == null ||
-              prepareInitialPayment == null)) {
-        paymentRuntime = await paymentRuntimeFactory();
+      final effectivePaymentRuntimeFactory =
+          paymentRuntimeFactory ?? MobileCallPaymentRuntimeFactory.tryCreate;
+      if (paymentGuard == null ||
+          paymentOwner == null ||
+          prepareInitialPayment == null) {
+        paymentRuntime = await effectivePaymentRuntimeFactory();
       }
       if (!context.mounted) {
         await paymentRuntime?.dispose();

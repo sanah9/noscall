@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:noscall/call/call_kit_manager.dart';
+import 'package:noscall/call/start_call_helper.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
@@ -423,16 +424,11 @@ class _RecentCallsPageState extends State<RecentCallsPage>
 
   Future<void> _startCall(CallLogGroup group, CallType callType) async {
     _dismissKeyboard();
-    try {
-      await CallKitManager.instance.startCall(
-        peerId: group.peerPubkey,
-        callType: callType,
-      );
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.error(context, 'Failed to start call: $e');
-      }
-    }
+    await StartCallHelper.startCall(
+      context,
+      peerId: group.peerPubkey,
+      callType: callType,
+    );
   }
 
   void _showContextMenu(
