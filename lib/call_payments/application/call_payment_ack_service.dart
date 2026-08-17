@@ -71,7 +71,7 @@ final class CallPaymentAckService {
     await _installmentRepository.save(updatedInstallment);
 
     final updatedSession = session.copyWith(
-      status: CallPaymentSessionStatus.ringing,
+      status: _sessionStatusAfterAck(session, payload),
       updatedAt: now,
     );
     await _sessionRepository.save(updatedSession);
@@ -91,5 +91,16 @@ final class CallPaymentAckService {
         payload.payeePubkey != request.senderPubkey) {
       throw ArgumentError('Payment ack participants do not match');
     }
+  }
+
+  CallPaymentSessionStatus _sessionStatusAfterAck(
+    CallPaymentSession session,
+    CallPaymentEventPayload payload,
+  ) {
+    if (payload.purpose == CallPaymentPurpose.topUp ||
+        session.status == CallPaymentSessionStatus.connected) {
+      return CallPaymentSessionStatus.connected;
+    }
+    return CallPaymentSessionStatus.ringing;
   }
 }

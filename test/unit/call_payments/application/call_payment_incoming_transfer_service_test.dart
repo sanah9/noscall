@@ -56,6 +56,68 @@ void main() {
     expect(result.installment.errorCode, 'payment_ack_send_failed');
   });
 
+  test('top-up transfer updates existing connected incoming session', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final connectedAt = DateTime.utc(2026, 8, 14, 9, 59);
+    await sessionRepository.save(_session(connectedAt: connectedAt));
+    final receiver = _TokenReceiver();
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+      gateway: gateway,
+    );
+
+    final result = await service.receiveAndAck(
+      _request(
+        payload: _payload(
+          purpose: CallPaymentPurpose.topUp,
+          sequence: 2,
+          coversFromSecond: 60,
+          coversToSecond: 120,
+          token: 'cashuAey-top-up',
+        ),
+      ),
+    );
+
+    expect(receiver.tokens.single, 'cashuAey-top-up');
+    expect(result.session.status, CallPaymentSessionStatus.connected);
+    expect(result.session.connectedAt, connectedAt);
+    expect(result.session.chargedSats, 20);
+    expect(result.installment.purpose, CallPaymentPurpose.topUp);
+    expect(result.installment.sequence, 2);
+    expect(result.installment.coversFromSecond, 60);
+    expect(result.installment.coversToSecond, 120);
+    expect(gateway.payloads.single.purpose, CallPaymentPurpose.topUp);
+  });
+
+  test(
+    'duplicate transfer resends ack without receiving token again',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(_session());
+      await installmentRepository.save(_installment());
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        receiver: receiver,
+        gateway: gateway,
+      );
+
+      final result = await service.receiveAndAck(_request());
+
+      expect(receiver.tokens, isEmpty);
+      expect(result.session.chargedSats, 10);
+      expect(result.installment.status, CallPaymentInstallmentStatus.claimed);
+      expect(gateway.payloads.single.type, CallPaymentEventType.ack);
+    },
+  );
+
   test('rejects transfer payloads for another payee', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
@@ -106,24 +168,76 @@ CallPaymentIncomingTransferRequest _request({
   );
 }
 
-CallPaymentEventPayload _payload({String? payeePubkey}) {
+CallPaymentEventPayload _payload({
+  String? payeePubkey,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
+  int sequence = 1,
+  int coversFromSecond = 0,
+  int coversToSecond = 60,
+  String token = 'cashuAey-transfer',
+}) {
   return CallPaymentEventPayload(
     type: CallPaymentEventType.transfer,
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
-    sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    sequence: sequence,
+    purpose: purpose,
     payerPubkey: 'a' * 64,
     payeePubkey: payeePubkey ?? _owner.value,
     mintUrl: _mintUrl,
     amountSats: 10,
     billingPeriodSeconds: 60,
-    coversFromSecond: 0,
-    coversToSecond: 60,
+    coversFromSecond: coversFromSecond,
+    coversToSecond: coversToSecond,
     tokenHash: 'hash-1',
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
-    token: 'cashuAey-transfer',
+    token: token,
+  );
+}
+
+CallPaymentSession _session({DateTime? connectedAt}) {
+  final now = DateTime.utc(2026, 8, 14, 9);
+  return CallPaymentSession(
+    owner: _owner,
+    callId: 'call-1',
+    peerPubkey: 'a' * 64,
+    direction: CallPaymentCallDirection.incoming,
+    role: CallPaymentRole.payee,
+    callType: CallPaymentCallType.audio,
+    status: CallPaymentSessionStatus.connected,
+    mintUrl: _mintUrl,
+    priceSatsPerMinute: 10,
+    billingPeriodSeconds: 60,
+    maxSpendSats: 10,
+    connectedAt: connectedAt,
+    connectedDurationSeconds: 0,
+    chargedSats: 10,
+    refundedSats: 0,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+CallPaymentInstallment _installment() {
+  final now = DateTime.utc(2026, 8, 14, 9);
+  return CallPaymentInstallment(
+    owner: _owner,
+    callId: 'call-1',
+    paymentSessionId: 'payment-session-1',
+    sequence: 1,
+    purpose: CallPaymentPurpose.initial,
+    direction: CallPaymentTransferDirection.received,
+    amountSats: 10,
+    mintUrl: _mintUrl,
+    walletOperationId: 'receive-op-1',
+    tokenHash: 'hash-1',
+    status: CallPaymentInstallmentStatus.claimed,
+    coversFromSecond: 0,
+    coversToSecond: 60,
+    createdAt: now,
+    claimedAt: now,
+    updatedAt: now,
   );
 }
 

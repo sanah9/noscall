@@ -1,148 +1,161 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:noscall/call_payments/application/call_payment_ack_service.dart';
+import 'package:noscall/call/constant/call_type.dart';
+import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
-import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
 void main() {
-  test('marks sent installment claimed and moves session to ringing', () async {
+  test('marks a paid session connected', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
     await sessionRepository.save(_session());
-    await installmentRepository.save(_installment());
-    final service = _service(
+    final coordinator = _coordinator(
       sessionRepository: sessionRepository,
       installmentRepository: installmentRepository,
+      times: [DateTime.utc(2026, 8, 14, 10)],
     );
 
-    final result = await service.apply(_request());
+    await coordinator.onConnected(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
 
-    expect(result.installment.status, CallPaymentInstallmentStatus.claimed);
-    expect(result.installment.claimedAt, DateTime.utc(2026, 8, 14, 10));
-    expect(result.installment.errorCode, isNull);
-    expect(result.session.status, CallPaymentSessionStatus.ringing);
-    expect(result.session.chargedSats, 10);
+    final session = await sessionRepository.find(_owner, 'call-1');
+    expect(session?.status, CallPaymentSessionStatus.connected);
+    expect(session?.connectedAt, DateTime.utc(2026, 8, 14, 10));
   });
 
-  test('rejects ack payloads from another payee', () async {
-    final service = _service(
-      sessionRepository: _SessionRepository(),
-      installmentRepository: _InstallmentRepository(),
-    );
-
-    await expectLater(
-      service.apply(_request(payload: _payload(payeePubkey: 'c' * 64))),
-      throwsA(isA<ArgumentError>()),
-    );
-  });
-
-  test('top-up ack keeps connected sessions connected', () async {
+  test('marks connected sessions completed and records duration', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
     await sessionRepository.save(
-      _session(status: CallPaymentSessionStatus.connected, chargedSats: 20),
-    );
-    await installmentRepository.save(
-      _installment(
-        sequence: 2,
-        purpose: CallPaymentPurpose.topUp,
-        coversFromSecond: 60,
-        coversToSecond: 120,
+      _session(
+        status: CallPaymentSessionStatus.connected,
+        connectedAt: DateTime.utc(2026, 8, 14, 10),
       ),
     );
-    final service = _service(
+    final coordinator = _coordinator(
       sessionRepository: sessionRepository,
       installmentRepository: installmentRepository,
+      times: [DateTime.utc(2026, 8, 14, 10, 1, 8)],
     );
 
-    final result = await service.apply(
-      _request(
-        payload: _payload(
-          sequence: 2,
-          purpose: CallPaymentPurpose.topUp,
-          coversFromSecond: 60,
-          coversToSecond: 120,
-        ),
-      ),
+    await coordinator.onEnded(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+      reason: CallEndReason.disconnect,
+      hasConnected: true,
     );
 
-    expect(result.installment.status, CallPaymentInstallmentStatus.claimed);
-    expect(result.installment.purpose, CallPaymentPurpose.topUp);
-    expect(result.session.status, CallPaymentSessionStatus.connected);
-    expect(result.session.chargedSats, 20);
+    final session = await sessionRepository.find(_owner, 'call-1');
+    expect(session?.status, CallPaymentSessionStatus.completed);
+    expect(session?.endedAt, DateTime.utc(2026, 8, 14, 10, 1, 8));
+    expect(session?.connectedDurationSeconds, 68);
   });
 
-  test('fails when matching sent installment is missing', () async {
+  test(
+    'marks unclaimed outgoing payments reclaim pending before connect',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(_session());
+      await installmentRepository.save(
+        _installment(status: CallPaymentInstallmentStatus.sent),
+      );
+      final coordinator = _coordinator(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        times: [DateTime.utc(2026, 8, 14, 10)],
+      );
+
+      await coordinator.onEnded(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        role: CallingRole.caller,
+        reason: CallEndReason.hangup,
+        hasConnected: false,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(session?.status, CallPaymentSessionStatus.reclaimPending);
+    },
+  );
+
+  test('marks claimed payments refund pending before connect', () async {
     final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
     await sessionRepository.save(_session());
-    final service = _service(
+    await installmentRepository.save(
+      _installment(status: CallPaymentInstallmentStatus.claimed),
+    );
+    final coordinator = _coordinator(
       sessionRepository: sessionRepository,
-      installmentRepository: _InstallmentRepository(),
+      installmentRepository: installmentRepository,
+      times: [DateTime.utc(2026, 8, 14, 10)],
     );
 
-    await expectLater(service.apply(_request()), throwsA(isA<StateError>()));
+    await coordinator.onEnded(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+      reason: CallEndReason.reject,
+      hasConnected: false,
+    );
+
+    final session = await sessionRepository.find(_owner, 'call-1');
+    expect(session?.status, CallPaymentSessionStatus.refundPending);
+  });
+
+  test('ignores lifecycle events for unknown payment sessions', () async {
+    final sessionRepository = _SessionRepository();
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: _InstallmentRepository(),
+      times: [DateTime.utc(2026, 8, 14, 10)],
+    );
+
+    await coordinator.onConnected(
+      callId: 'missing-call',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
+
+    expect(await sessionRepository.list(_owner), isEmpty);
   });
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
+const _peerPubkey =
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 final _mintUrl = CashuMintUrl.parse('https://mint.example');
 
-CallPaymentAckService _service({
+CallPaymentCoordinator _coordinator({
   required _SessionRepository sessionRepository,
   required _InstallmentRepository installmentRepository,
+  required List<DateTime> times,
 }) {
-  return CallPaymentAckService(
+  var index = 0;
+  return CallPaymentCoordinator(
+    owner: _owner,
     sessionRepository: sessionRepository,
     installmentRepository: installmentRepository,
-    clock: () => DateTime.utc(2026, 8, 14, 10),
-  );
-}
-
-CallPaymentAckRequest _request({CallPaymentEventPayload? payload}) {
-  return CallPaymentAckRequest(
-    owner: _owner,
-    senderPubkey: 'b' * 64,
-    payload: payload ?? _payload(),
-  );
-}
-
-CallPaymentEventPayload _payload({
-  String? payeePubkey,
-  int sequence = 1,
-  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
-  int coversFromSecond = 0,
-  int coversToSecond = 60,
-}) {
-  return CallPaymentEventPayload(
-    type: CallPaymentEventType.ack,
-    callId: 'call-1',
-    paymentSessionId: 'payment-session-1',
-    sequence: sequence,
-    purpose: purpose,
-    payerPubkey: _owner.value,
-    payeePubkey: payeePubkey ?? 'b' * 64,
-    mintUrl: _mintUrl,
-    amountSats: 10,
-    billingPeriodSeconds: 60,
-    coversFromSecond: coversFromSecond,
-    coversToSecond: coversToSecond,
-    tokenHash: 'hash-1',
-    createdAt: DateTime.utc(2026, 8, 14, 10),
-    expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
+    clock: () => times[index++ < times.length ? index - 1 : times.length - 1],
   );
 }
 
 CallPaymentSession _session({
-  CallPaymentSessionStatus status = CallPaymentSessionStatus.initialPaymentSent,
-  int chargedSats = 10,
+  CallPaymentSessionStatus status = CallPaymentSessionStatus.ringing,
+  DateTime? connectedAt,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentSession(
     owner: _owner,
     callId: 'call-1',
-    peerPubkey: 'b' * 64,
+    peerPubkey: _peerPubkey,
     direction: CallPaymentCallDirection.outgoing,
     role: CallPaymentRole.payer,
     callType: CallPaymentCallType.audio,
@@ -151,8 +164,9 @@ CallPaymentSession _session({
     priceSatsPerMinute: 10,
     billingPeriodSeconds: 60,
     maxSpendSats: 100,
+    connectedAt: connectedAt,
     connectedDurationSeconds: 0,
-    chargedSats: chargedSats,
+    chargedSats: 10,
     refundedSats: 0,
     createdAt: now,
     updatedAt: now,
@@ -160,29 +174,25 @@ CallPaymentSession _session({
 }
 
 CallPaymentInstallment _installment({
-  int sequence = 1,
-  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
-  int coversFromSecond = 0,
-  int coversToSecond = 60,
+  required CallPaymentInstallmentStatus status,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
     owner: _owner,
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
-    sequence: sequence,
-    purpose: purpose,
+    sequence: 1,
+    purpose: CallPaymentPurpose.initial,
     direction: CallPaymentTransferDirection.sent,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'send-op-1',
     tokenHash: 'hash-1',
-    status: CallPaymentInstallmentStatus.sent,
-    coversFromSecond: coversFromSecond,
-    coversToSecond: coversToSecond,
+    status: status,
+    coversFromSecond: 0,
+    coversToSecond: 60,
     createdAt: now,
     updatedAt: now,
-    errorCode: 'old_error',
   );
 }
 
