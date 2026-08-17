@@ -246,11 +246,18 @@ class CallKitManager with WidgetsBindingObserver {
           () =>
               'Reject incoming paid call offer: callId=${signaling.callId}, peer=${event.pubkey}, reason=$reason',
         );
-        await chat_core.Contacts.sharedInstance.sendReject(
-          signaling.callId,
-          event.pubkey,
-          reason,
-        );
+        try {
+          await chat_core.Contacts.sharedInstance.sendReject(
+            signaling.callId,
+            event.pubkey,
+            reason,
+          );
+        } catch (e, stack) {
+          LogUtils.e(
+            () =>
+                'Failed to send paid call reject: callId=${signaling.callId}, peer=${event.pubkey}, reason=$reason, error=$e, stack=$stack',
+          );
+        }
       }
       return decision.allowed;
     } catch (e, stack) {
