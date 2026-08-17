@@ -131,6 +131,68 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
+
+  test(
+    'rejects paid transfer below local policy price before receiving',
+    () async {
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: _SessionRepository(),
+        installmentRepository: _InstallmentRepository(),
+        receiver: receiver,
+        gateway: gateway,
+        policyRepository: _PolicyRepository()
+          ..policy = _policy(audioPriceSatsPerMinute: 20),
+      );
+
+      await expectLater(
+        service.receiveAndAck(_request()),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            'payment_insufficient',
+          ),
+        ),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
+
+  test(
+    'rejects paid transfer from unsupported mint before receiving',
+    () async {
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: _SessionRepository(),
+        installmentRepository: _InstallmentRepository(),
+        receiver: receiver,
+        gateway: gateway,
+        policyRepository: _PolicyRepository()
+          ..policy = _policy(
+            acceptedMintUrls: [CashuMintUrl.parse('https://other.example')],
+          ),
+      );
+
+      await expectLater(
+        service.receiveAndAck(_request()),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            'payment_mint_not_accepted',
+          ),
+        ),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('b' * 64);
@@ -141,6 +203,8 @@ CallPaymentIncomingTransferService _service({
   required _InstallmentRepository installmentRepository,
   required _TokenReceiver receiver,
   required _Gateway gateway,
+  _PolicyRepository? policyRepository,
+  bool Function(String peerPubkey)? peerIsContact,
 }) {
   final times = [
     DateTime.utc(2026, 8, 14, 10),
@@ -153,6 +217,8 @@ CallPaymentIncomingTransferService _service({
     installmentRepository: installmentRepository,
     tokenReceiver: receiver,
     gateway: gateway,
+    policyRepository: policyRepository,
+    peerIsContact: peerIsContact,
     clock: () => times[index++ < times.length ? index - 1 : times.length - 1],
   );
 }
@@ -165,6 +231,25 @@ CallPaymentIncomingTransferRequest _request({
     senderPubkey: 'a' * 64,
     callType: CallPaymentCallType.audio,
     payload: payload ?? _payload(),
+  );
+}
+
+CallPaymentPolicy _policy({
+  int audioPriceSatsPerMinute = 10,
+  Iterable<CashuMintUrl>? acceptedMintUrls,
+}) {
+  return CallPaymentPolicy(
+    owner: _owner,
+    enabled: true,
+    freePolicy: CallPaymentFreePolicy.everyonePays,
+    freePubkeys: const [],
+    audioPriceSatsPerMinute: audioPriceSatsPerMinute,
+    videoPriceSatsPerMinute: 30,
+    billingPeriodSeconds: 60,
+    gracePeriodSeconds: 10,
+    acceptedMintUrls: acceptedMintUrls ?? [_mintUrl],
+    createdAt: DateTime.utc(2026, 8, 14, 9),
+    updatedAt: DateTime.utc(2026, 8, 14, 9),
   );
 }
 
@@ -268,6 +353,21 @@ final class _Gateway implements CallPaymentTransferGateway {
   }) async {
     payloads.add(payload);
     return OKEvent('ack-event-1', okStatus, okStatus ? 'ok' : 'failed');
+  }
+}
+
+final class _PolicyRepository implements CallPaymentPolicyRepository {
+  CallPaymentPolicy? policy;
+
+  @override
+  Future<CallPaymentPolicy?> find(CashuAccountId owner) async {
+    if (policy?.owner != owner) return null;
+    return policy;
+  }
+
+  @override
+  Future<void> save(CallPaymentPolicy policy) async {
+    this.policy = policy;
   }
 }
 

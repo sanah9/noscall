@@ -6,6 +6,8 @@ import 'package:noscall/wallet/domain/cashu_models.dart';
 import '../domain/call_payment_models.dart';
 import '../domain/call_payment_repositories.dart';
 import 'call_payment_initial_payment_service.dart';
+import 'call_payment_pricing_service.dart';
+import 'call_payment_start_guard.dart';
 
 abstract interface class CallPaymentTokenReceiver {
   Future<CashuReceiveResult> receive(String encodedToken);
@@ -43,17 +45,27 @@ final class CallPaymentIncomingTransferService {
     required CallPaymentInstallmentRepository installmentRepository,
     required CallPaymentTokenReceiver tokenReceiver,
     required CallPaymentTransferGateway gateway,
+    CallPaymentPolicyRepository? policyRepository,
+    CallPaymentContactChecker? peerIsContact,
+    CallPaymentPricingService pricingService =
+        const CallPaymentPricingService(),
     CallPaymentClock? clock,
   }) : _sessionRepository = sessionRepository,
        _installmentRepository = installmentRepository,
        _tokenReceiver = tokenReceiver,
        _gateway = gateway,
+       _policyRepository = policyRepository,
+       _peerIsContact = peerIsContact,
+       _pricingService = pricingService,
        _clock = clock ?? DateTime.now;
 
   final CallPaymentSessionRepository _sessionRepository;
   final CallPaymentInstallmentRepository _installmentRepository;
   final CallPaymentTokenReceiver _tokenReceiver;
   final CallPaymentTransferGateway _gateway;
+  final CallPaymentPolicyRepository? _policyRepository;
+  final CallPaymentContactChecker? _peerIsContact;
+  final CallPaymentPricingService _pricingService;
   final CallPaymentClock _clock;
 
   Future<CallPaymentIncomingTransferResult> receiveAndAck(
@@ -72,6 +84,7 @@ final class CallPaymentIncomingTransferService {
       return _ackExistingTransfer(request, existingInstallment);
     }
 
+    await _validateAgainstPolicy(request);
     final token = payload.token!;
     final received = await _tokenReceiver.receive(token);
     final now = _clock();
@@ -131,6 +144,38 @@ final class CallPaymentIncomingTransferService {
     }
     if (payload.amountSats <= 0 || payload.billingPeriodSeconds <= 0) {
       throw ArgumentError('Incoming payment transfer has invalid amounts');
+    }
+    if (payload.callType != request.callType) {
+      throw ArgumentError('Incoming payment call type does not match');
+    }
+  }
+
+  Future<void> _validateAgainstPolicy(
+    CallPaymentIncomingTransferRequest request,
+  ) async {
+    final policyRepository = _policyRepository;
+    if (policyRepository == null) return;
+
+    final payload = request.payload;
+    final policy = await policyRepository.find(request.owner);
+    if (policy == null) return;
+
+    final quote = _pricingService.quote(
+      policy: policy,
+      callType: request.callType,
+      peerPubkey: payload.payerPubkey,
+      peerIsContact: _peerIsContact?.call(payload.payerPubkey) ?? false,
+    );
+    if (quote.isFree) return;
+
+    if (!policy.acceptedMintUrls.contains(payload.mintUrl)) {
+      throw ArgumentError('payment_mint_not_accepted');
+    }
+    if (payload.billingPeriodSeconds != quote.billingPeriodSeconds) {
+      throw ArgumentError('payment_billing_period_mismatch');
+    }
+    if (payload.amountSats < quote.periodAmountSats) {
+      throw ArgumentError('payment_insufficient');
     }
   }
 

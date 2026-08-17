@@ -99,6 +99,8 @@ final class CallPaymentRuntime {
         installmentRepository: _installmentRepository,
         tokenReceiver: _walletAdapter,
         gateway: _gateway,
+        policyRepository: _policyRepository,
+        peerIsContact: _peerIsContact,
         clock: _clock,
       );
 
