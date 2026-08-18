@@ -81,6 +81,9 @@ class StartCallHelper {
       final retainedPaymentRuntime = paymentStart.isPaid
           ? paymentRuntime
           : null;
+      final paymentFailureObserver = _PaymentRequiredToastLifecycleObserver(
+        context,
+      );
       if (!paymentStart.isPaid) {
         await paymentRuntime?.dispose();
         paymentRuntime = null;
@@ -97,9 +100,14 @@ class StartCallHelper {
         callId: paymentStart.callId,
         lifecycleObserver: _combineLifecycleObservers(
           lifecycleObserver,
-          retainedPaymentRuntime == null
-              ? null
-              : _DisposingCallPaymentLifecycleObserver(retainedPaymentRuntime),
+          _combineLifecycleObservers(
+            paymentFailureObserver,
+            retainedPaymentRuntime == null
+                ? null
+                : _DisposingCallPaymentLifecycleObserver(
+                    retainedPaymentRuntime,
+                  ),
+          ),
         ),
       );
       if (controller == null) {
@@ -321,6 +329,35 @@ final class _DisposingCallPaymentLifecycleObserver
         await _runtime.dispose();
       }
     }
+  }
+}
+
+final class _PaymentRequiredToastLifecycleObserver
+    implements CallingControllerLifecycleObserver {
+  _PaymentRequiredToastLifecycleObserver(this._context);
+
+  final BuildContext _context;
+
+  @override
+  Future<void> onConnected({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+  }) async {}
+
+  @override
+  Future<void> onEnded({
+    required String callId,
+    required String peerPubkey,
+    required CallingRole role,
+    required CallEndReason reason,
+    required bool hasConnected,
+  }) async {
+    if (reason != CallEndReason.paymentRequired || !_context.mounted) return;
+    AppToast.showError(
+      _context,
+      'Paid call payment is required or insufficient.',
+    );
   }
 }
 

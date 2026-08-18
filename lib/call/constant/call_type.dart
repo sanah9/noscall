@@ -25,15 +25,15 @@ extension CallTypeEx on CallType {
 }
 
 enum CallingRole {
-  caller,       // Caller
-  callee,       // Callee
+  caller, // Caller
+  callee, // Callee
 }
 
 enum CallingState {
-  ringing,      // Waiting for answer or received invitation
-  connecting,   // Both parties answered, establishing connection
-  connected,    // Call established, audio/video channels stable
-  ended,        // Call ended (normal hangup or failed)
+  ringing, // Waiting for answer or received invitation
+  connecting, // Both parties answered, establishing connection
+  connected, // Call established, audio/video channels stable
+  ended, // Call ended (normal hangup or failed)
 }
 
 enum AudioOutputType {
@@ -45,10 +45,7 @@ enum AudioOutputType {
   const AudioOutputType(this.value);
 }
 
-enum CallActionType {
-  answer,
-  end,
-}
+enum CallActionType { answer, end }
 
 enum CallEndReason {
   hangup('hangUp'),
@@ -56,6 +53,7 @@ enum CallEndReason {
   busy('busy'),
   timeout('timeout'),
   disconnect('disconnect'),
+  paymentRequired('payment_required_upgrade'),
   networkDisconnected('network disconnected'),
   iceConnectionFailed('ICE Server Connection Failed'),
   iceDisconnected('ICE Server Disconnected');

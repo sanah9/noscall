@@ -54,6 +54,7 @@ class CallingCallHistoryRecorder {
       CallEndReason.timeout ||
       CallEndReason.hangup ||
       CallEndReason.disconnect ||
+      CallEndReason.paymentRequired ||
       CallEndReason.networkDisconnected => CallStatus.cancelled,
     };
   }

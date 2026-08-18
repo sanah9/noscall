@@ -486,7 +486,7 @@ extension CallingControllerNostrSignalingEx on CallingController {
         );
         break;
       case SignalingState.disconnect:
-        signalingDisconnectCallbackHandler();
+        signalingDisconnectCallbackHandler(content);
         break;
     }
   }
@@ -553,18 +553,20 @@ extension CallingControllerNostrSignalingEx on CallingController {
     _sendAllCandidate();
   }
 
-  void signalingDisconnectCallbackHandler() async {
+  void signalingDisconnectCallbackHandler([String? reasonValue]) async {
+    final reason =
+        CallEndReasonEx.fromValue(reasonValue) ?? CallEndReason.disconnect;
     LogUtils.info(
       className: 'CallingController',
       funcName: 'signalingDisconnectCallbackHandler',
-      message: '[receive disconnect]',
+      message: '[receive disconnect] reason=${reason.value}',
     );
     if (state.value == CallingState.ended) return;
 
     _durationTracker.stop();
-    await _recordCallHistory(CallEndReason.disconnect.value);
+    await _recordCallHistory(reason.value);
     state.value = CallingState.ended;
-    await _notifyEnded(CallEndReason.disconnect);
+    await _notifyEnded(reason);
 
     callKeepManager?.endCall(await callId);
     await webRTCHandler.close();

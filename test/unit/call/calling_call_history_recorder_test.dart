@@ -51,7 +51,7 @@ void main() {
       );
     });
 
-    test('maps timeout and hangup before connection to cancelled', () {
+    test('maps timeout, hangup, and payment required to cancelled', () {
       expect(
         recorder.statusFor(
           reason: CallEndReason.timeout.value,
@@ -62,6 +62,13 @@ void main() {
       expect(
         recorder.statusFor(
           reason: CallEndReason.hangup.value,
+          hasConnected: false,
+        ),
+        CallStatus.cancelled,
+      );
+      expect(
+        recorder.statusFor(
+          reason: CallEndReason.paymentRequired.value,
           hasConnected: false,
         ),
         CallStatus.cancelled,

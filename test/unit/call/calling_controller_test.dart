@@ -468,6 +468,25 @@ void main() {
       },
     );
 
+    test('payment required disconnect notifies lifecycle reason', () async {
+      final controller = await createController(role: CallingRole.caller);
+
+      controller.signalingDisconnectCallbackHandler(
+        CallEndReason.paymentRequired.value,
+      );
+      await flushControllerTasks();
+
+      expect(controller.state.value, CallingState.ended);
+      expect(
+        lifecycleObserver.ended.single['reason'],
+        CallEndReason.paymentRequired,
+      );
+      expect(
+        callHistoryRecorder.records.single['status'],
+        CallStatus.cancelled,
+      );
+    });
+
     test('network disconnect watcher hangs up active call', () async {
       final controller = await createController(role: CallingRole.caller);
 
