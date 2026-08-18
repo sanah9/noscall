@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/call_payments/pages/call_payment_details_page.dart';
 import 'package:noscall/call_payments/pages/call_payment_settings_page.dart';
 import 'package:noscall/call_history/models/call_entry.dart';
 import 'package:noscall/contacts/pages/contact_select_page.dart';
@@ -32,6 +33,7 @@ class DesktopTabAppNavigator extends AppNavigator {
   static const _routeTheme = '/settings/theme';
   static const _routeWallet = '/wallet';
   static const _routeCallPaymentSettings = '/call-payments/settings';
+  static const _routeCallPaymentDetails = '/call-payments/details';
 
   bool _useTab(NavigationScope scope, String routePath) {
     final effective = NavigationScopeDefaults.resolve(
@@ -198,6 +200,24 @@ class DesktopTabAppNavigator extends AppNavigator {
       );
     } else {
       context.push(_routeCallPaymentSettings);
+    }
+  }
+
+  @override
+  void pushCallPaymentDetails(
+    BuildContext context,
+    String callId, {
+    NavigationScope scope = NavigationScope.automatic,
+  }) {
+    final arguments = CallPaymentDetailsArguments(callId: callId);
+    if (_useTab(scope, _routeCallPaymentDetails)) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CallPaymentDetailsPage(arguments: arguments),
+        ),
+      );
+    } else {
+      context.push(_routeCallPaymentDetails, extra: arguments);
     }
   }
 }

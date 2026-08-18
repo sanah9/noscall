@@ -97,10 +97,10 @@ class UserDetailActionButtons extends StatelessWidget {
   final VoidCallback onVoiceMessage;
 
   BoxDecoration _decoration() => BoxDecoration(
-        color: primaryContainer,
-        borderRadius: sectionRadius,
-        border: Border.all(color: borderColor, width: 0.5),
-      );
+    color: primaryContainer,
+    borderRadius: sectionRadius,
+    border: Border.all(color: borderColor, width: 0.5),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +149,7 @@ class UserDetailCallHistorySection extends StatelessWidget {
     required this.primaryContainer,
     required this.formatCallTime,
     required this.getCallStatusText,
+    this.onViewPaymentDetails,
   });
 
   final List<CallEntry> callHistory;
@@ -161,6 +162,7 @@ class UserDetailCallHistorySection extends StatelessWidget {
   final Color primaryContainer;
   final String Function(DateTime) formatCallTime;
   final String Function(CallEntry) getCallStatusText;
+  final ValueChanged<CallEntry>? onViewPaymentDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -209,12 +211,10 @@ class UserDetailCallHistorySection extends StatelessWidget {
             : Border(bottom: BorderSide(color: borderColor, width: 0.5)),
       ),
       child: ListTile(
-        leading: _circleIcon(
-          switch (callEntry.direction) {
-            CallDirection.incoming => Icons.call_received,
-            CallDirection.outgoing => Icons.call_made,
-          },
-        ),
+        leading: _circleIcon(switch (callEntry.direction) {
+          CallDirection.incoming => Icons.call_received,
+          CallDirection.outgoing => Icons.call_made,
+        }),
         title: Text(
           switch (callEntry.direction) {
             CallDirection.incoming => 'Incoming Call',
@@ -229,9 +229,27 @@ class UserDetailCallHistorySection extends StatelessWidget {
           getCallStatusText(callEntry),
           style: theme.textTheme.bodySmall?.copyWith(color: onSurfaceVariant),
         ),
-        trailing: Text(
-          formatCallTime(callEntry.startTime),
-          style: theme.textTheme.bodySmall?.copyWith(color: onSurfaceVariant),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formatCallTime(callEntry.startTime),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: onSurfaceVariant,
+              ),
+            ),
+            if (onViewPaymentDetails != null) ...[
+              const SizedBox(width: 4),
+              Tooltip(
+                message: 'Payment details',
+                child: IconButton(
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  color: primary,
+                  onPressed: () => onViewPaymentDetails?.call(callEntry),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -338,9 +356,7 @@ class UserDetailInfoSection extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: borderColor, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
       ),
       child: ListTile(
         title: Text(

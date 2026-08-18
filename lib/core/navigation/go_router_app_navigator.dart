@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:noscall/call_payments/pages/call_payment_details_page.dart';
 import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 
 import 'app_navigator.dart';
@@ -105,5 +106,17 @@ class GoRouterAppNavigator extends AppNavigator {
     NavigationScope scope = NavigationScope.automatic,
   }) {
     context.push('/call-payments/settings');
+  }
+
+  @override
+  void pushCallPaymentDetails(
+    BuildContext context,
+    String callId, {
+    NavigationScope scope = NavigationScope.automatic,
+  }) {
+    context.push(
+      '/call-payments/details',
+      extra: CallPaymentDetailsArguments(callId: callId),
+    );
   }
 }

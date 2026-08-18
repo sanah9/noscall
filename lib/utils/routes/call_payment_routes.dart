@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/call_payments/pages/call_payment_confirm_page.dart';
+import 'package:noscall/call_payments/pages/call_payment_details_page.dart';
 import 'package:noscall/call_payments/pages/call_payment_settings_page.dart';
 
 List<RouteBase> get callPaymentRoutes => [
@@ -20,6 +21,17 @@ List<RouteBase> get callPaymentRoutes => [
       return const _MissingCallPaymentConfirmArgumentsPage();
     },
   ),
+  GoRoute(
+    path: '/call-payments/details',
+    name: 'call-payment-details',
+    builder: (context, state) {
+      final extra = state.extra;
+      if (extra is CallPaymentDetailsArguments) {
+        return CallPaymentDetailsPage(arguments: extra);
+      }
+      return const _MissingCallPaymentDetailsArgumentsPage();
+    },
+  ),
 ];
 
 final class _MissingCallPaymentConfirmArgumentsPage extends StatelessWidget {
@@ -29,6 +41,17 @@ final class _MissingCallPaymentConfirmArgumentsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(child: Text('Paid call confirmation is unavailable.')),
+    );
+  }
+}
+
+final class _MissingCallPaymentDetailsArgumentsPage extends StatelessWidget {
+  const _MissingCallPaymentDetailsArgumentsPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: Text('Paid call details are unavailable.')),
     );
   }
 }

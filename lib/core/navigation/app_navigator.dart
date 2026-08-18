@@ -83,4 +83,10 @@ abstract class AppNavigator {
     BuildContext context, {
     NavigationScope scope = NavigationScope.automatic,
   });
+
+  void pushCallPaymentDetails(
+    BuildContext context,
+    String callId, {
+    NavigationScope scope = NavigationScope.automatic,
+  });
 }

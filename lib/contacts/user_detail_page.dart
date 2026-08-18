@@ -152,6 +152,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       primaryContainer: primaryContainer,
       formatCallTime: _formatCallTime,
       getCallStatusText: _getCallStatusText,
+      onViewPaymentDetails: _viewPaymentDetails,
     );
   }
 
@@ -402,6 +403,12 @@ class _UserDetailPageState extends State<UserDetailPage> {
     } else {
       return '${seconds}s';
     }
+  }
+
+  void _viewPaymentDetails(CallEntry callEntry) {
+    AppNavigatorScope.requireOf(
+      context,
+    ).pushCallPaymentDetails(context, callEntry.callId);
   }
 
   void _addContact() async {

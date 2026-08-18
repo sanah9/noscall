@@ -25,6 +25,7 @@ class NavigationScopeDefaults {
     '/relay-management': NavigationScope.tabInternal,
     '/ice-server-management': NavigationScope.tabInternal,
     '/settings/theme': NavigationScope.tabInternal,
+    '/call-payments/details': NavigationScope.tabInternal,
   };
 
   /// Resolve effective scope: callSite > pagePreference[route] > default (tabInternal on desktop).
