@@ -139,6 +139,7 @@ void main() {
 
       expect(ok.status, isTrue);
       expect(sender.events.single.kind, NipAcProtocol.wrapKind);
+      expect(_tag(sender.events.single, 'k'), '25060');
 
       final innerEvent = await NipAcProtocol.unwrap(
         sender.events.single,

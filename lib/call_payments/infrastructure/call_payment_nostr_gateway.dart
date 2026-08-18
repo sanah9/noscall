@@ -131,7 +131,11 @@ final class CallPaymentNostrGateway implements CallPaymentTransferGateway {
       receiverPubkey: receiverPubkey,
       payload: payload,
     );
-    final wrapped = await NipAcProtocol.wrap(innerEvent, receiverPubkey);
+    final wrapped = await NipAcProtocol.wrap(
+      innerEvent,
+      receiverPubkey,
+      includeKindMarker: true,
+    );
     final completer = Completer<OKEvent>();
     _relaySender.send(
       wrapped,

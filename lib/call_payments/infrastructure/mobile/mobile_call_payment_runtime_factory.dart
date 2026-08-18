@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:noscall/call_payments/application/call_payment_recovery_service.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_gateway.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_nostr_policy_query.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/call/contacts/contacts.dart';
@@ -68,6 +69,11 @@ final class MobileCallPaymentRuntimeFactory {
 
     final isar = DBISAR.sharedInstance.isar;
     final gateway = CallPaymentNostrGateway(pubkey: pubkey, privkey: privkey);
+    final policyQuery = CallPaymentNostrPolicyQuery(
+      pubkey: pubkey,
+      privkey: privkey,
+      gateway: gateway,
+    );
     return CallPaymentRuntime(
       owner: owner,
       wallet: wallet,
@@ -76,6 +82,7 @@ final class MobileCallPaymentRuntimeFactory {
       installmentRepository: IsarCallPaymentInstallmentRepository(isar),
       gateway: gateway,
       peerIsContact: Contacts.sharedInstance.allContacts.containsKey,
+      queryPeerPolicy: policyQuery.query,
       sendPolicyResponse: gateway.sendPolicyEvent,
       dispose: sessionManager.dispose,
     );
