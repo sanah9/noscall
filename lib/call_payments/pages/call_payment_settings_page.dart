@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/call_payments/application/call_payment_policy_service.dart';
+import 'package:noscall/call_payments/application/call_payment_recovery_service.dart';
 import 'package:noscall/call_payments/domain/call_payment_errors.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
+import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/utils/toast.dart';
@@ -11,16 +13,20 @@ import 'package:noscall/wallet/domain/cashu_models.dart';
 import 'package:noscall/wallet/infrastructure/database/isar_wallet_configuration_repository.dart';
 
 typedef CallPaymentPolicyServiceFactory = CallPaymentPolicyService Function();
+typedef CallPaymentRecoveryRunner =
+    Future<CallPaymentRecoveryReport> Function();
 
 final class CallPaymentSettingsPage extends StatefulWidget {
   const CallPaymentSettingsPage({
     super.key,
     this.accountId,
     this.serviceFactory,
+    this.recoveryRunner,
   });
 
   final CashuAccountId? accountId;
   final CallPaymentPolicyServiceFactory? serviceFactory;
+  final CallPaymentRecoveryRunner? recoveryRunner;
 
   @override
   State<CallPaymentSettingsPage> createState() =>
@@ -41,6 +47,7 @@ final class _CallPaymentSettingsPageState
   bool _enabled = false;
   bool _loading = true;
   bool _saving = false;
+  bool _recovering = false;
   String? _errorMessage;
 
   @override
@@ -133,6 +140,8 @@ final class _CallPaymentSettingsPageState
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        _buildRecoveryCard(),
         const SizedBox(height: 20),
         FilledButton.icon(
           onPressed: _saving ? null : _save,
@@ -146,6 +155,29 @@ final class _CallPaymentSettingsPageState
           label: const Text('Save'),
         ),
       ],
+    );
+  }
+
+  Widget _buildRecoveryCard() {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.restore_outlined),
+        title: const Text('Recover pending payments'),
+        subtitle: const Text(
+          'Checks reclaimable tokens and refreshes refund-pending states.',
+        ),
+        trailing: IconButton(
+          tooltip: 'Recover',
+          onPressed: _recovering ? null : _recoverPendingPayments,
+          icon: _recovering
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_outlined),
+        ),
+      ),
     );
   }
 
@@ -326,6 +358,24 @@ final class _CallPaymentSettingsPageState
     }
   }
 
+  Future<void> _recoverPendingPayments() async {
+    if (_recovering) return;
+    setState(() => _recovering = true);
+    try {
+      final runner =
+          widget.recoveryRunner ??
+          MobileCallPaymentRuntimeFactory.recoverPendingPayments;
+      final report = await runner();
+      if (!mounted) return;
+      AppToast.showSuccess(context, _recoveryMessage(report));
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.showError(context, 'Payment recovery could not be completed.');
+    } finally {
+      if (mounted) setState(() => _recovering = false);
+    }
+  }
+
   CashuAccountId _currentAccountId() {
     return CashuAccountId.fromNostrPubkey(Account.sharedInstance.currentPubkey);
   }
@@ -354,5 +404,12 @@ final class _CallPaymentSettingsPageState
       ArgumentError() => 'Prices must be whole sat amounts.',
       _ => 'Paid call settings could not be saved.',
     };
+  }
+
+  String _recoveryMessage(CallPaymentRecoveryReport report) {
+    if (report.scannedSessions == 0) {
+      return 'No pending paid call payments.';
+    }
+    return 'Payment recovery complete: ${report.reclaimedInstallments} reclaimed, ${report.claimedInstallments} refund pending, ${report.unknownInstallments} unknown.';
   }
 }
