@@ -138,6 +138,8 @@ final class CallPaymentRuntime {
         policyRepository: _policyRepository,
         sessionRepository: _sessionRepository,
         peerIsContact: _peerIsContact,
+        sendPaymentRequired: _gateway.send,
+        clock: _clock,
       );
 
   late final CallPaymentRecoveryService recoveryService =

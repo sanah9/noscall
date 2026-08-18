@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call_payments/application/call_payment_incoming_offer_gate.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
@@ -41,9 +43,11 @@ void main() {
   });
 
   test('rejects paid incoming offer without matching paid session', () async {
+    final sender = _RequiredSender();
     final gate = _gate(
       policyRepository: _PolicyRepository()..policy = _policy(),
       sessionRepository: _SessionRepository(),
+      sendPaymentRequired: sender.send,
     );
 
     final decision = await gate.evaluate(
@@ -54,6 +58,14 @@ void main() {
 
     expect(decision.allowed, isFalse);
     expect(decision.rejectReason, 'payment_required_upgrade');
+    expect(sender.receiverPubkeys, [_peerPubkey]);
+    expect(sender.payloads.single.type, CallPaymentEventType.required);
+    expect(sender.payloads.single.payerPubkey, _peerPubkey);
+    expect(sender.payloads.single.payeePubkey, _owner.value);
+    expect(sender.payloads.single.amountSats, 10);
+    expect(sender.payloads.single.billingPeriodSeconds, 60);
+    expect(sender.payloads.single.mintUrl, _mintUrl);
+    expect(sender.payloads.single.token, isNull);
   });
 
   test(
@@ -64,6 +76,7 @@ void main() {
       final gate = _gate(
         policyRepository: _PolicyRepository()..policy = _policy(),
         sessionRepository: sessionRepository,
+        sendPaymentRequired: _RequiredSender().send,
       );
 
       final decision = await gate.evaluate(
@@ -79,9 +92,29 @@ void main() {
   test('rejects paid incoming offer when session amount is too low', () async {
     final sessionRepository = _SessionRepository()
       ..sessions['${_owner.value}|call-1'] = _session(chargedSats: 9);
+    final sender = _RequiredSender();
     final gate = _gate(
       policyRepository: _PolicyRepository()..policy = _policy(),
       sessionRepository: sessionRepository,
+      sendPaymentRequired: sender.send,
+    );
+
+    final decision = await gate.evaluate(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      callType: CallPaymentCallType.audio,
+    );
+
+    expect(decision.allowed, isFalse);
+    expect(decision.rejectReason, 'payment_required_upgrade');
+    expect(sender.payloads.single.amountSats, 10);
+  });
+
+  test('still rejects paid offers when required event send fails', () async {
+    final gate = _gate(
+      policyRepository: _PolicyRepository()..policy = _policy(),
+      sessionRepository: _SessionRepository(),
+      sendPaymentRequired: _RequiredSender(throwOnSend: true).send,
     );
 
     final decision = await gate.evaluate(
@@ -127,12 +160,15 @@ CallPaymentIncomingOfferGate _gate({
   required _PolicyRepository policyRepository,
   required _SessionRepository sessionRepository,
   bool Function(String peerPubkey)? peerIsContact,
+  CallPaymentRequiredSender? sendPaymentRequired,
 }) {
   return CallPaymentIncomingOfferGate(
     owner: _owner,
     policyRepository: policyRepository,
     sessionRepository: sessionRepository,
     peerIsContact: peerIsContact ?? (_) => false,
+    sendPaymentRequired: sendPaymentRequired,
+    clock: () => DateTime.utc(2026, 8, 14, 10),
   );
 }
 
@@ -191,6 +227,24 @@ final class _PolicyRepository implements CallPaymentPolicyRepository {
   @override
   Future<void> save(CallPaymentPolicy policy) async {
     this.policy = policy;
+  }
+}
+
+final class _RequiredSender {
+  _RequiredSender({this.throwOnSend = false});
+
+  final bool throwOnSend;
+  final List<String> receiverPubkeys = [];
+  final List<CallPaymentEventPayload> payloads = [];
+
+  Future<OKEvent> send({
+    required String receiverPubkey,
+    required CallPaymentEventPayload payload,
+  }) async {
+    if (throwOnSend) throw StateError('send failed');
+    receiverPubkeys.add(receiverPubkey);
+    payloads.add(payload);
+    return OKEvent('required-event-1', true, 'ok');
   }
 }
 
