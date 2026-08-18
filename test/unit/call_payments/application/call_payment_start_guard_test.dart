@@ -72,6 +72,7 @@ void main() {
 
     expect(decision.kind, CallPaymentStartDecisionKind.noCommonMint);
     expect(decision.mintUrl, isNull);
+    expect(decision.message, 'No shared Mint for this paid call');
   });
 
   test('fails when shared Mint cannot cover the first period', () async {
@@ -89,6 +90,7 @@ void main() {
     expect(decision.kind, CallPaymentStartDecisionKind.insufficientBalance);
     expect(decision.mintUrl, mint);
     expect(decision.balanceSats, 9);
+    expect(decision.message, 'Not enough balance on this Mint');
   });
 
   test('fails closed when peer pricing cannot be confirmed', () async {
@@ -100,6 +102,7 @@ void main() {
     );
 
     expect(decision.kind, CallPaymentStartDecisionKind.unsupported);
+    expect(decision.message, 'Peer does not support paid calls.');
   });
 
   test('honors contacts-free policy before checking balances', () async {

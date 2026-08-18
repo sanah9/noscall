@@ -78,7 +78,7 @@ final class CallPaymentStartDecision {
       mintUrl: null,
       balanceSats: 0,
       maxSpendSats: 0,
-      message: 'No shared Mint is available for this paid call.',
+      message: 'No shared Mint for this paid call',
     );
   }
 
@@ -97,7 +97,7 @@ final class CallPaymentStartDecision {
       mintUrl: mintUrl,
       balanceSats: balanceSats,
       maxSpendSats: 0,
-      message: 'Insufficient balance for the first paid call period.',
+      message: 'Not enough balance on this Mint',
     );
   }
 
@@ -113,7 +113,7 @@ final class CallPaymentStartDecision {
       mintUrl: null,
       balanceSats: 0,
       maxSpendSats: 0,
-      message: 'Paid call pricing could not be confirmed.',
+      message: 'Peer does not support paid calls.',
     );
   }
 
