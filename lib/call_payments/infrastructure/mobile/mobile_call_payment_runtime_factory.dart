@@ -67,14 +67,16 @@ final class MobileCallPaymentRuntimeFactory {
     }
 
     final isar = DBISAR.sharedInstance.isar;
+    final gateway = CallPaymentNostrGateway(pubkey: pubkey, privkey: privkey);
     return CallPaymentRuntime(
       owner: owner,
       wallet: wallet,
       policyRepository: IsarCallPaymentPolicyRepository(isar),
       sessionRepository: IsarCallPaymentSessionRepository(isar),
       installmentRepository: IsarCallPaymentInstallmentRepository(isar),
-      gateway: CallPaymentNostrGateway(pubkey: pubkey, privkey: privkey),
+      gateway: gateway,
       peerIsContact: Contacts.sharedInstance.allContacts.containsKey,
+      sendPolicyResponse: gateway.sendPolicyEvent,
       dispose: sessionManager.dispose,
     );
   }

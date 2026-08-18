@@ -67,11 +67,12 @@ void main() {
 
       expect(CallEventPolicy.isCallPaymentKind(25055), isTrue);
       expect(CallEventPolicy.isCallPaymentKind(25058), isTrue);
+      expect(CallEventPolicy.isCallPaymentKind(25060), isTrue);
       expect(CallEventPolicy.isCallPaymentKind(25054), isFalse);
 
       expect(CallEventPolicy.isNipAcInnerKind(25050), isTrue);
-      expect(CallEventPolicy.isNipAcInnerKind(25058), isTrue);
-      expect(CallEventPolicy.isNipAcInnerKind(25059), isFalse);
+      expect(CallEventPolicy.isNipAcInnerKind(25060), isTrue);
+      expect(CallEventPolicy.isNipAcInnerKind(25061), isFalse);
     });
   });
 }

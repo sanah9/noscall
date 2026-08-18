@@ -25,7 +25,7 @@ class CallEventPolicy {
   }
 
   static bool isCallPaymentKind(int kind) {
-    return kind >= 25055 && kind <= 25058;
+    return kind >= 25055 && kind <= 25060;
   }
 
   static bool isNipAcInnerKind(int kind) {

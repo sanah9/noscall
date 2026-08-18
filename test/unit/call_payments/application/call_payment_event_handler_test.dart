@@ -5,6 +5,7 @@ import 'package:noscall/call_payments/application/call_payment_event_handler.dar
 import 'package:noscall/call_payments/application/call_payment_incoming_transfer_service.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_policy_event_codec.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
@@ -76,6 +77,64 @@ void main() {
     expect(result.type, CallPaymentEventType.required);
     expect(result.ignoredReason, 'payment_event_type_not_supported_yet');
   });
+
+  test('dispatches policy query events to policy query handler', () async {
+    Event? queryEvent;
+    final handler = CallPaymentEventHandler(
+      owner: _owner,
+      receiveTransfer: (_) async =>
+          throw StateError('transfer should not be called'),
+      applyAck: (_) async => throw StateError('ack should not be called'),
+      handlePolicyQuery: (event) async {
+        queryEvent = event;
+      },
+    );
+
+    final event = await _policyEvent(
+      CallPaymentPolicyEventPayload(
+        type: CallPaymentPolicyEventType.query,
+        requestId: 'policy-request-1',
+        requesterPubkey: _senderPubkey,
+        responderPubkey: _owner.value,
+        createdAt: DateTime.utc(2026, 8, 14, 10),
+      ),
+    );
+
+    final result = await handler.handle(event);
+
+    expect(result.handled, isTrue);
+    expect(result.type, CallPaymentPolicyEventType.query);
+    expect(queryEvent?.id, event.id);
+  });
+
+  test(
+    'ignores policy responses until a response waiter is configured',
+    () async {
+      final handler = CallPaymentEventHandler(
+        owner: _owner,
+        receiveTransfer: (_) async =>
+            throw StateError('transfer should not be called'),
+        applyAck: (_) async => throw StateError('ack should not be called'),
+      );
+
+      final result = await handler.handle(
+        await _policyEvent(
+          CallPaymentPolicyEventPayload(
+            type: CallPaymentPolicyEventType.response,
+            requestId: 'policy-request-1',
+            requesterPubkey: _senderPubkey,
+            responderPubkey: _owner.value,
+            policy: _policy(),
+            createdAt: DateTime.utc(2026, 8, 14, 10),
+          ),
+        ),
+      );
+
+      expect(result.handled, isFalse);
+      expect(result.type, CallPaymentPolicyEventType.response);
+      expect(result.ignoredReason, 'policy_response_waiter_not_configured');
+    },
+  );
 }
 
 const _senderPrivkey =
@@ -95,6 +154,20 @@ Future<Event> _event(CallPaymentEventPayload payload) {
       ['payment-type', payload.type.value],
     ],
     content: const CallPaymentEventCodec().encode(payload),
+    pubkey: _senderPubkey,
+    privkey: _senderPrivkey,
+  );
+}
+
+Future<Event> _policyEvent(CallPaymentPolicyEventPayload payload) {
+  return Event.from(
+    kind: payload.type.kind,
+    tags: [
+      ['p', _owner.value],
+      ['payment-policy-request-id', payload.requestId],
+      ['payment-policy-type', payload.type.value],
+    ],
+    content: const CallPaymentPolicyEventCodec().encode(payload),
     pubkey: _senderPubkey,
     privkey: _senderPrivkey,
   );
@@ -122,6 +195,22 @@ CallPaymentEventPayload _payload({
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
     token: type == CallPaymentEventType.transfer ? 'cashuAey' : null,
+  );
+}
+
+CallPaymentPolicy _policy() {
+  return CallPaymentPolicy(
+    owner: _owner,
+    enabled: true,
+    freePolicy: CallPaymentFreePolicy.everyonePays,
+    freePubkeys: const [],
+    audioPriceSatsPerMinute: 10,
+    videoPriceSatsPerMinute: 30,
+    billingPeriodSeconds: 60,
+    gracePeriodSeconds: 10,
+    acceptedMintUrls: [_mintUrl],
+    createdAt: DateTime.utc(2026, 8, 14, 9),
+    updatedAt: DateTime.utc(2026, 8, 14, 9),
   );
 }
 

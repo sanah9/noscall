@@ -3,8 +3,10 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_gateway.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_policy_event_codec.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
 import 'package:noscall/core/common/network/connect.dart';
+import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
 void main() {
@@ -92,6 +94,67 @@ void main() {
       expect(ok.message, 'payment event send timeout');
     },
   );
+
+  test(
+    'creates signed inner policy response events with policy tags',
+    () async {
+      final gateway = CallPaymentNostrGateway(
+        pubkey: receiverPubkey,
+        privkey: receiverPrivkey,
+      );
+
+      final innerEvent = await gateway.createPolicyInnerEvent(
+        receiverPubkey: senderPubkey,
+        payload: _policyPayload(responderPubkey: receiverPubkey),
+      );
+
+      expect(innerEvent.kind, CallPaymentPolicyEventType.response.kind);
+      expect(innerEvent.pubkey, receiverPubkey);
+      expect(_tag(innerEvent, 'p'), senderPubkey);
+      expect(_tag(innerEvent, 'payment-policy-request-id'), 'policy-request-1');
+      expect(_tag(innerEvent, 'payment-policy-type'), 'policy_response');
+
+      final decoded = const CallPaymentPolicyEventCodec().decode(
+        innerEvent.content,
+      );
+      expect(decoded.policy?.owner.value, receiverPubkey);
+      expect(decoded.policy?.audioPriceSatsPerMinute, 10);
+    },
+  );
+
+  test(
+    'wraps policy events with NIP-AC 21059 envelope before sending',
+    () async {
+      final sender = _FakePaymentRelaySender();
+      final gateway = CallPaymentNostrGateway(
+        pubkey: receiverPubkey,
+        privkey: receiverPrivkey,
+        relaySender: sender,
+      );
+
+      final ok = await gateway.sendPolicyEvent(
+        receiverPubkey: senderPubkey,
+        payload: _policyPayload(responderPubkey: receiverPubkey),
+      );
+
+      expect(ok.status, isTrue);
+      expect(sender.events.single.kind, NipAcProtocol.wrapKind);
+
+      final innerEvent = await NipAcProtocol.unwrap(
+        sender.events.single,
+        senderPubkey,
+        senderPrivkey,
+      );
+      expect(innerEvent.id, ok.eventId);
+      expect(innerEvent.kind, CallPaymentPolicyEventType.response.kind);
+      expect(
+        const CallPaymentPolicyEventCodec()
+            .decode(innerEvent.content)
+            .requestId,
+        'policy-request-1',
+      );
+    },
+  );
 }
 
 CallPaymentEventPayload _payload() {
@@ -113,6 +176,31 @@ CallPaymentEventPayload _payload() {
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
     token: 'cashuAey...',
+  );
+}
+
+CallPaymentPolicyEventPayload _policyPayload({
+  required String responderPubkey,
+}) {
+  return CallPaymentPolicyEventPayload(
+    type: CallPaymentPolicyEventType.response,
+    requestId: 'policy-request-1',
+    requesterPubkey: 'a' * 64,
+    responderPubkey: responderPubkey,
+    policy: CallPaymentPolicy(
+      owner: CashuAccountId.fromNostrPubkey(responderPubkey),
+      enabled: true,
+      freePolicy: CallPaymentFreePolicy.contactsFree,
+      freePubkeys: const [],
+      audioPriceSatsPerMinute: 10,
+      videoPriceSatsPerMinute: 30,
+      billingPeriodSeconds: 60,
+      gracePeriodSeconds: 10,
+      acceptedMintUrls: [CashuMintUrl.parse('https://mint.example')],
+      createdAt: DateTime.utc(2026, 8, 14, 9),
+      updatedAt: DateTime.utc(2026, 8, 14, 9),
+    ),
+    createdAt: DateTime.utc(2026, 8, 14, 10),
   );
 }
 

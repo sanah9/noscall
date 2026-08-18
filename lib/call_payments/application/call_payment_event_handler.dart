@@ -1,5 +1,6 @@
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_policy_event_codec.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 
 import '../domain/call_payment_models.dart';
@@ -14,6 +15,7 @@ typedef CallPaymentAckCallback =
     Future<CallPaymentAckResult> Function(CallPaymentAckRequest request);
 typedef CallPaymentEventCallTypeResolver =
     CallPaymentCallType Function(Event event, CallPaymentEventPayload payload);
+typedef CallPaymentPolicyQueryCallback = Future<void> Function(Event event);
 
 final class CallPaymentEventHandleResult {
   const CallPaymentEventHandleResult.handled(this.type)
@@ -24,7 +26,7 @@ final class CallPaymentEventHandleResult {
     : handled = false;
 
   final bool handled;
-  final CallPaymentEventType type;
+  final Object type;
   final String? ignoredReason;
 }
 
@@ -33,21 +35,44 @@ final class CallPaymentEventHandler {
     required CashuAccountId owner,
     required CallPaymentIncomingTransferCallback receiveTransfer,
     required CallPaymentAckCallback applyAck,
+    CallPaymentPolicyQueryCallback? handlePolicyQuery,
     CallPaymentEventCallTypeResolver? resolveCallType,
     CallPaymentEventCodec codec = const CallPaymentEventCodec(),
   }) : _owner = owner,
        _receiveTransfer = receiveTransfer,
        _applyAck = applyAck,
+       _handlePolicyQuery = handlePolicyQuery,
        _resolveCallType = resolveCallType,
        _codec = codec;
 
   final CashuAccountId _owner;
   final CallPaymentIncomingTransferCallback _receiveTransfer;
   final CallPaymentAckCallback _applyAck;
+  final CallPaymentPolicyQueryCallback? _handlePolicyQuery;
   final CallPaymentEventCallTypeResolver? _resolveCallType;
   final CallPaymentEventCodec _codec;
 
   Future<CallPaymentEventHandleResult> handle(Event event) async {
+    if (event.kind == CallPaymentPolicyEventType.query.kind) {
+      final handler = _handlePolicyQuery;
+      if (handler == null) {
+        return const CallPaymentEventHandleResult.ignored(
+          CallPaymentPolicyEventType.query,
+          'policy_query_handler_not_configured',
+        );
+      }
+      await handler(event);
+      return const CallPaymentEventHandleResult.handled(
+        CallPaymentPolicyEventType.query,
+      );
+    }
+    if (event.kind == CallPaymentPolicyEventType.response.kind) {
+      return const CallPaymentEventHandleResult.ignored(
+        CallPaymentPolicyEventType.response,
+        'policy_response_waiter_not_configured',
+      );
+    }
+
     final payload = _codec.decode(event.content);
     switch (payload.type) {
       case CallPaymentEventType.transfer:

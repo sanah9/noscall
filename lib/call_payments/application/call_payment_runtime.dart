@@ -11,6 +11,7 @@ import 'call_payment_incoming_offer_gate.dart';
 import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_initial_payment_service.dart';
 import 'call_payment_peer_policy_resolver.dart';
+import 'call_payment_policy_query_handler.dart';
 import 'call_payment_recovery_service.dart';
 import 'call_payment_start_guard.dart';
 import 'call_payment_top_up_service.dart';
@@ -28,6 +29,7 @@ final class CallPaymentRuntime {
     CallPaymentLifecycleScheduler scheduler =
         const TimerCallPaymentLifecycleScheduler(),
     CallPaymentPeerPolicyQuery? queryPeerPolicy,
+    CallPaymentPolicyResponseSender? sendPolicyResponse,
     Duration peerPolicyCacheTtl = const Duration(minutes: 10),
     Duration peerPolicyQueryTimeout = const Duration(seconds: 10),
     Future<void> Function()? dispose,
@@ -40,6 +42,7 @@ final class CallPaymentRuntime {
        _clock = clock,
        _scheduler = scheduler,
        _queryPeerPolicy = queryPeerPolicy,
+       _sendPolicyResponse = sendPolicyResponse,
        _peerPolicyCacheTtl = peerPolicyCacheTtl,
        _peerPolicyQueryTimeout = peerPolicyQueryTimeout,
        _dispose = dispose,
@@ -54,6 +57,7 @@ final class CallPaymentRuntime {
   final CallPaymentClock? _clock;
   final CallPaymentLifecycleScheduler _scheduler;
   final CallPaymentPeerPolicyQuery? _queryPeerPolicy;
+  final CallPaymentPolicyResponseSender? _sendPolicyResponse;
   final Duration _peerPolicyCacheTtl;
   final Duration _peerPolicyQueryTimeout;
   final Future<void> Function()? _dispose;
@@ -126,6 +130,16 @@ final class CallPaymentRuntime {
         clock: _clock,
       );
 
+  late final CallPaymentPolicyQueryHandler? policyQueryHandler =
+      _sendPolicyResponse == null
+      ? null
+      : CallPaymentPolicyQueryHandler(
+          owner: _owner,
+          policyRepository: _policyRepository,
+          sendResponse: _sendPolicyResponse,
+          clock: _clock,
+        );
+
   late final CallPaymentCoordinator coordinator = CallPaymentCoordinator(
     owner: _owner,
     sessionRepository: _sessionRepository,
@@ -142,6 +156,7 @@ final class CallPaymentRuntime {
       owner: _owner,
       receiveTransfer: incomingTransferService.receiveAndAck,
       applyAck: ackService.apply,
+      handlePolicyQuery: policyQueryHandler?.handle,
       resolveCallType: resolveCallType,
     );
   }
