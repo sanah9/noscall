@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
+import 'package:noscall/call_payments/application/call_payment_outgoing_refund_service.dart';
 import 'package:noscall/call_payments/application/call_payment_top_up_service.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
@@ -189,6 +190,50 @@ void main() {
     expect(session?.status, CallPaymentSessionStatus.refundPending);
   });
 
+  test(
+    'starts payee refund when claimed incoming payment never connects',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          direction: CallPaymentCallDirection.incoming,
+          role: CallPaymentRole.payee,
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          status: CallPaymentInstallmentStatus.claimed,
+          direction: CallPaymentTransferDirection.received,
+        ),
+      );
+      final refundRequests = <CallPaymentOutgoingRefundRequest>[];
+      final coordinator = _coordinator(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        prepareRefund: (request) async {
+          refundRequests.add(request);
+          return CallPaymentOutgoingRefundResult(
+            session: (await sessionRepository.find(_owner, request.callId))!,
+            installments: const [],
+          );
+        },
+        times: [DateTime.utc(2026, 8, 14, 10)],
+      );
+
+      await coordinator.onEnded(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        role: CallingRole.callee,
+        reason: CallEndReason.reject,
+        hasConnected: false,
+      );
+
+      expect(refundRequests.single.owner, _owner);
+      expect(refundRequests.single.callId, 'call-1');
+    },
+  );
+
   test('ignores lifecycle events for unknown payment sessions', () async {
     final sessionRepository = _SessionRepository();
     final coordinator = _coordinator(
@@ -218,6 +263,7 @@ CallPaymentCoordinator _coordinator({
   required List<DateTime> times,
   _Scheduler? scheduler,
   CallPaymentTopUpCallback? prepareTopUp,
+  CallPaymentOutgoingRefundCallback? prepareRefund,
 }) {
   var index = 0;
   return CallPaymentCoordinator(
@@ -226,12 +272,15 @@ CallPaymentCoordinator _coordinator({
     installmentRepository: installmentRepository,
     scheduler: scheduler ?? _Scheduler(),
     prepareTopUp: prepareTopUp,
+    prepareRefund: prepareRefund,
     clock: () => times[index++ < times.length ? index - 1 : times.length - 1],
   );
 }
 
 CallPaymentSession _session({
   CallPaymentSessionStatus status = CallPaymentSessionStatus.ringing,
+  CallPaymentCallDirection direction = CallPaymentCallDirection.outgoing,
+  CallPaymentRole role = CallPaymentRole.payer,
   DateTime? connectedAt,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
@@ -239,8 +288,8 @@ CallPaymentSession _session({
     owner: _owner,
     callId: 'call-1',
     peerPubkey: _peerPubkey,
-    direction: CallPaymentCallDirection.outgoing,
-    role: CallPaymentRole.payer,
+    direction: direction,
+    role: role,
     callType: CallPaymentCallType.audio,
     status: status,
     mintUrl: _mintUrl,
@@ -258,6 +307,7 @@ CallPaymentSession _session({
 
 CallPaymentInstallment _installment({
   required CallPaymentInstallmentStatus status,
+  CallPaymentTransferDirection direction = CallPaymentTransferDirection.sent,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
@@ -266,7 +316,7 @@ CallPaymentInstallment _installment({
     paymentSessionId: 'payment-session-1',
     sequence: 1,
     purpose: CallPaymentPurpose.initial,
-    direction: CallPaymentTransferDirection.sent,
+    direction: direction,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'send-op-1',

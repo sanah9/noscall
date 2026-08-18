@@ -7,11 +7,16 @@ import 'package:noscall/wallet/domain/cashu_account_id.dart';
 
 import '../domain/call_payment_models.dart';
 import '../domain/call_payment_repositories.dart';
+import 'call_payment_outgoing_refund_service.dart';
 import 'call_payment_top_up_service.dart';
 
 typedef CallPaymentLifecycleClock = DateTime Function();
 typedef CallPaymentTopUpCallback =
     Future<CallPaymentTopUpResult> Function(CallPaymentTopUpRequest request);
+typedef CallPaymentOutgoingRefundCallback =
+    Future<CallPaymentOutgoingRefundResult> Function(
+      CallPaymentOutgoingRefundRequest request,
+    );
 
 abstract interface class CallPaymentLifecycleScheduler {
   Object schedule(Duration delay, Future<void> Function() callback);
@@ -41,6 +46,7 @@ final class CallPaymentCoordinator
     required CallPaymentSessionRepository sessionRepository,
     required CallPaymentInstallmentRepository installmentRepository,
     CallPaymentTopUpCallback? prepareTopUp,
+    CallPaymentOutgoingRefundCallback? prepareRefund,
     CallPaymentLifecycleScheduler scheduler =
         const TimerCallPaymentLifecycleScheduler(),
     int topUpLeadSeconds = 10,
@@ -49,6 +55,7 @@ final class CallPaymentCoordinator
        _sessionRepository = sessionRepository,
        _installmentRepository = installmentRepository,
        _prepareTopUp = prepareTopUp,
+       _prepareRefund = prepareRefund,
        _scheduler = scheduler,
        _topUpLeadSeconds = topUpLeadSeconds,
        _clock = clock ?? DateTime.now;
@@ -57,6 +64,7 @@ final class CallPaymentCoordinator
   final CallPaymentSessionRepository _sessionRepository;
   final CallPaymentInstallmentRepository _installmentRepository;
   final CallPaymentTopUpCallback? _prepareTopUp;
+  final CallPaymentOutgoingRefundCallback? _prepareRefund;
   final CallPaymentLifecycleScheduler _scheduler;
   final int _topUpLeadSeconds;
   final CallPaymentLifecycleClock _clock;
@@ -99,14 +107,30 @@ final class CallPaymentCoordinator
       reason: reason,
       hasConnected: hasConnected,
     );
-    await _sessionRepository.save(
-      session.copyWith(
-        status: status,
-        endedAt: now,
-        connectedDurationSeconds: _connectedDurationSeconds(session, now),
-        updatedAt: now,
-      ),
+    final updatedSession = session.copyWith(
+      status: status,
+      endedAt: now,
+      connectedDurationSeconds: _connectedDurationSeconds(session, now),
+      updatedAt: now,
     );
+    await _sessionRepository.save(updatedSession);
+    await _runRefundIfNeeded(updatedSession);
+  }
+
+  Future<void> _runRefundIfNeeded(CallPaymentSession session) async {
+    final prepareRefund = _prepareRefund;
+    if (prepareRefund == null ||
+        session.role != CallPaymentRole.payee ||
+        session.status != CallPaymentSessionStatus.refundPending) {
+      return;
+    }
+    try {
+      await prepareRefund(
+        CallPaymentOutgoingRefundRequest(owner: _owner, callId: session.callId),
+      );
+    } catch (_) {
+      // Lifecycle cleanup must not prevent the call controller from finishing.
+    }
   }
 
   Future<CallPaymentSessionStatus> _endedStatus({

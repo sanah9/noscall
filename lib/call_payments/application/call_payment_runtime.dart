@@ -163,6 +163,7 @@ final class CallPaymentRuntime {
     sessionRepository: _sessionRepository,
     installmentRepository: _installmentRepository,
     prepareTopUp: topUpService.prepareAndSend,
+    prepareRefund: outgoingRefundService.prepareAndSend,
     scheduler: _scheduler,
     clock: _clock,
   );
