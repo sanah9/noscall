@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:noscall/call_payments/application/call_payment_recovery_service.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
+import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_gateway.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_policy_query.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
@@ -23,9 +24,11 @@ typedef CallPaymentRuntimeFactory = Future<CallPaymentRuntime> Function();
 final class MobileCallPaymentRuntimeFactory {
   const MobileCallPaymentRuntimeFactory._();
 
-  static Future<CallPaymentRuntime?> tryCreate() async {
+  static Future<CallPaymentRuntime?> tryCreate({
+    CallPaymentStopCallCallback? stopCall,
+  }) async {
     try {
-      return await create();
+      return await create(stopCall: stopCall);
     } catch (e, stack) {
       LogUtils.e(
         () =>
@@ -35,7 +38,9 @@ final class MobileCallPaymentRuntimeFactory {
     }
   }
 
-  static Future<CallPaymentRuntime> create() async {
+  static Future<CallPaymentRuntime> create({
+    CallPaymentStopCallCallback? stopCall,
+  }) async {
     if (!kDebugMode) {
       throw StateError(
         'Secure wallet storage is required before release builds can use paid calls.',
@@ -84,6 +89,7 @@ final class MobileCallPaymentRuntimeFactory {
       peerIsContact: Contacts.sharedInstance.allContacts.containsKey,
       queryPeerPolicy: policyQuery.query,
       sendPolicyResponse: gateway.sendPolicyEvent,
+      stopCall: stopCall,
       dispose: sessionManager.dispose,
     );
   }

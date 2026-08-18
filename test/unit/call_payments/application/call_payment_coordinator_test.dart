@@ -108,6 +108,78 @@ void main() {
     expect(scheduler.cancelledHandles, [0]);
   });
 
+  test('stops call when top-up no longer keeps session connected', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final scheduler = _Scheduler();
+    final stoppedCalls = <({String callId, CallEndReason reason})>[];
+    await sessionRepository.save(_session());
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      scheduler: scheduler,
+      prepareTopUp: (request) async {
+        final session = (await sessionRepository.find(
+          _owner,
+          request.callId,
+        ))!.copyWith(status: CallPaymentSessionStatus.paymentFailed);
+        return CallPaymentTopUpResult(
+          session: session,
+          installment: _installment(
+            status: CallPaymentInstallmentStatus.failed,
+          ),
+          okEvent: OKEvent('top-up', false, 'failed'),
+        );
+      },
+      stopCall: ({required callId, required reason}) async {
+        stoppedCalls.add((callId: callId, reason: reason));
+      },
+      times: [DateTime.utc(2026, 8, 14, 10)],
+    );
+
+    await coordinator.onConnected(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
+    await scheduler.fire(0);
+
+    expect(stoppedCalls, [
+      (callId: 'call-1', reason: CallEndReason.paymentRequired),
+    ]);
+  });
+
+  test('stops call when top-up throws', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final scheduler = _Scheduler();
+    final stoppedCalls = <({String callId, CallEndReason reason})>[];
+    await sessionRepository.save(_session());
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      scheduler: scheduler,
+      prepareTopUp: (request) async {
+        throw StateError('Payment session max spend reached');
+      },
+      stopCall: ({required callId, required reason}) async {
+        stoppedCalls.add((callId: callId, reason: reason));
+      },
+      times: [DateTime.utc(2026, 8, 14, 10)],
+    );
+
+    await coordinator.onConnected(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
+    await scheduler.fire(0);
+
+    expect(stoppedCalls, [
+      (callId: 'call-1', reason: CallEndReason.paymentRequired),
+    ]);
+  });
+
   test('marks connected sessions completed and records duration', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
@@ -264,6 +336,7 @@ CallPaymentCoordinator _coordinator({
   _Scheduler? scheduler,
   CallPaymentTopUpCallback? prepareTopUp,
   CallPaymentOutgoingRefundCallback? prepareRefund,
+  CallPaymentStopCallCallback? stopCall,
 }) {
   var index = 0;
   return CallPaymentCoordinator(
@@ -273,6 +346,7 @@ CallPaymentCoordinator _coordinator({
     scheduler: scheduler ?? _Scheduler(),
     prepareTopUp: prepareTopUp,
     prepareRefund: prepareRefund,
+    stopCall: stopCall,
     clock: () => times[index++ < times.length ? index - 1 : times.length - 1],
   );
 }

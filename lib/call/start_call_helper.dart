@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:noscall/call/call_kit_manager.dart';
+import 'package:noscall/call/calling_controller.dart';
 import 'package:noscall/call/calling_controller_dependencies.dart';
 import 'package:noscall/call/constant/call_type.dart';
 import 'package:noscall/call_payments/application/call_payment_initial_payment_service.dart';
@@ -43,9 +44,21 @@ class StartCallHelper {
 
     final isVideo = callType.isVideo;
     CallPaymentRuntime? paymentRuntime;
+    CallingController? paidController;
+    Future<void> stopPaidCall({
+      required String callId,
+      required CallEndReason reason,
+    }) async {
+      final controller = paidController;
+      if (controller == null || await controller.callId != callId) return;
+      await controller.hangup(reason);
+    }
+
     try {
       final effectivePaymentRuntimeFactory =
-          paymentRuntimeFactory ?? MobileCallPaymentRuntimeFactory.tryCreate;
+          paymentRuntimeFactory ??
+          () =>
+              MobileCallPaymentRuntimeFactory.tryCreate(stopCall: stopPaidCall);
       if (paymentGuard == null ||
           paymentOwner == null ||
           prepareInitialPayment == null) {
@@ -128,6 +141,9 @@ class StartCallHelper {
           isVideo ? 'Failed to start video call' : 'Failed to start voice call',
         );
       } else {
+        if (paymentStart.isPaid) {
+          paidController = controller;
+        }
         if (!context.mounted) return;
         AppToast.showSuccess(
           context,

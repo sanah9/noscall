@@ -33,6 +33,7 @@ final class CallPaymentRuntime {
         const TimerCallPaymentLifecycleScheduler(),
     CallPaymentPeerPolicyQuery? queryPeerPolicy,
     CallPaymentPolicyResponseSender? sendPolicyResponse,
+    CallPaymentStopCallCallback? stopCall,
     Duration peerPolicyCacheTtl = const Duration(minutes: 10),
     Duration peerPolicyQueryTimeout = const Duration(seconds: 10),
     Future<void> Function()? dispose,
@@ -46,6 +47,7 @@ final class CallPaymentRuntime {
        _scheduler = scheduler,
        _queryPeerPolicy = queryPeerPolicy,
        _sendPolicyResponse = sendPolicyResponse,
+       _stopCall = stopCall,
        _peerPolicyCacheTtl = peerPolicyCacheTtl,
        _peerPolicyQueryTimeout = peerPolicyQueryTimeout,
        _dispose = dispose,
@@ -61,6 +63,7 @@ final class CallPaymentRuntime {
   final CallPaymentLifecycleScheduler _scheduler;
   final CallPaymentPeerPolicyQuery? _queryPeerPolicy;
   final CallPaymentPolicyResponseSender? _sendPolicyResponse;
+  final CallPaymentStopCallCallback? _stopCall;
   final Duration _peerPolicyCacheTtl;
   final Duration _peerPolicyQueryTimeout;
   final Future<void> Function()? _dispose;
@@ -174,6 +177,7 @@ final class CallPaymentRuntime {
     installmentRepository: _installmentRepository,
     prepareTopUp: topUpService.prepareAndSend,
     prepareRefund: outgoingRefundService.prepareAndSend,
+    stopCall: _stopCall,
     scheduler: _scheduler,
     clock: _clock,
   );

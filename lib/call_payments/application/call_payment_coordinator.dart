@@ -17,6 +17,11 @@ typedef CallPaymentOutgoingRefundCallback =
     Future<CallPaymentOutgoingRefundResult> Function(
       CallPaymentOutgoingRefundRequest request,
     );
+typedef CallPaymentStopCallCallback =
+    Future<void> Function({
+      required String callId,
+      required CallEndReason reason,
+    });
 
 abstract interface class CallPaymentLifecycleScheduler {
   Object schedule(Duration delay, Future<void> Function() callback);
@@ -47,6 +52,7 @@ final class CallPaymentCoordinator
     required CallPaymentInstallmentRepository installmentRepository,
     CallPaymentTopUpCallback? prepareTopUp,
     CallPaymentOutgoingRefundCallback? prepareRefund,
+    CallPaymentStopCallCallback? stopCall,
     CallPaymentLifecycleScheduler scheduler =
         const TimerCallPaymentLifecycleScheduler(),
     int topUpLeadSeconds = 10,
@@ -56,6 +62,7 @@ final class CallPaymentCoordinator
        _installmentRepository = installmentRepository,
        _prepareTopUp = prepareTopUp,
        _prepareRefund = prepareRefund,
+       _stopCall = stopCall,
        _scheduler = scheduler,
        _topUpLeadSeconds = topUpLeadSeconds,
        _clock = clock ?? DateTime.now;
@@ -65,6 +72,7 @@ final class CallPaymentCoordinator
   final CallPaymentInstallmentRepository _installmentRepository;
   final CallPaymentTopUpCallback? _prepareTopUp;
   final CallPaymentOutgoingRefundCallback? _prepareRefund;
+  final CallPaymentStopCallCallback? _stopCall;
   final CallPaymentLifecycleScheduler _scheduler;
   final int _topUpLeadSeconds;
   final CallPaymentLifecycleClock _clock;
@@ -196,9 +204,22 @@ final class CallPaymentCoordinator
       _topUpHandle = null;
       if (result.session.status == CallPaymentSessionStatus.connected) {
         _scheduleTopUp(result.session);
+      } else {
+        await _stopCallBecausePaymentStopped(callId);
       }
     } catch (_) {
       _topUpHandle = null;
+      await _stopCallBecausePaymentStopped(callId);
+    }
+  }
+
+  Future<void> _stopCallBecausePaymentStopped(String callId) async {
+    final stopCall = _stopCall;
+    if (stopCall == null) return;
+    try {
+      await stopCall(callId: callId, reason: CallEndReason.paymentRequired);
+    } catch (_) {
+      // Payment bookkeeping should not throw back into the scheduler.
     }
   }
 
