@@ -12,6 +12,7 @@ import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_initial_payment_service.dart';
 import 'call_payment_peer_policy_resolver.dart';
 import 'call_payment_policy_query_handler.dart';
+import 'call_payment_refund_service.dart';
 import 'call_payment_recovery_service.dart';
 import 'call_payment_start_guard.dart';
 import 'call_payment_top_up_service.dart';
@@ -114,6 +115,13 @@ final class CallPaymentRuntime {
     clock: _clock,
   );
 
+  late final CallPaymentRefundService refundService = CallPaymentRefundService(
+    sessionRepository: _sessionRepository,
+    installmentRepository: _installmentRepository,
+    tokenReceiver: _walletAdapter,
+    clock: _clock,
+  );
+
   late final CallPaymentIncomingOfferGate incomingOfferGate =
       CallPaymentIncomingOfferGate(
         owner: _owner,
@@ -156,6 +164,7 @@ final class CallPaymentRuntime {
       owner: _owner,
       receiveTransfer: incomingTransferService.receiveAndAck,
       applyAck: ackService.apply,
+      receiveRefund: refundService.receive,
       handlePolicyQuery: policyQueryHandler?.handle,
       resolveCallType: resolveCallType,
     );

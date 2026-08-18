@@ -3,6 +3,7 @@ import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call_payments/application/call_payment_ack_service.dart';
 import 'package:noscall/call_payments/application/call_payment_event_handler.dart';
 import 'package:noscall/call_payments/application/call_payment_incoming_transfer_service.dart';
+import 'package:noscall/call_payments/application/call_payment_refund_service.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_policy_event_codec.dart';
@@ -19,6 +20,8 @@ void main() {
         return _incomingResult();
       },
       applyAck: (_) async => throw StateError('ack should not be called'),
+      receiveRefund: (_) async =>
+          throw StateError('refund should not be called'),
     );
 
     final result = await handler.handle(
@@ -48,6 +51,8 @@ void main() {
         receivedRequest = request;
         return _ackResult();
       },
+      receiveRefund: (_) async =>
+          throw StateError('refund should not be called'),
     );
 
     final result = await handler.handle(
@@ -67,6 +72,8 @@ void main() {
       receiveTransfer: (_) async =>
           throw StateError('transfer should not be called'),
       applyAck: (_) async => throw StateError('ack should not be called'),
+      receiveRefund: (_) async =>
+          throw StateError('refund should not be called'),
     );
 
     final result = await handler.handle(
@@ -78,6 +85,30 @@ void main() {
     expect(result.ignoredReason, 'payment_event_type_not_supported_yet');
   });
 
+  test('dispatches refund payloads to refund service', () async {
+    CallPaymentRefundRequest? receivedRequest;
+    final handler = CallPaymentEventHandler(
+      owner: _owner,
+      receiveTransfer: (_) async =>
+          throw StateError('transfer should not be called'),
+      applyAck: (_) async => throw StateError('ack should not be called'),
+      receiveRefund: (request) async {
+        receivedRequest = request;
+        return _refundResult();
+      },
+    );
+
+    final result = await handler.handle(
+      await _event(_payload(type: CallPaymentEventType.refund)),
+    );
+
+    expect(result.handled, isTrue);
+    expect(result.type, CallPaymentEventType.refund);
+    expect(receivedRequest?.owner, _owner);
+    expect(receivedRequest?.senderPubkey, _senderPubkey);
+    expect(receivedRequest?.payload.type, CallPaymentEventType.refund);
+  });
+
   test('dispatches policy query events to policy query handler', () async {
     Event? queryEvent;
     final handler = CallPaymentEventHandler(
@@ -85,6 +116,8 @@ void main() {
       receiveTransfer: (_) async =>
           throw StateError('transfer should not be called'),
       applyAck: (_) async => throw StateError('ack should not be called'),
+      receiveRefund: (_) async =>
+          throw StateError('refund should not be called'),
       handlePolicyQuery: (event) async {
         queryEvent = event;
       },
@@ -115,6 +148,8 @@ void main() {
         receiveTransfer: (_) async =>
             throw StateError('transfer should not be called'),
         applyAck: (_) async => throw StateError('ack should not be called'),
+        receiveRefund: (_) async =>
+            throw StateError('refund should not be called'),
       );
 
       final result = await handler.handle(
@@ -194,7 +229,11 @@ CallPaymentEventPayload _payload({
     tokenHash: 'hash-1',
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
-    token: type == CallPaymentEventType.transfer ? 'cashuAey' : null,
+    token:
+        type == CallPaymentEventType.transfer ||
+            type == CallPaymentEventType.refund
+        ? 'cashuAey'
+        : null,
   );
 }
 
@@ -228,6 +267,14 @@ CallPaymentAckResult _ackResult() {
   return CallPaymentAckResult(
     session: _session(now),
     installment: _installment(now, CallPaymentTransferDirection.sent),
+  );
+}
+
+CallPaymentRefundResult _refundResult() {
+  final now = DateTime.utc(2026, 8, 14, 10);
+  return CallPaymentRefundResult(
+    session: _session(now),
+    installment: _installment(now, CallPaymentTransferDirection.received),
   );
 }
 
