@@ -10,6 +10,7 @@ import 'call_payment_event_handler.dart';
 import 'call_payment_incoming_offer_gate.dart';
 import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_initial_payment_service.dart';
+import 'call_payment_outgoing_refund_service.dart';
 import 'call_payment_peer_policy_resolver.dart';
 import 'call_payment_policy_query_handler.dart';
 import 'call_payment_refund_service.dart';
@@ -121,6 +122,15 @@ final class CallPaymentRuntime {
     tokenReceiver: _walletAdapter,
     clock: _clock,
   );
+
+  late final CallPaymentOutgoingRefundService outgoingRefundService =
+      CallPaymentOutgoingRefundService(
+        sessionRepository: _sessionRepository,
+        installmentRepository: _installmentRepository,
+        tokenSender: _walletAdapter,
+        gateway: _gateway,
+        clock: _clock,
+      );
 
   late final CallPaymentIncomingOfferGate incomingOfferGate =
       CallPaymentIncomingOfferGate(
