@@ -7,6 +7,7 @@ import '../domain/call_payment_models.dart';
 import 'call_payment_ack_service.dart';
 import 'call_payment_incoming_transfer_service.dart';
 import 'call_payment_refund_service.dart';
+import 'call_payment_required_service.dart';
 
 typedef CallPaymentIncomingTransferCallback =
     Future<CallPaymentIncomingTransferResult> Function(
@@ -16,6 +17,10 @@ typedef CallPaymentAckCallback =
     Future<CallPaymentAckResult> Function(CallPaymentAckRequest request);
 typedef CallPaymentRefundCallback =
     Future<CallPaymentRefundResult> Function(CallPaymentRefundRequest request);
+typedef CallPaymentRequiredCallback =
+    Future<CallPaymentRequiredResult> Function(
+      CallPaymentRequiredRequest request,
+    );
 typedef CallPaymentEventCallTypeResolver =
     CallPaymentCallType Function(Event event, CallPaymentEventPayload payload);
 typedef CallPaymentPolicyQueryCallback = Future<void> Function(Event event);
@@ -39,6 +44,7 @@ final class CallPaymentEventHandler {
     required CallPaymentIncomingTransferCallback receiveTransfer,
     required CallPaymentAckCallback applyAck,
     required CallPaymentRefundCallback receiveRefund,
+    required CallPaymentRequiredCallback applyRequired,
     CallPaymentPolicyQueryCallback? handlePolicyQuery,
     CallPaymentEventCallTypeResolver? resolveCallType,
     CallPaymentEventCodec codec = const CallPaymentEventCodec(),
@@ -46,6 +52,7 @@ final class CallPaymentEventHandler {
        _receiveTransfer = receiveTransfer,
        _applyAck = applyAck,
        _receiveRefund = receiveRefund,
+       _applyRequired = applyRequired,
        _handlePolicyQuery = handlePolicyQuery,
        _resolveCallType = resolveCallType,
        _codec = codec;
@@ -54,6 +61,7 @@ final class CallPaymentEventHandler {
   final CallPaymentIncomingTransferCallback _receiveTransfer;
   final CallPaymentAckCallback _applyAck;
   final CallPaymentRefundCallback _receiveRefund;
+  final CallPaymentRequiredCallback _applyRequired;
   final CallPaymentPolicyQueryCallback? _handlePolicyQuery;
   final CallPaymentEventCallTypeResolver? _resolveCallType;
   final CallPaymentEventCodec _codec;
@@ -111,10 +119,14 @@ final class CallPaymentEventHandler {
         );
         return CallPaymentEventHandleResult.handled(payload.type);
       case CallPaymentEventType.required:
-        return CallPaymentEventHandleResult.ignored(
-          payload.type,
-          'payment_event_type_not_supported_yet',
+        await _applyRequired(
+          CallPaymentRequiredRequest(
+            owner: _owner,
+            senderPubkey: event.pubkey,
+            payload: payload,
+          ),
         );
+        return CallPaymentEventHandleResult.handled(payload.type);
     }
   }
 }

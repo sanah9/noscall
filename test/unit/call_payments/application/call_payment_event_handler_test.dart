@@ -4,6 +4,7 @@ import 'package:noscall/call_payments/application/call_payment_ack_service.dart'
 import 'package:noscall/call_payments/application/call_payment_event_handler.dart';
 import 'package:noscall/call_payments/application/call_payment_incoming_transfer_service.dart';
 import 'package:noscall/call_payments/application/call_payment_refund_service.dart';
+import 'package:noscall/call_payments/application/call_payment_required_service.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_policy_event_codec.dart';
@@ -22,6 +23,8 @@ void main() {
       applyAck: (_) async => throw StateError('ack should not be called'),
       receiveRefund: (_) async =>
           throw StateError('refund should not be called'),
+      applyRequired: (_) async =>
+          throw StateError('required should not be called'),
     );
 
     final result = await handler.handle(
@@ -53,6 +56,8 @@ void main() {
       },
       receiveRefund: (_) async =>
           throw StateError('refund should not be called'),
+      applyRequired: (_) async =>
+          throw StateError('required should not be called'),
     );
 
     final result = await handler.handle(
@@ -66,7 +71,8 @@ void main() {
     expect(receivedRequest?.payload.type, CallPaymentEventType.ack);
   });
 
-  test('ignores payment event types that are not implemented yet', () async {
+  test('dispatches required payloads to required service', () async {
+    CallPaymentRequiredRequest? receivedRequest;
     final handler = CallPaymentEventHandler(
       owner: _owner,
       receiveTransfer: (_) async =>
@@ -74,15 +80,21 @@ void main() {
       applyAck: (_) async => throw StateError('ack should not be called'),
       receiveRefund: (_) async =>
           throw StateError('refund should not be called'),
+      applyRequired: (request) async {
+        receivedRequest = request;
+        return _requiredResult();
+      },
     );
 
     final result = await handler.handle(
       await _event(_payload(type: CallPaymentEventType.required)),
     );
 
-    expect(result.handled, isFalse);
+    expect(result.handled, isTrue);
     expect(result.type, CallPaymentEventType.required);
-    expect(result.ignoredReason, 'payment_event_type_not_supported_yet');
+    expect(receivedRequest?.owner, _owner);
+    expect(receivedRequest?.senderPubkey, _senderPubkey);
+    expect(receivedRequest?.payload.type, CallPaymentEventType.required);
   });
 
   test('dispatches refund payloads to refund service', () async {
@@ -96,6 +108,8 @@ void main() {
         receivedRequest = request;
         return _refundResult();
       },
+      applyRequired: (_) async =>
+          throw StateError('required should not be called'),
     );
 
     final result = await handler.handle(
@@ -118,6 +132,8 @@ void main() {
       applyAck: (_) async => throw StateError('ack should not be called'),
       receiveRefund: (_) async =>
           throw StateError('refund should not be called'),
+      applyRequired: (_) async =>
+          throw StateError('required should not be called'),
       handlePolicyQuery: (event) async {
         queryEvent = event;
       },
@@ -150,6 +166,8 @@ void main() {
         applyAck: (_) async => throw StateError('ack should not be called'),
         receiveRefund: (_) async =>
             throw StateError('refund should not be called'),
+        applyRequired: (_) async =>
+            throw StateError('required should not be called'),
       );
 
       final result = await handler.handle(
@@ -276,6 +294,11 @@ CallPaymentRefundResult _refundResult() {
     session: _session(now),
     installment: _installment(now, CallPaymentTransferDirection.received),
   );
+}
+
+CallPaymentRequiredResult _requiredResult() {
+  final now = DateTime.utc(2026, 8, 14, 10);
+  return CallPaymentRequiredResult(session: _session(now));
 }
 
 CallPaymentSession _session(DateTime now) {

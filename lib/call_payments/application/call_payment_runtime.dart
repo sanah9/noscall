@@ -15,6 +15,7 @@ import 'call_payment_peer_policy_resolver.dart';
 import 'call_payment_policy_query_handler.dart';
 import 'call_payment_refund_service.dart';
 import 'call_payment_recovery_service.dart';
+import 'call_payment_required_service.dart';
 import 'call_payment_start_guard.dart';
 import 'call_payment_top_up_service.dart';
 
@@ -123,6 +124,13 @@ final class CallPaymentRuntime {
     clock: _clock,
   );
 
+  late final CallPaymentRequiredService requiredService =
+      CallPaymentRequiredService(
+        sessionRepository: _sessionRepository,
+        installmentRepository: _installmentRepository,
+        clock: _clock,
+      );
+
   late final CallPaymentOutgoingRefundService outgoingRefundService =
       CallPaymentOutgoingRefundService(
         sessionRepository: _sessionRepository,
@@ -178,6 +186,7 @@ final class CallPaymentRuntime {
       receiveTransfer: incomingTransferService.receiveAndAck,
       applyAck: ackService.apply,
       receiveRefund: refundService.receive,
+      applyRequired: requiredService.apply,
       handlePolicyQuery: policyQueryHandler?.handle,
       resolveCallType: resolveCallType,
     );
