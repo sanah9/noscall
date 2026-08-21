@@ -492,6 +492,15 @@ class _RecentCallsPageState extends State<RecentCallsPage>
           ),
         ),
         PopupMenuItem<String>(
+          value: 'payment_details',
+          height: itemHeight,
+          child: _buildMenuItem(
+            icon: Icons.receipt_long_outlined,
+            text: 'Payment Details',
+            color: primary,
+          ),
+        ),
+        PopupMenuItem<String>(
           value: 'delete',
           height: itemHeight,
           child: _buildMenuItem(
@@ -544,6 +553,9 @@ class _RecentCallsPageState extends State<RecentCallsPage>
         break;
       case 'view_details':
         _navigateToUserDetail(group);
+        break;
+      case 'payment_details':
+        _navigateToPaymentDetails(group);
         break;
       case 'delete':
         _deleteCallGroup(group);
@@ -599,6 +611,29 @@ class _RecentCallsPageState extends State<RecentCallsPage>
       group.peerPubkey,
       callHistory: group.callEntries.reversed.toList(),
     );
+  }
+
+  void _navigateToPaymentDetails(CallLogGroup group) {
+    _dismissKeyboard();
+    final callId = _latestCallId(group);
+    if (callId == null) {
+      AppSnackBar.warning(context, 'Call details are unavailable.');
+      return;
+    }
+    AppNavigatorScope.requireOf(
+      context,
+    ).pushCallPaymentDetails(context, callId);
+  }
+
+  String? _latestCallId(CallLogGroup group) {
+    if (group.callEntries.isNotEmpty) {
+      final latest = group.callEntries.reduce(
+        (current, next) =>
+            next.startTime.isAfter(current.startTime) ? next : current,
+      );
+      return latest.callId;
+    }
+    return group.callEntryIds.firstOrNull;
   }
 
   void _dismissKeyboard() {
