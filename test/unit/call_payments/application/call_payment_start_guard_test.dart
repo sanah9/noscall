@@ -75,6 +75,23 @@ void main() {
     expect(decision.message, 'No shared Mint for this paid call');
   });
 
+  test(
+    'fails with a local Mint setup prompt when payer has no Mints',
+    () async {
+      final payeeMint = CashuMintUrl.parse('https://payee.example');
+      final guard = _guard(policy: _policy(mints: [payeeMint]));
+
+      final decision = await guard.evaluate(
+        peerPubkey: _peerPubkey,
+        callType: CallPaymentCallType.audio,
+      );
+
+      expect(decision.kind, CallPaymentStartDecisionKind.noLocalMint);
+      expect(decision.mintUrl, isNull);
+      expect(decision.message, 'No enabled sat Mint available for paid calls.');
+    },
+  );
+
   test('fails when shared Mint cannot cover the first period', () async {
     final mint = CashuMintUrl.parse('https://mint.example');
     final guard = _guard(

@@ -250,6 +250,7 @@ class StartCallHelper {
         }
         return _CallPaymentStartResult.start(callId: callId, isPaid: true);
       case CallPaymentStartDecisionKind.noCommonMint:
+      case CallPaymentStartDecisionKind.noLocalMint:
       case CallPaymentStartDecisionKind.insufficientBalance:
       case CallPaymentStartDecisionKind.unsupported:
         AppToast.showError(

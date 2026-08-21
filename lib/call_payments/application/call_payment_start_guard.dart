@@ -11,6 +11,7 @@ typedef CallPaymentContactChecker = bool Function(String peerPubkey);
 enum CallPaymentStartDecisionKind {
   free,
   paid,
+  noLocalMint,
   noCommonMint,
   insufficientBalance,
   unsupported,
@@ -79,6 +80,23 @@ final class CallPaymentStartDecision {
       balanceSats: 0,
       maxSpendSats: 0,
       message: 'No shared Mint for this paid call',
+    );
+  }
+
+  factory CallPaymentStartDecision.noLocalMint({
+    required String peerPubkey,
+    required CallPaymentCallType callType,
+    required CallPaymentPricingQuote quote,
+  }) {
+    return CallPaymentStartDecision._(
+      kind: CallPaymentStartDecisionKind.noLocalMint,
+      peerPubkey: peerPubkey,
+      callType: callType,
+      quote: quote,
+      mintUrl: null,
+      balanceSats: 0,
+      maxSpendSats: 0,
+      message: 'No enabled sat Mint available for paid calls.',
     );
   }
 
@@ -171,6 +189,14 @@ final class CallPaymentStartGuard {
     }
 
     final balancesByMint = await _loadBalancesByMintSats();
+    if (balancesByMint.isEmpty) {
+      return CallPaymentStartDecision.noLocalMint(
+        peerPubkey: peerPubkey,
+        callType: callType,
+        quote: quote,
+      );
+    }
+
     final commonMintUrls = policy.acceptedMintUrls
         .where((mintUrl) => balancesByMint.containsKey(mintUrl))
         .toList(growable: false);
