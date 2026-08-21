@@ -26,7 +26,7 @@ final class MobileCallPaymentRuntimeFactory {
     } catch (e, stack) {
       LogUtils.e(
         () =>
-            'Call payment runtime is unavailable; continue without paid call precheck: error=$e, stack=$stack',
+            'Call payment runtime is unavailable; paid call precheck cannot run: error=$e, stack=$stack',
       );
       return null;
     }

@@ -63,6 +63,14 @@ class StartCallHelper {
           paymentOwner == null ||
           prepareInitialPayment == null) {
         paymentRuntime = await effectivePaymentRuntimeFactory();
+        if (paymentRuntime == null) {
+          if (!context.mounted) return;
+          AppToast.showError(
+            context,
+            'Paid call payment check is unavailable. Please try again later.',
+          );
+          return;
+        }
       }
       if (!context.mounted) {
         await paymentRuntime?.dispose();
