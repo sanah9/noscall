@@ -232,10 +232,10 @@ class CallKitManager with WidgetsBindingObserver {
     Event event,
     NipAcSignaling signaling,
   ) async {
-    CallPaymentRuntime? runtime;
     try {
-      runtime = await MobileCallPaymentRuntimeFactory.create();
-      final decision = await runtime.incomingOfferGate.evaluate(
+      final gate =
+          await MobileCallPaymentRuntimeFactory.createIncomingOfferGate();
+      final decision = await gate.evaluate(
         callId: signaling.callId,
         peerPubkey: event.pubkey,
         callType: _paymentCallTypeFromSignaling(signaling.callType),
@@ -266,8 +266,6 @@ class CallKitManager with WidgetsBindingObserver {
             'Failed to evaluate incoming call payment offer: callId=${signaling.callId}, peer=${event.pubkey}, error=$e, stack=$stack',
       );
       return true;
-    } finally {
-      await runtime?.dispose();
     }
   }
 

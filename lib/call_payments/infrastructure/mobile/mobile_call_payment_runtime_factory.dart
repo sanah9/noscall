@@ -1,6 +1,7 @@
 import 'package:noscall/call_payments/application/call_payment_recovery_service.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
+import 'package:noscall/call_payments/application/call_payment_incoming_offer_gate.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_gateway.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_policy_query.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
@@ -71,6 +72,26 @@ final class MobileCallPaymentRuntimeFactory {
       sendPolicyResponse: gateway.sendPolicyEvent,
       stopCall: stopCall,
       dispose: sessionManager.dispose,
+    );
+  }
+
+  static Future<CallPaymentIncomingOfferGate> createIncomingOfferGate() async {
+    final account = Account.sharedInstance;
+    final pubkey = account.currentPubkey;
+    final privkey = account.currentPrivkey;
+    if (pubkey.isEmpty || privkey.isEmpty) {
+      throw StateError('A Nostr account is required to use paid calls.');
+    }
+
+    final owner = CashuAccountId.fromNostrPubkey(pubkey);
+    final isar = DBISAR.sharedInstance.isar;
+    final gateway = CallPaymentNostrGateway(pubkey: pubkey, privkey: privkey);
+    return CallPaymentIncomingOfferGate(
+      owner: owner,
+      policyRepository: IsarCallPaymentPolicyRepository(isar),
+      sessionRepository: IsarCallPaymentSessionRepository(isar),
+      peerIsContact: Contacts.sharedInstance.allContacts.containsKey,
+      sendPaymentRequired: gateway.send,
     );
   }
 
