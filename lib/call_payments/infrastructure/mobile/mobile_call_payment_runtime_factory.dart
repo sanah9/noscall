@@ -1,8 +1,3 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-
 import 'package:noscall/call_payments/application/call_payment_recovery_service.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
@@ -16,8 +11,7 @@ import 'package:noscall/core/common/utils/log_utils.dart';
 import 'package:noscall/wallet/application/wallet_session_manager.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/wallet_errors.dart';
-import 'package:noscall/wallet/infrastructure/cdk/cdk_account_wallet.dart';
-import 'package:noscall/wallet/infrastructure/security/development_file_wallet_key_store.dart';
+import 'package:noscall/wallet/infrastructure/mobile/mobile_account_wallet_factory.dart';
 
 typedef CallPaymentRuntimeFactory = Future<CallPaymentRuntime> Function();
 
@@ -41,12 +35,6 @@ final class MobileCallPaymentRuntimeFactory {
   static Future<CallPaymentRuntime> create({
     CallPaymentStopCallCallback? stopCall,
   }) async {
-    if (!kDebugMode) {
-      throw StateError(
-        'Secure wallet storage is required before release builds can use paid calls.',
-      );
-    }
-
     final account = Account.sharedInstance;
     final pubkey = account.currentPubkey;
     final privkey = account.currentPrivkey;
@@ -55,15 +43,7 @@ final class MobileCallPaymentRuntimeFactory {
     }
 
     final owner = CashuAccountId.fromNostrPubkey(pubkey);
-    final supportDirectory = await getApplicationSupportDirectory();
-    final walletRoot = Directory('${supportDirectory.path}/cashu');
-    final walletFactory = CdkAccountWalletFactory(
-      walletsRoot: Directory('${walletRoot.path}/accounts'),
-      keyStore: DevelopmentFileWalletKeyStore(
-        Directory('${walletRoot.path}/development-seeds'),
-      ),
-      allowInsecureDevelopmentStore: true,
-    );
+    final walletFactory = await MobileAccountWalletFactory.create();
     final sessionManager = WalletSessionManager(factory: walletFactory);
     final state = await sessionManager.activate(owner);
     final wallet = state.wallet;
