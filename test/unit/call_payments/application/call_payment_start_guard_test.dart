@@ -110,6 +110,23 @@ void main() {
     expect(decision.message, 'Not enough balance on this Mint');
   });
 
+  test('keeps the shared Mint on zero-balance failures', () async {
+    final mint = CashuMintUrl.parse('https://mint.example');
+    final guard = _guard(
+      policy: _policy(mints: [mint]),
+      balances: {mint: 0},
+    );
+
+    final decision = await guard.evaluate(
+      peerPubkey: _peerPubkey,
+      callType: CallPaymentCallType.audio,
+    );
+
+    expect(decision.kind, CallPaymentStartDecisionKind.insufficientBalance);
+    expect(decision.mintUrl, mint);
+    expect(decision.balanceSats, 0);
+  });
+
   test('fails closed when peer pricing cannot be confirmed', () async {
     final guard = _guard(policy: null);
 

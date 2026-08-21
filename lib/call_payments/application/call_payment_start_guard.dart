@@ -223,7 +223,7 @@ final class CallPaymentStartGuard {
           maxSpendSats: maxSpend,
         );
       }
-      if (balance > bestBalance) {
+      if (bestMintUrl == null || balance > bestBalance) {
         bestMintUrl = mintUrl;
         bestBalance = balance;
       }
