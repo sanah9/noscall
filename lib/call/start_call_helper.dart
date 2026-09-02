@@ -19,6 +19,7 @@ typedef CallPaymentInitialPaymentPreparer =
     );
 typedef CallPaymentRuntimeLoader = Future<CallPaymentRuntime?> Function();
 typedef CallIdFactory = String Function();
+typedef CallStartPreflight = Future<void> Function(CallType callType);
 
 /// Centralized helper to start a voice or video call with permission check,
 /// CallKitManager.startCall, and consistent toasts. Caller should check
@@ -36,6 +37,7 @@ class StartCallHelper {
     CallPaymentRuntimeLoader? paymentRuntimeFactory,
     CallingControllerLifecycleObserver? lifecycleObserver,
     CallIdFactory? callIdFactory,
+    CallStartPreflight? callStartPreflight,
   }) async {
     if (CallKitManager.instance.hasActiveCalling) {
       AppToast.showInfo(context, 'Call already in progress');
@@ -87,6 +89,8 @@ class StartCallHelper {
         prepareInitialPayment:
             prepareInitialPayment ?? paymentRuntime?.prepareInitialPayment,
         callIdFactory: callIdFactory,
+        callStartPreflight:
+            callStartPreflight ?? CallKitManager.instance.ensureCanStartCall,
       );
       if (!paymentStart.shouldStart) {
         await paymentRuntime?.dispose();
@@ -190,6 +194,7 @@ class StartCallHelper {
     required CashuAccountId? paymentOwner,
     required CallPaymentInitialPaymentPreparer? prepareInitialPayment,
     required CallIdFactory? callIdFactory,
+    required CallStartPreflight callStartPreflight,
   }) async {
     if (paymentGuard == null) return const _CallPaymentStartResult.start();
 
@@ -220,24 +225,35 @@ class StartCallHelper {
           );
           return const _CallPaymentStartResult.cancel();
         }
-        await CallKitManager.instance.ensureCanStartCall(callType);
+        await callStartPreflight(callType);
 
         final quote = decision.quote!;
         final mintUrl = decision.mintUrl!;
         final callId = (callIdFactory ?? () => const Uuid().v4())();
-        final payment = await prepareInitialPayment(
-          CallPaymentInitialPaymentRequest(
-            owner: paymentOwner,
-            callId: callId,
-            peerPubkey: peerId,
-            callType: callType.toCallPaymentCallType(),
-            mintUrl: mintUrl,
-            amountSats: quote.periodAmountSats,
-            priceSatsPerMinute: quote.priceSatsPerMinute,
-            billingPeriodSeconds: quote.billingPeriodSeconds,
-            maxSpendSats: result.maxSpendSats,
-          ),
-        );
+        final CallPaymentInitialPaymentResult payment;
+        try {
+          payment = await prepareInitialPayment(
+            CallPaymentInitialPaymentRequest(
+              owner: paymentOwner,
+              callId: callId,
+              peerPubkey: peerId,
+              callType: callType.toCallPaymentCallType(),
+              mintUrl: mintUrl,
+              amountSats: quote.periodAmountSats,
+              priceSatsPerMinute: quote.priceSatsPerMinute,
+              billingPeriodSeconds: quote.billingPeriodSeconds,
+              maxSpendSats: result.maxSpendSats,
+            ),
+          );
+        } catch (_) {
+          if (context.mounted) {
+            AppToast.showError(
+              context,
+              'Paid call payment failed. Please try again.',
+            );
+          }
+          return const _CallPaymentStartResult.cancel();
+        }
         if (!context.mounted) return const _CallPaymentStartResult.cancel();
         if (!payment.okEvent.status) {
           AppToast.showError(
