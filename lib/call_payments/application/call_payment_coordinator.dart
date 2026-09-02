@@ -77,6 +77,7 @@ final class CallPaymentCoordinator
   final int _topUpLeadSeconds;
   final CallPaymentLifecycleClock _clock;
   Object? _topUpHandle;
+  Object? _paymentStopHandle;
 
   @override
   Future<void> onConnected({
@@ -109,6 +110,7 @@ final class CallPaymentCoordinator
     if (session == null) return;
 
     _cancelTopUp();
+    _cancelScheduledPaymentStop();
     final now = _clock();
     final connectedDurationSeconds = _connectedDurationSeconds(session, now);
     final status = await _endedStatus(
@@ -258,12 +260,24 @@ final class CallPaymentCoordinator
       if (result.session.status == CallPaymentSessionStatus.connected) {
         _scheduleTopUp(result.session);
       } else {
-        await _stopCallBecausePaymentStopped(callId);
+        _schedulePaymentStop(callId);
       }
     } catch (_) {
       _topUpHandle = null;
-      await _stopCallBecausePaymentStopped(callId);
+      _schedulePaymentStop(callId);
     }
+  }
+
+  void _schedulePaymentStop(String callId) {
+    _cancelScheduledPaymentStop();
+    final delaySeconds = math.max(0, _topUpLeadSeconds);
+    _paymentStopHandle = _scheduler.schedule(
+      Duration(seconds: delaySeconds),
+      () async {
+        _paymentStopHandle = null;
+        await _stopCallBecausePaymentStopped(callId);
+      },
+    );
   }
 
   Future<void> _stopCallBecausePaymentStopped(String callId) async {
@@ -281,5 +295,12 @@ final class CallPaymentCoordinator
     if (handle == null) return;
     _scheduler.cancel(handle);
     _topUpHandle = null;
+  }
+
+  void _cancelScheduledPaymentStop() {
+    final handle = _paymentStopHandle;
+    if (handle == null) return;
+    _scheduler.cancel(handle);
+    _paymentStopHandle = null;
   }
 }

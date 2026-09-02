@@ -108,7 +108,7 @@ void main() {
     expect(scheduler.cancelledHandles, [0]);
   });
 
-  test('stops call when top-up no longer keeps session connected', () async {
+  test('stops call at paid coverage end when top-up fails', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
     final scheduler = _Scheduler();
@@ -144,12 +144,19 @@ void main() {
     );
     await scheduler.fire(0);
 
+    expect(stoppedCalls, isEmpty);
+    expect(scheduler.delays, [
+      const Duration(seconds: 50),
+      const Duration(seconds: 10),
+    ]);
+    await scheduler.fire(1);
+
     expect(stoppedCalls, [
       (callId: 'call-1', reason: CallEndReason.paymentRequired),
     ]);
   });
 
-  test('stops call when top-up throws', () async {
+  test('stops call at paid coverage end when top-up throws', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
     final scheduler = _Scheduler();
@@ -175,9 +182,62 @@ void main() {
     );
     await scheduler.fire(0);
 
+    expect(stoppedCalls, isEmpty);
+    expect(scheduler.delays, [
+      const Duration(seconds: 50),
+      const Duration(seconds: 10),
+    ]);
+    await scheduler.fire(1);
+
     expect(stoppedCalls, [
       (callId: 'call-1', reason: CallEndReason.paymentRequired),
     ]);
+  });
+
+  test('cancels delayed payment stop when paid call ends first', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final scheduler = _Scheduler();
+    final stoppedCalls = <({String callId, CallEndReason reason})>[];
+    await sessionRepository.save(
+      _session(
+        status: CallPaymentSessionStatus.connected,
+        connectedAt: DateTime.utc(2026, 8, 14, 10),
+      ),
+    );
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      scheduler: scheduler,
+      prepareTopUp: (request) async {
+        throw StateError('Payment session max spend reached');
+      },
+      stopCall: ({required callId, required reason}) async {
+        stoppedCalls.add((callId: callId, reason: reason));
+      },
+      times: [
+        DateTime.utc(2026, 8, 14, 10),
+        DateTime.utc(2026, 8, 14, 10, 0, 59),
+      ],
+    );
+
+    await coordinator.onConnected(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+    );
+    await scheduler.fire(0);
+    await coordinator.onEnded(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+      reason: CallEndReason.disconnect,
+      hasConnected: true,
+    );
+
+    expect(scheduler.cancelledHandles, [1]);
+    await scheduler.fire(1);
+    expect(stoppedCalls, isEmpty);
   });
 
   test('marks connected sessions completed and records duration', () async {
@@ -620,6 +680,7 @@ final class _Scheduler implements CallPaymentLifecycleScheduler {
   final List<Duration> delays = [];
   final List<Future<void> Function()> callbacks = [];
   final List<Object> cancelledHandles = [];
+  final Set<Object> _cancelledHandleSet = {};
 
   @override
   Object schedule(Duration delay, Future<void> Function() callback) {
@@ -631,9 +692,11 @@ final class _Scheduler implements CallPaymentLifecycleScheduler {
   @override
   void cancel(Object handle) {
     cancelledHandles.add(handle);
+    _cancelledHandleSet.add(handle);
   }
 
   Future<void> fire(int index) {
+    if (_cancelledHandleSet.contains(index)) return Future.value();
     return callbacks[index]();
   }
 }
