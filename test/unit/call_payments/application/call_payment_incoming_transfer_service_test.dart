@@ -94,6 +94,38 @@ void main() {
   });
 
   test(
+    'rejects top-up transfer without an existing connected incoming session',
+    () async {
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: _SessionRepository(),
+        installmentRepository: _InstallmentRepository(),
+        receiver: receiver,
+        gateway: gateway,
+      );
+
+      await expectLater(
+        service.receiveAndAck(
+          _request(
+            payload: _payload(
+              purpose: CallPaymentPurpose.topUp,
+              sequence: 2,
+              coversFromSecond: 60,
+              coversToSecond: 120,
+              token: 'cashuAey-top-up',
+            ),
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
+
+  test(
     'duplicate transfer resends ack without receiving token again',
     () async {
       final sessionRepository = _SessionRepository();

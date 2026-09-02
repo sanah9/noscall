@@ -85,12 +85,14 @@ final class CallPaymentIncomingTransferService {
     }
 
     await _validateAgainstPolicy(request);
+    final existingSession = await _validateNewTransferSession(request);
     final token = payload.token!;
     final received = await _tokenReceiver.receive(token);
     final now = _clock();
     final session = await _upsertSession(
       request: request,
       payload: payload,
+      existing: existingSession,
       now: now,
     );
 
@@ -148,6 +150,10 @@ final class CallPaymentIncomingTransferService {
     if (payload.callType != request.callType) {
       throw ArgumentError('Incoming payment call type does not match');
     }
+    if (payload.purpose == CallPaymentPurpose.initial &&
+        (payload.sequence != 1 || payload.coversFromSecond != 0)) {
+      throw ArgumentError('Initial payment transfer has invalid coverage');
+    }
   }
 
   Future<void> _validateAgainstPolicy(
@@ -181,6 +187,29 @@ final class CallPaymentIncomingTransferService {
 
   int _priceSatsPerMinute(CallPaymentEventPayload payload) {
     return (payload.amountSats * 60 / payload.billingPeriodSeconds).ceil();
+  }
+
+  Future<CallPaymentSession?> _validateNewTransferSession(
+    CallPaymentIncomingTransferRequest request,
+  ) async {
+    final payload = request.payload;
+    final existing = await _sessionRepository.find(
+      request.owner,
+      payload.callId,
+    );
+    if (payload.purpose == CallPaymentPurpose.initial) return existing;
+    if (existing == null) {
+      throw StateError('Top-up payment requires an existing paid call');
+    }
+    if (existing.status != CallPaymentSessionStatus.connected ||
+        existing.direction != CallPaymentCallDirection.incoming ||
+        existing.role != CallPaymentRole.payee ||
+        existing.peerPubkey != payload.payerPubkey ||
+        existing.callType != request.callType ||
+        existing.mintUrl != payload.mintUrl) {
+      throw StateError('Top-up payment does not match connected paid call');
+    }
+    return existing;
   }
 
   Future<CallPaymentIncomingTransferResult> _ackExistingTransfer(
@@ -239,12 +268,9 @@ final class CallPaymentIncomingTransferService {
   Future<CallPaymentSession> _upsertSession({
     required CallPaymentIncomingTransferRequest request,
     required CallPaymentEventPayload payload,
+    required CallPaymentSession? existing,
     required DateTime now,
   }) async {
-    final existing = await _sessionRepository.find(
-      request.owner,
-      payload.callId,
-    );
     if (existing == null) {
       final session = CallPaymentSession(
         owner: request.owner,
