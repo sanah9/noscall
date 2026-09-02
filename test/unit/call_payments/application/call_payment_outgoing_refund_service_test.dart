@@ -67,6 +67,54 @@ void main() {
     expect(result.session.status, CallPaymentSessionStatus.refundPending);
   });
 
+  test(
+    'refunds only unused claimed installments after connected calls',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      final sender = _TokenSender();
+      final gateway = _Gateway(okStatus: true);
+      await sessionRepository.save(
+        _session(
+          connectedAt: DateTime.utc(2026, 8, 14, 10),
+          connectedDurationSeconds: 55,
+          chargedSats: 20,
+        ),
+      );
+      await installmentRepository.save(
+        _receivedInstallment(
+          sequence: 1,
+          coversFromSecond: 0,
+          coversToSecond: 60,
+        ),
+      );
+      await installmentRepository.save(
+        _receivedInstallment(
+          sequence: 2,
+          purpose: CallPaymentPurpose.topUp,
+          coversFromSecond: 60,
+          coversToSecond: 120,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        sender: sender,
+        gateway: gateway,
+      );
+
+      final result = await service.prepareAndSend(_request());
+
+      expect(sender.amounts, [10]);
+      expect(gateway.payloads.single.sequence, 2);
+      expect(gateway.payloads.single.coversFromSecond, 60);
+      expect(result.installments.single.sequence, 2);
+      expect(result.session.status, CallPaymentSessionStatus.completed);
+      expect(result.session.refundedSats, 10);
+      expect(result.session.netSats, 10);
+    },
+  );
+
   test('keeps session refund pending when refund send fails', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
@@ -154,6 +202,9 @@ CallPaymentOutgoingRefundRequest _request() {
 CallPaymentSession _session({
   CallPaymentRole role = CallPaymentRole.payee,
   CallPaymentSessionStatus status = CallPaymentSessionStatus.refundPending,
+  DateTime? connectedAt,
+  int connectedDurationSeconds = 0,
+  int chargedSats = 10,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentSession(
@@ -167,31 +218,37 @@ CallPaymentSession _session({
     mintUrl: _mintUrl,
     priceSatsPerMinute: 10,
     billingPeriodSeconds: 60,
-    maxSpendSats: 10,
-    connectedDurationSeconds: 0,
-    chargedSats: 10,
+    maxSpendSats: chargedSats,
+    connectedAt: connectedAt,
+    connectedDurationSeconds: connectedDurationSeconds,
+    chargedSats: chargedSats,
     refundedSats: 0,
     createdAt: now,
     updatedAt: now,
   );
 }
 
-CallPaymentInstallment _receivedInstallment() {
+CallPaymentInstallment _receivedInstallment({
+  int sequence = 1,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
+  int coversFromSecond = 0,
+  int coversToSecond = 60,
+}) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
     owner: _owner,
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
-    sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    sequence: sequence,
+    purpose: purpose,
     direction: CallPaymentTransferDirection.received,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'receive-op-1',
     tokenHash: 'transfer-hash-1',
     status: CallPaymentInstallmentStatus.claimed,
-    coversFromSecond: 0,
-    coversToSecond: 60,
+    coversFromSecond: coversFromSecond,
+    coversToSecond: coversToSecond,
     createdAt: now,
     claimedAt: now,
     updatedAt: now,

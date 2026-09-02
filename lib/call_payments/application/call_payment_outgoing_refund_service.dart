@@ -84,16 +84,22 @@ final class CallPaymentOutgoingRefundService {
         .toSet();
     final refundableInstallments = installments
         .where(
-          (installment) =>
-              installment.direction == CallPaymentTransferDirection.received &&
-              installment.status == CallPaymentInstallmentStatus.claimed &&
-              !alreadyRefundedSequences.contains(installment.sequence),
+          (installment) => _isRefundableInstallment(
+            session: session,
+            installment: installment,
+            alreadyRefundedSequences: alreadyRefundedSequences,
+          ),
         )
         .toList(growable: false);
 
     final sentRefunds = <CallPaymentInstallment>[];
-    for (final installment in refundableInstallments) {
-      final result = await _prepareAndSendInstallment(session, installment);
+    for (var index = 0; index < refundableInstallments.length; index++) {
+      final installment = refundableInstallments[index];
+      final result = await _prepareAndSendInstallment(
+        session,
+        installment,
+        completeAfterSuccess: index == refundableInstallments.length - 1,
+      );
       sentRefunds.add(result.installment);
       session = result.session;
       if (result.installment.status != CallPaymentInstallmentStatus.sent) {
@@ -119,11 +125,27 @@ final class CallPaymentOutgoingRefundService {
     }
   }
 
+  bool _isRefundableInstallment({
+    required CallPaymentSession session,
+    required CallPaymentInstallment installment,
+    required Set<int> alreadyRefundedSequences,
+  }) {
+    if (installment.direction != CallPaymentTransferDirection.received ||
+        installment.purpose == CallPaymentPurpose.refund ||
+        installment.status != CallPaymentInstallmentStatus.claimed ||
+        alreadyRefundedSequences.contains(installment.sequence)) {
+      return false;
+    }
+    if (session.connectedAt == null) return true;
+    return session.connectedDurationSeconds < installment.coversFromSecond;
+  }
+
   Future<({CallPaymentSession session, CallPaymentInstallment installment})>
   _prepareAndSendInstallment(
     CallPaymentSession session,
-    CallPaymentInstallment original,
-  ) async {
+    CallPaymentInstallment original, {
+    required bool completeAfterSuccess,
+  }) async {
     final now = _clock();
     var refundInstallment = CallPaymentInstallment(
       owner: session.owner,
@@ -202,7 +224,7 @@ final class CallPaymentOutgoingRefundService {
 
     final refundedSats = _refundedSatsAfter(session, original.amountSats);
     final updatedSession = session.copyWith(
-      status: refundedSats >= session.chargedSats
+      status: completeAfterSuccess
           ? CallPaymentSessionStatus.completed
           : CallPaymentSessionStatus.refundPending,
       refundedSats: refundedSats,
