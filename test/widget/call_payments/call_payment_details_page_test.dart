@@ -6,7 +6,7 @@ import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
 void main() {
-  testWidgets('shows session totals and installments', (tester) async {
+  testWidgets('derives totals from installments', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -27,6 +27,9 @@ void main() {
     expect(find.text('Refund pending'), findsOneWidget);
     expect(find.text('20 sat'), findsOneWidget);
     expect(find.text('8 sat'), findsNWidgets(2));
+    expect(find.text('999 sat net'), findsNothing);
+    expect(find.text('999 sat'), findsNothing);
+    expect(find.text('111 sat'), findsNothing);
     expect(find.text('Initial #1'), findsOneWidget);
     expect(find.text('Top up #2'), findsOneWidget);
     expect(find.text('Refund #1'), findsOneWidget);
@@ -69,8 +72,8 @@ CallPaymentDetailsData _details() {
       connectedAt: now,
       endedAt: now.add(const Duration(seconds: 70)),
       connectedDurationSeconds: 70,
-      chargedSats: 20,
-      refundedSats: 8,
+      chargedSats: 1110,
+      refundedSats: 111,
       createdAt: now,
       updatedAt: now,
     ),

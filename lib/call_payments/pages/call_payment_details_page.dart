@@ -122,10 +122,11 @@ final class _DetailsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = data.session;
+    final summary = _PaymentSummary.fromInstallments(data.installments);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
-        _SummaryCard(session: session),
+        _SummaryCard(session: session, summary: summary),
         const SizedBox(height: 12),
         _InstallmentsCard(installments: data.installments),
         const SizedBox(height: 12),
@@ -144,9 +145,10 @@ final class _DetailsList extends StatelessWidget {
 }
 
 final class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.session});
+  const _SummaryCard({required this.session, required this.summary});
 
   final CallPaymentSession session;
+  final _PaymentSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +157,7 @@ final class _SummaryCard extends StatelessWidget {
         children: [
           ListTile(
             leading: const Icon(Icons.paid_outlined),
-            title: Text('${session.netSats} sat net'),
+            title: Text('${summary.netSats} sat net'),
             subtitle: Text(_sessionStatusLabel(session.status)),
           ),
           const Divider(height: 1),
@@ -167,12 +169,12 @@ final class _SummaryCard extends StatelessWidget {
           _DetailRow(
             icon: Icons.payments_outlined,
             label: 'Charged',
-            value: '${session.chargedSats} sat',
+            value: '${summary.chargedSats} sat',
           ),
           _DetailRow(
             icon: Icons.undo_outlined,
             label: 'Refunded',
-            value: '${session.refundedSats} sat',
+            value: '${summary.refundedSats} sat',
           ),
           _DetailRow(
             icon: Icons.account_balance_wallet_outlined,
@@ -193,6 +195,70 @@ final class _SummaryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+final class _PaymentSummary {
+  const _PaymentSummary({
+    required this.chargedSats,
+    required this.refundedSats,
+  });
+
+  factory _PaymentSummary.fromInstallments(
+    List<CallPaymentInstallment> installments,
+  ) {
+    var chargedSats = 0;
+    var refundedSats = 0;
+    for (final installment in installments) {
+      if (installment.purpose == CallPaymentPurpose.refund) {
+        if (_countsAsRefunded(installment)) {
+          refundedSats += installment.amountSats;
+        }
+      } else {
+        if (_countsAsCharged(installment)) {
+          chargedSats += installment.amountSats;
+        }
+        if (installment.status == CallPaymentInstallmentStatus.reclaimed) {
+          refundedSats += installment.amountSats;
+        }
+      }
+    }
+    if (refundedSats > chargedSats) {
+      refundedSats = chargedSats;
+    }
+    return _PaymentSummary(
+      chargedSats: chargedSats,
+      refundedSats: refundedSats,
+    );
+  }
+
+  final int chargedSats;
+  final int refundedSats;
+
+  int get netSats => chargedSats - refundedSats;
+}
+
+bool _countsAsCharged(CallPaymentInstallment installment) {
+  return switch (installment.status) {
+    CallPaymentInstallmentStatus.sent ||
+    CallPaymentInstallmentStatus.received ||
+    CallPaymentInstallmentStatus.claimed ||
+    CallPaymentInstallmentStatus.reclaimable ||
+    CallPaymentInstallmentStatus.reclaimed ||
+    CallPaymentInstallmentStatus.unknown => true,
+    CallPaymentInstallmentStatus.created ||
+    CallPaymentInstallmentStatus.prepared ||
+    CallPaymentInstallmentStatus.refunded ||
+    CallPaymentInstallmentStatus.failed => false,
+  };
+}
+
+bool _countsAsRefunded(CallPaymentInstallment installment) {
+  return installment.refundedAt != null ||
+      switch (installment.status) {
+        CallPaymentInstallmentStatus.sent ||
+        CallPaymentInstallmentStatus.refunded => true,
+        _ => false,
+      };
 }
 
 final class _InstallmentsCard extends StatelessWidget {
