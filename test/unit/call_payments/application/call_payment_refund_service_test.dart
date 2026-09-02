@@ -13,6 +13,7 @@ void main() {
     final installmentRepository = _InstallmentRepository();
     final receiver = _TokenReceiver();
     await sessionRepository.save(_session());
+    await installmentRepository.save(_sentInstallment());
     final service = _service(
       sessionRepository: sessionRepository,
       installmentRepository: installmentRepository,
@@ -37,6 +38,7 @@ void main() {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
     await sessionRepository.save(_session(chargedSats: 20));
+    await installmentRepository.save(_sentInstallment());
     final service = _service(
       sessionRepository: sessionRepository,
       installmentRepository: installmentRepository,
@@ -50,6 +52,23 @@ void main() {
     expect(result.session.status, CallPaymentSessionStatus.refundPending);
     expect(result.session.refundedSats, 10);
     expect(result.session.netSats, 10);
+  });
+
+  test('rejects refunds without a matching sent installment', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final receiver = _TokenReceiver();
+    await sessionRepository.save(_session());
+    await installmentRepository.save(_sentInstallment(sequence: 2));
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+    );
+
+    await expectLater(service.receive(_request()), throwsA(isA<StateError>()));
+
+    expect(receiver.tokens, isEmpty);
   });
 
   test('does not receive duplicate refund events twice', () async {
@@ -161,6 +180,31 @@ CallPaymentSession _session({int chargedSats = 10, int refundedSats = 0}) {
     chargedSats: chargedSats,
     refundedSats: refundedSats,
     createdAt: now,
+    updatedAt: now,
+  );
+}
+
+CallPaymentInstallment _sentInstallment({int sequence = 1}) {
+  final now = DateTime.utc(2026, 8, 14, 9);
+  return CallPaymentInstallment(
+    owner: _owner,
+    callId: 'call-1',
+    paymentSessionId: 'payment-session-1',
+    sequence: sequence,
+    purpose: sequence == 1
+        ? CallPaymentPurpose.initial
+        : CallPaymentPurpose.topUp,
+    direction: CallPaymentTransferDirection.sent,
+    amountSats: 10,
+    mintUrl: _mintUrl,
+    walletOperationId: 'send-op-$sequence',
+    tokenHash: 'transfer-hash-$sequence',
+    status: CallPaymentInstallmentStatus.claimed,
+    coversFromSecond: (sequence - 1) * 60,
+    coversToSecond: sequence * 60,
+    createdAt: now,
+    sentAt: now,
+    claimedAt: now,
     updatedAt: now,
   );
 }

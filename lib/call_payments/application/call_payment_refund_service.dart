@@ -66,6 +66,7 @@ final class CallPaymentRefundService {
 
     final session = await _loadSession(request);
     _validateSession(session, request);
+    await _loadMatchingOriginalInstallment(session, payload);
 
     final received = await _tokenReceiver.receive(payload.token!);
     final now = _clock();
@@ -155,6 +156,40 @@ final class CallPaymentRefundService {
     if (session.chargedSats <= 0) {
       throw StateError('Payment refund requires a charged session');
     }
+  }
+
+  Future<CallPaymentInstallment> _loadMatchingOriginalInstallment(
+    CallPaymentSession session,
+    CallPaymentEventPayload payload,
+  ) async {
+    final installments = await _installmentRepository.listForCall(
+      owner: session.owner,
+      callId: session.callId,
+    );
+    final matching = installments.where(
+      (installment) =>
+          installment.sequence == payload.sequence &&
+          installment.paymentSessionId == payload.paymentSessionId &&
+          installment.purpose != CallPaymentPurpose.refund &&
+          installment.direction == CallPaymentTransferDirection.sent &&
+          installment.walletOperationId != null &&
+          installment.mintUrl == payload.mintUrl &&
+          installment.amountSats == payload.amountSats &&
+          installment.coversFromSecond == payload.coversFromSecond &&
+          installment.coversToSecond == payload.coversToSecond &&
+          switch (installment.status) {
+            CallPaymentInstallmentStatus.prepared ||
+            CallPaymentInstallmentStatus.sent ||
+            CallPaymentInstallmentStatus.claimed ||
+            CallPaymentInstallmentStatus.reclaimable ||
+            CallPaymentInstallmentStatus.unknown => true,
+            _ => false,
+          },
+    );
+    if (matching.isEmpty) {
+      throw StateError('Payment refund does not match a paid installment');
+    }
+    return matching.first;
   }
 
   int _refundedSatsAfter(CallPaymentSession session, int amountSats) {
