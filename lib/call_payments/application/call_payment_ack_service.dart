@@ -60,11 +60,13 @@ final class CallPaymentAckService {
     if (session == null) {
       throw StateError('Payment session does not exist for ack');
     }
+    _validateSession(session, request);
+    _validateInstallment(installment, payload);
 
     final now = _clock();
     final updatedInstallment = installment.copyWith(
       status: CallPaymentInstallmentStatus.claimed,
-      claimedAt: now,
+      claimedAt: installment.claimedAt ?? now,
       updatedAt: now,
       clearErrorCode: true,
     );
@@ -90,6 +92,44 @@ final class CallPaymentAckService {
     if (payload.payerPubkey != request.owner.value ||
         payload.payeePubkey != request.senderPubkey) {
       throw ArgumentError('Payment ack participants do not match');
+    }
+  }
+
+  void _validateSession(
+    CallPaymentSession session,
+    CallPaymentAckRequest request,
+  ) {
+    final payload = request.payload;
+    if (session.role != CallPaymentRole.payer ||
+        session.direction != CallPaymentCallDirection.outgoing ||
+        session.peerPubkey != request.senderPubkey ||
+        session.callType != payload.callType ||
+        session.mintUrl != payload.mintUrl) {
+      throw StateError('Payment ack does not match payer session');
+    }
+  }
+
+  void _validateInstallment(
+    CallPaymentInstallment installment,
+    CallPaymentEventPayload payload,
+  ) {
+    if (installment.paymentSessionId != payload.paymentSessionId ||
+        installment.amountSats != payload.amountSats ||
+        installment.mintUrl != payload.mintUrl ||
+        installment.tokenHash != payload.tokenHash ||
+        installment.coversFromSecond != payload.coversFromSecond ||
+        installment.coversToSecond != payload.coversToSecond) {
+      throw ArgumentError('Payment ack does not match sent installment');
+    }
+    switch (installment.status) {
+      case CallPaymentInstallmentStatus.prepared:
+      case CallPaymentInstallmentStatus.sent:
+      case CallPaymentInstallmentStatus.claimed:
+      case CallPaymentInstallmentStatus.reclaimable:
+      case CallPaymentInstallmentStatus.unknown:
+        return;
+      case _:
+        throw StateError('Payment installment cannot accept ack');
     }
   }
 

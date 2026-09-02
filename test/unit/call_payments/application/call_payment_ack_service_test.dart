@@ -38,6 +38,53 @@ void main() {
     );
   });
 
+  test('rejects ack payloads that do not match the sent installment', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(_session());
+    await installmentRepository.save(_installment());
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+    );
+
+    await expectLater(
+      service.apply(_request(payload: _payload(tokenHash: 'other-hash'))),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    final installment = await installmentRepository.find(
+      owner: _owner,
+      callId: 'call-1',
+      sequence: 1,
+      purpose: CallPaymentPurpose.initial,
+      direction: CallPaymentTransferDirection.sent,
+    );
+    expect(installment?.status, CallPaymentInstallmentStatus.sent);
+  });
+
+  test('keeps first claimed timestamp when ack is duplicated', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final claimedAt = DateTime.utc(2026, 8, 14, 9, 59);
+    await sessionRepository.save(_session());
+    await installmentRepository.save(
+      _installment(
+        status: CallPaymentInstallmentStatus.claimed,
+        claimedAt: claimedAt,
+      ),
+    );
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+    );
+
+    final result = await service.apply(_request());
+
+    expect(result.installment.status, CallPaymentInstallmentStatus.claimed);
+    expect(result.installment.claimedAt, claimedAt);
+  });
+
   test('top-up ack keeps connected sessions connected', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
@@ -114,6 +161,7 @@ CallPaymentEventPayload _payload({
   CallPaymentPurpose purpose = CallPaymentPurpose.initial,
   int coversFromSecond = 0,
   int coversToSecond = 60,
+  String tokenHash = 'hash-1',
 }) {
   return CallPaymentEventPayload(
     type: CallPaymentEventType.ack,
@@ -129,7 +177,7 @@ CallPaymentEventPayload _payload({
     billingPeriodSeconds: 60,
     coversFromSecond: coversFromSecond,
     coversToSecond: coversToSecond,
-    tokenHash: 'hash-1',
+    tokenHash: tokenHash,
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
   );
@@ -165,6 +213,8 @@ CallPaymentInstallment _installment({
   CallPaymentPurpose purpose = CallPaymentPurpose.initial,
   int coversFromSecond = 0,
   int coversToSecond = 60,
+  CallPaymentInstallmentStatus status = CallPaymentInstallmentStatus.sent,
+  DateTime? claimedAt,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
@@ -178,10 +228,11 @@ CallPaymentInstallment _installment({
     mintUrl: _mintUrl,
     walletOperationId: 'send-op-1',
     tokenHash: 'hash-1',
-    status: CallPaymentInstallmentStatus.sent,
+    status: status,
     coversFromSecond: coversFromSecond,
     coversToSecond: coversToSecond,
     createdAt: now,
+    claimedAt: claimedAt,
     updatedAt: now,
     errorCode: 'old_error',
   );
