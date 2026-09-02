@@ -156,6 +156,10 @@ final class CallPaymentCoordinator
       )) {
         return CallPaymentSessionStatus.refundPending;
       }
+      if (session.role == CallPaymentRole.payer &&
+          await _hasRecoverableSentPayment(session)) {
+        return CallPaymentSessionStatus.reclaimPending;
+      }
       return CallPaymentSessionStatus.completed;
     }
 
@@ -198,6 +202,26 @@ final class CallPaymentCoordinator
           installment.direction == expectedDirection &&
           installment.status == CallPaymentInstallmentStatus.claimed &&
           connectedDurationSeconds < installment.coversFromSecond,
+    );
+  }
+
+  Future<bool> _hasRecoverableSentPayment(CallPaymentSession session) async {
+    final installments = await _installmentRepository.listForCall(
+      owner: session.owner,
+      callId: session.callId,
+    );
+    return installments.any(
+      (installment) =>
+          installment.purpose != CallPaymentPurpose.refund &&
+          installment.direction == CallPaymentTransferDirection.sent &&
+          installment.walletOperationId != null &&
+          switch (installment.status) {
+            CallPaymentInstallmentStatus.prepared ||
+            CallPaymentInstallmentStatus.sent ||
+            CallPaymentInstallmentStatus.reclaimable ||
+            CallPaymentInstallmentStatus.unknown => true,
+            _ => false,
+          },
     );
   }
 

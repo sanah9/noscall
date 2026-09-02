@@ -246,6 +246,45 @@ void main() {
   });
 
   test(
+    'moves payer to reclaim pending when sent top-up is unclaimed at end',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          status: CallPaymentSessionStatus.connected,
+          connectedAt: DateTime.utc(2026, 8, 14, 10),
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          status: CallPaymentInstallmentStatus.sent,
+          purpose: CallPaymentPurpose.topUp,
+          coversFromSecond: 60,
+          coversToSecond: 120,
+        ),
+      );
+      final coordinator = _coordinator(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        times: [DateTime.utc(2026, 8, 14, 10, 0, 55)],
+      );
+
+      await coordinator.onEnded(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        role: CallingRole.caller,
+        reason: CallEndReason.disconnect,
+        hasConnected: true,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(session?.status, CallPaymentSessionStatus.reclaimPending);
+      expect(session?.connectedDurationSeconds, 55);
+    },
+  );
+
+  test(
     'refunds unused claimed incoming top-up when connected call ends early',
     () async {
       final sessionRepository = _SessionRepository();
