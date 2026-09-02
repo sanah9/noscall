@@ -69,6 +69,35 @@ void main() {
   });
 
   test(
+    'waits briefly for a matching paid session before allowing offer',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final sender = _RequiredSender();
+      final saveSession = Future<void>.delayed(
+        const Duration(milliseconds: 5),
+        () => sessionRepository.save(_session(chargedSats: 10)),
+      );
+      final gate = _gate(
+        policyRepository: _PolicyRepository()..policy = _policy(),
+        sessionRepository: sessionRepository,
+        sendPaymentRequired: sender.send,
+        paymentWaitWindow: const Duration(milliseconds: 100),
+        paymentPollInterval: const Duration(milliseconds: 1),
+      );
+
+      final decision = await gate.evaluate(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        callType: CallPaymentCallType.audio,
+      );
+      await saveSession;
+
+      expect(decision.allowed, isTrue);
+      expect(sender.payloads, isEmpty);
+    },
+  );
+
+  test(
     'allows paid incoming offer after initial payment is recorded',
     () async {
       final sessionRepository = _SessionRepository()
@@ -161,6 +190,8 @@ CallPaymentIncomingOfferGate _gate({
   required _SessionRepository sessionRepository,
   bool Function(String peerPubkey)? peerIsContact,
   CallPaymentRequiredSender? sendPaymentRequired,
+  Duration paymentWaitWindow = Duration.zero,
+  Duration paymentPollInterval = const Duration(milliseconds: 1),
 }) {
   return CallPaymentIncomingOfferGate(
     owner: _owner,
@@ -168,6 +199,8 @@ CallPaymentIncomingOfferGate _gate({
     sessionRepository: sessionRepository,
     peerIsContact: peerIsContact ?? (_) => false,
     sendPaymentRequired: sendPaymentRequired,
+    paymentWaitWindow: paymentWaitWindow,
+    paymentPollInterval: paymentPollInterval,
     clock: () => DateTime.utc(2026, 8, 14, 10),
   );
 }

@@ -36,6 +36,8 @@ final class CallPaymentIncomingOfferGate {
     CallPaymentRequiredSender? sendPaymentRequired,
     CallPaymentPricingService pricingService =
         const CallPaymentPricingService(),
+    Duration paymentWaitWindow = const Duration(seconds: 2),
+    Duration paymentPollInterval = const Duration(milliseconds: 250),
     CallPaymentClock? clock,
   }) : _owner = owner,
        _policyRepository = policyRepository,
@@ -43,6 +45,8 @@ final class CallPaymentIncomingOfferGate {
        _peerIsContact = peerIsContact,
        _sendPaymentRequired = sendPaymentRequired,
        _pricingService = pricingService,
+       _paymentWaitWindow = paymentWaitWindow,
+       _paymentPollInterval = paymentPollInterval,
        _clock = clock ?? DateTime.now;
 
   final CashuAccountId _owner;
@@ -51,6 +55,8 @@ final class CallPaymentIncomingOfferGate {
   final CallPaymentContactChecker _peerIsContact;
   final CallPaymentRequiredSender? _sendPaymentRequired;
   final CallPaymentPricingService _pricingService;
+  final Duration _paymentWaitWindow;
+  final Duration _paymentPollInterval;
   final CallPaymentClock _clock;
 
   Future<CallPaymentIncomingOfferDecision> evaluate({
@@ -69,20 +75,9 @@ final class CallPaymentIncomingOfferGate {
     );
     if (quote.isFree) return const CallPaymentIncomingOfferDecision.allow();
 
-    final session = await _sessionRepository.find(_owner, callId);
-    if (session == null) {
-      await _sendRequiredIfConfigured(
-        callId: callId,
-        peerPubkey: peerPubkey,
-        callType: callType,
-        policy: policy,
-        quote: quote,
-      );
-      return const CallPaymentIncomingOfferDecision.reject(
-        'payment_required_upgrade',
-      );
-    }
-    if (_isValidPaidIncomingSession(session, peerPubkey, callType, quote)) {
+    final session = await _waitForIncomingPaymentSession(callId);
+    if (session != null &&
+        _isValidPaidIncomingSession(session, peerPubkey, callType, quote)) {
       return const CallPaymentIncomingOfferDecision.allow();
     }
     await _sendRequiredIfConfigured(
@@ -95,6 +90,23 @@ final class CallPaymentIncomingOfferGate {
     return const CallPaymentIncomingOfferDecision.reject(
       'payment_required_upgrade',
     );
+  }
+
+  Future<CallPaymentSession?> _waitForIncomingPaymentSession(
+    String callId,
+  ) async {
+    final existing = await _sessionRepository.find(_owner, callId);
+    if (existing != null || _paymentWaitWindow <= Duration.zero) {
+      return existing;
+    }
+
+    final deadline = DateTime.now().add(_paymentWaitWindow);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(_paymentPollInterval);
+      final session = await _sessionRepository.find(_owner, callId);
+      if (session != null) return session;
+    }
+    return _sessionRepository.find(_owner, callId);
   }
 
   Future<void> _sendRequiredIfConfigured({
