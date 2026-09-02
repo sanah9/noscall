@@ -115,6 +115,116 @@ void main() {
       expect(recoverer.checkedOperationIds, isEmpty);
     },
   );
+
+  test(
+    'expires stale incoming ringing sessions with claimed received payment',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          direction: CallPaymentCallDirection.incoming,
+          role: CallPaymentRole.payee,
+          status: CallPaymentSessionStatus.ringing,
+          updatedAt: DateTime.utc(2026, 8, 14, 9, 58, 59),
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          direction: CallPaymentTransferDirection.received,
+          status: CallPaymentInstallmentStatus.claimed,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        recoverer: _Recoverer(state: CashuSendState.recoverable),
+      );
+
+      final expiredSessions = await service.expireStaleIncomingRingingSessions(
+        _owner,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(expiredSessions, hasLength(1));
+      expect(expiredSessions.single.callId, 'call-1');
+      expect(session?.status, CallPaymentSessionStatus.refundPending);
+      expect(session?.endedAt, DateTime.utc(2026, 8, 14, 10));
+      expect(session?.updatedAt, DateTime.utc(2026, 8, 14, 10));
+    },
+  );
+
+  test(
+    'keeps fresh incoming ringing sessions with claimed received payment',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          direction: CallPaymentCallDirection.incoming,
+          role: CallPaymentRole.payee,
+          status: CallPaymentSessionStatus.ringing,
+          updatedAt: DateTime.utc(2026, 8, 14, 9, 59, 1),
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          direction: CallPaymentTransferDirection.received,
+          status: CallPaymentInstallmentStatus.claimed,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        recoverer: _Recoverer(state: CashuSendState.recoverable),
+      );
+
+      final expiredSessions = await service.expireStaleIncomingRingingSessions(
+        _owner,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(expiredSessions, isEmpty);
+      expect(session?.status, CallPaymentSessionStatus.ringing);
+      expect(session?.endedAt, isNull);
+    },
+  );
+
+  test(
+    'keeps stale incoming ringing sessions without claimed payment',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          direction: CallPaymentCallDirection.incoming,
+          role: CallPaymentRole.payee,
+          status: CallPaymentSessionStatus.ringing,
+          updatedAt: DateTime.utc(2026, 8, 14, 9, 58, 59),
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          direction: CallPaymentTransferDirection.received,
+          status: CallPaymentInstallmentStatus.received,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        recoverer: _Recoverer(state: CashuSendState.recoverable),
+      );
+
+      final expiredSessions = await service.expireStaleIncomingRingingSessions(
+        _owner,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(expiredSessions, isEmpty);
+      expect(session?.status, CallPaymentSessionStatus.ringing);
+      expect(session?.endedAt, isNull);
+    },
+  );
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
@@ -137,14 +247,17 @@ CallPaymentRecoveryService _service({
 
 CallPaymentSession _session({
   CallPaymentSessionStatus status = CallPaymentSessionStatus.reclaimPending,
+  CallPaymentCallDirection direction = CallPaymentCallDirection.outgoing,
+  CallPaymentRole role = CallPaymentRole.payer,
+  DateTime? updatedAt,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentSession(
     owner: _owner,
     callId: 'call-1',
     peerPubkey: _peerPubkey,
-    direction: CallPaymentCallDirection.outgoing,
-    role: CallPaymentRole.payer,
+    direction: direction,
+    role: role,
     callType: CallPaymentCallType.audio,
     status: status,
     mintUrl: _mintUrl,
@@ -155,11 +268,14 @@ CallPaymentSession _session({
     chargedSats: 10,
     refundedSats: 0,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: updatedAt ?? now,
   );
 }
 
-CallPaymentInstallment _installment() {
+CallPaymentInstallment _installment({
+  CallPaymentTransferDirection direction = CallPaymentTransferDirection.sent,
+  CallPaymentInstallmentStatus status = CallPaymentInstallmentStatus.sent,
+}) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
     owner: _owner,
@@ -167,11 +283,11 @@ CallPaymentInstallment _installment() {
     paymentSessionId: 'payment-session-1',
     sequence: 1,
     purpose: CallPaymentPurpose.initial,
-    direction: CallPaymentTransferDirection.sent,
+    direction: direction,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'op-1',
-    status: CallPaymentInstallmentStatus.sent,
+    status: status,
     coversFromSecond: 0,
     coversToSecond: 60,
     createdAt: now,

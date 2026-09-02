@@ -23,12 +23,16 @@ final class CallPaymentRecoveryReport {
     required this.reclaimedInstallments,
     required this.claimedInstallments,
     required this.unknownInstallments,
+    this.expiredIncomingSessions = 0,
+    this.sentRefundInstallments = 0,
   });
 
   final int scannedSessions;
   final int reclaimedInstallments;
   final int claimedInstallments;
   final int unknownInstallments;
+  final int expiredIncomingSessions;
+  final int sentRefundInstallments;
 }
 
 final class CallPaymentRecoveryService {
@@ -72,9 +76,53 @@ final class CallPaymentRecoveryService {
     );
   }
 
+  Future<List<CallPaymentSession>> expireStaleIncomingRingingSessions(
+    CashuAccountId owner,
+  ) async {
+    final now = _clock();
+    final expiredSessions = <CallPaymentSession>[];
+    final sessions = await _sessionRepository.list(owner);
+    for (final session in sessions) {
+      if (!_shouldExpireIncomingRingingSession(session, now)) continue;
+      final installments = await _installmentRepository.listForCall(
+        owner: session.owner,
+        callId: session.callId,
+      );
+      final hasClaimedIncomingPayment = installments.any(
+        (installment) =>
+            installment.direction == CallPaymentTransferDirection.received &&
+            installment.status == CallPaymentInstallmentStatus.claimed,
+      );
+      if (!hasClaimedIncomingPayment) continue;
+
+      final expiredSession = session.copyWith(
+        status: CallPaymentSessionStatus.refundPending,
+        endedAt: now,
+        updatedAt: now,
+      );
+      await _sessionRepository.save(expiredSession);
+      expiredSessions.add(expiredSession);
+    }
+    return List.unmodifiable(expiredSessions);
+  }
+
   bool _shouldRecover(CallPaymentSession session) {
     return session.role == CallPaymentRole.payer &&
         session.status == CallPaymentSessionStatus.reclaimPending;
+  }
+
+  bool _shouldExpireIncomingRingingSession(
+    CallPaymentSession session,
+    DateTime now,
+  ) {
+    if (session.role != CallPaymentRole.payee ||
+        session.direction != CallPaymentCallDirection.incoming ||
+        session.status != CallPaymentSessionStatus.ringing ||
+        session.connectedAt != null) {
+      return false;
+    }
+    return now.difference(session.updatedAt).inSeconds >=
+        session.billingPeriodSeconds;
   }
 
   Future<CallPaymentRecoveryReport> _recoverSession(

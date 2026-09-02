@@ -407,9 +407,9 @@ final class _CallPaymentSettingsPageState
   }
 
   String _recoveryMessage(CallPaymentRecoveryReport report) {
-    if (report.scannedSessions == 0) {
+    if (report.scannedSessions == 0 && report.expiredIncomingSessions == 0) {
       return 'No pending paid call payments.';
     }
-    return 'Payment recovery complete: ${report.reclaimedInstallments} reclaimed, ${report.claimedInstallments} refund pending, ${report.unknownInstallments} unknown.';
+    return 'Payment recovery complete: ${report.reclaimedInstallments} reclaimed, ${report.claimedInstallments} refund pending, ${report.unknownInstallments} unknown, ${report.sentRefundInstallments} refunds sent.';
   }
 }

@@ -2,6 +2,8 @@ import 'package:noscall/call_payments/application/call_payment_recovery_service.
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/application/call_payment_coordinator.dart';
 import 'package:noscall/call_payments/application/call_payment_incoming_offer_gate.dart';
+import 'package:noscall/call_payments/application/call_payment_outgoing_refund_service.dart';
+import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_gateway.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_nostr_policy_query.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
@@ -98,7 +100,39 @@ final class MobileCallPaymentRuntimeFactory {
   static Future<CallPaymentRecoveryReport> recoverPendingPayments() async {
     final runtime = await create();
     try {
-      return await runtime.recoveryService.recover(runtime.owner);
+      final report = await runtime.recoveryService.recover(runtime.owner);
+      final expiredSessions = await runtime.recoveryService
+          .expireStaleIncomingRingingSessions(runtime.owner);
+      var sentRefundInstallments = 0;
+      for (final session in expiredSessions) {
+        try {
+          final result = await runtime.outgoingRefundService.prepareAndSend(
+            CallPaymentOutgoingRefundRequest(
+              owner: runtime.owner,
+              callId: session.callId,
+            ),
+          );
+          sentRefundInstallments += result.installments
+              .where(
+                (installment) =>
+                    installment.status == CallPaymentInstallmentStatus.sent,
+              )
+              .length;
+        } catch (e, stack) {
+          LogUtils.e(
+            () =>
+                'Failed to refund stale incoming paid call: callId=${session.callId}, error=$e, stack=$stack',
+          );
+        }
+      }
+      return CallPaymentRecoveryReport(
+        scannedSessions: report.scannedSessions,
+        reclaimedInstallments: report.reclaimedInstallments,
+        claimedInstallments: report.claimedInstallments,
+        unknownInstallments: report.unknownInstallments,
+        expiredIncomingSessions: expiredSessions.length,
+        sentRefundInstallments: sentRefundInstallments,
+      );
     } finally {
       await runtime.dispose();
     }
