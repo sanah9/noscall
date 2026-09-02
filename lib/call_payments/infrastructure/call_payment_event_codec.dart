@@ -108,7 +108,7 @@ final class CallPaymentEventCodec {
     if (version != CallPaymentEventPayload.currentVersion) {
       throw FormatException('Unsupported payment event version: $version');
     }
-    return CallPaymentEventPayload(
+    final payload = CallPaymentEventPayload(
       type: CallPaymentEventType.fromValue(map['type']),
       callId: _readString(map, 'callId'),
       paymentSessionId: _readString(map, 'paymentSessionId'),
@@ -127,6 +127,8 @@ final class CallPaymentEventCodec {
       expiresAt: DateTime.parse(_readString(map, 'expiresAt')).toUtc(),
       token: map['token'] == null ? null : _readString(map, 'token'),
     );
+    _validate(payload);
+    return payload;
   }
 
   void _validate(CallPaymentEventPayload payload) {
@@ -136,13 +138,27 @@ final class CallPaymentEventCodec {
     if (payload.sequence <= 0) {
       throw ArgumentError('Payment event sequence must be positive');
     }
-    if (payload.amountSats < 0) {
-      throw ArgumentError('Payment event amount cannot be negative');
+    if (payload.amountSats <= 0) {
+      throw ArgumentError('Payment event amount must be positive');
     }
     if (payload.billingPeriodSeconds <= 0 ||
         payload.coversFromSecond < 0 ||
-        payload.coversToSecond < payload.coversFromSecond) {
+        payload.coversToSecond <= payload.coversFromSecond) {
       throw ArgumentError('Payment event coverage is invalid');
+    }
+    switch (payload.type) {
+      case CallPaymentEventType.transfer:
+      case CallPaymentEventType.refund:
+        if (payload.token == null || payload.token!.isEmpty) {
+          throw ArgumentError('Payment transfer events require a token');
+        }
+      case CallPaymentEventType.ack:
+      case CallPaymentEventType.required:
+        if (payload.token != null) {
+          throw ArgumentError(
+            'Payment control events must not include a token',
+          );
+        }
     }
   }
 

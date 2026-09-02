@@ -59,6 +59,41 @@ void main() {
       ),
       throwsA(isA<ArgumentError>()),
     );
+    expect(
+      () => codec.encodeMap(
+        _payload(
+          type: CallPaymentEventType.transfer,
+          token: 'cashuAey...',
+          coversFromSecond: 60,
+          coversToSecond: 60,
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
+  test('rejects invalid decoded payloads', () {
+    final map = codec.encodeMap(
+      _payload(type: CallPaymentEventType.transfer, token: 'cashuAey...'),
+    );
+
+    expect(
+      () => codec.decodeMap({...map, 'amountSats': 0}),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
+  test('validates token presence by payment event type', () {
+    expect(
+      () => codec.encodeMap(_payload(type: CallPaymentEventType.transfer)),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => codec.encodeMap(
+        _payload(type: CallPaymentEventType.ack, token: 'cashuAey...'),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
   });
 }
 
