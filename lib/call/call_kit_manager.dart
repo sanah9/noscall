@@ -215,10 +215,10 @@ class CallKitManager with WidgetsBindingObserver {
     try {
       final report =
           await MobileCallPaymentRuntimeFactory.recoverPendingPayments();
-      if (report.scannedSessions > 0) {
+      if (report.scannedSessions > 0 || report.expiredIncomingSessions > 0) {
         LogUtils.i(
           () =>
-              'Recovered call payments: sessions=${report.scannedSessions}, reclaimed=${report.reclaimedInstallments}, claimed=${report.claimedInstallments}, unknown=${report.unknownInstallments}',
+              'Recovered call payments: sessions=${report.scannedSessions}, reclaimed=${report.reclaimedInstallments}, claimed=${report.claimedInstallments}, unknown=${report.unknownInstallments}, expiredIncoming=${report.expiredIncomingSessions}, refundsSent=${report.sentRefundInstallments}',
         );
       }
     } catch (e, stack) {
