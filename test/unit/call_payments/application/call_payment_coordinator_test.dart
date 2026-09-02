@@ -45,11 +45,19 @@ void main() {
         topUpRequests.add(request);
         return CallPaymentTopUpResult(
           session: (await sessionRepository.find(_owner, request.callId))!,
-          installment: _installment(status: CallPaymentInstallmentStatus.sent),
+          installment: _installment(
+            status: CallPaymentInstallmentStatus.sent,
+            purpose: CallPaymentPurpose.topUp,
+            coversFromSecond: 60,
+            coversToSecond: 120,
+          ),
           okEvent: OKEvent('top-up', true, 'ok'),
         );
       },
-      times: [DateTime.utc(2026, 8, 14, 10)],
+      times: [
+        DateTime.utc(2026, 8, 14, 10),
+        DateTime.utc(2026, 8, 14, 10, 0, 50),
+      ],
     );
 
     await coordinator.onConnected(
@@ -65,7 +73,7 @@ void main() {
     expect(topUpRequests.single.owner, _owner);
     expect(scheduler.delays, [
       const Duration(seconds: 50),
-      const Duration(seconds: 50),
+      const Duration(seconds: 60),
     ]);
   });
 

@@ -236,16 +236,33 @@ final class CallPaymentCoordinator
     );
   }
 
-  void _scheduleTopUp(CallPaymentSession session) {
+  void _scheduleTopUp(CallPaymentSession session, {int? paidCoverageToSecond}) {
     if (_prepareTopUp == null || session.role != CallPaymentRole.payer) return;
     _cancelTopUp();
-    final delaySeconds = math.max(
-      0,
-      session.billingPeriodSeconds - _topUpLeadSeconds,
+    final delaySeconds = _topUpDelaySeconds(
+      session,
+      paidCoverageToSecond: paidCoverageToSecond,
     );
     _topUpHandle = _scheduler.schedule(
       Duration(seconds: delaySeconds),
       () => _runTopUp(session.callId),
+    );
+  }
+
+  int _topUpDelaySeconds(
+    CallPaymentSession session, {
+    required int? paidCoverageToSecond,
+  }) {
+    if (paidCoverageToSecond == null || session.connectedAt == null) {
+      return math.max(0, session.billingPeriodSeconds - _topUpLeadSeconds);
+    }
+    final connectedDurationSeconds = _connectedDurationSeconds(
+      session,
+      _clock(),
+    );
+    return math.max(
+      0,
+      paidCoverageToSecond - _topUpLeadSeconds - connectedDurationSeconds,
     );
   }
 
@@ -258,7 +275,10 @@ final class CallPaymentCoordinator
       );
       _topUpHandle = null;
       if (result.session.status == CallPaymentSessionStatus.connected) {
-        _scheduleTopUp(result.session);
+        _scheduleTopUp(
+          result.session,
+          paidCoverageToSecond: result.installment.coversToSecond,
+        );
       } else {
         _schedulePaymentStop(callId);
       }
