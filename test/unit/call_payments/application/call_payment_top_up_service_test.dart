@@ -103,6 +103,33 @@ void main() {
       throwsA(isA<StateError>()),
     );
   });
+
+  test('rejects top-up unless payer session is connected', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(
+      _session(status: CallPaymentSessionStatus.completed),
+    );
+    await installmentRepository.save(_installment());
+    final tokenSender = _TokenSender(token: 'cashuAey-stale');
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      tokenSender: tokenSender,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.prepareAndSend(_request()),
+      throwsA(isA<StateError>()),
+    );
+    final savedSession = await sessionRepository.find(_owner, 'call-1');
+    expect(savedSession?.status, CallPaymentSessionStatus.completed);
+    expect(savedSession?.chargedSats, 10);
+    expect(tokenSender.prepareSendCalls, 0);
+    expect(gateway.payloads, isEmpty);
+  });
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
@@ -135,7 +162,10 @@ CallPaymentTopUpRequest _request() {
   return CallPaymentTopUpRequest(owner: _owner, callId: 'call-1');
 }
 
-CallPaymentSession _session({int maxSpendSats = 100}) {
+CallPaymentSession _session({
+  int maxSpendSats = 100,
+  CallPaymentSessionStatus status = CallPaymentSessionStatus.connected,
+}) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentSession(
     owner: _owner,
@@ -144,7 +174,7 @@ CallPaymentSession _session({int maxSpendSats = 100}) {
     direction: CallPaymentCallDirection.outgoing,
     role: CallPaymentRole.payer,
     callType: CallPaymentCallType.audio,
-    status: CallPaymentSessionStatus.connected,
+    status: status,
     mintUrl: _mintUrl,
     priceSatsPerMinute: 10,
     billingPeriodSeconds: 60,
@@ -183,6 +213,7 @@ final class _TokenSender implements CallPaymentTokenSender {
   _TokenSender({required this.token});
 
   final String token;
+  var prepareSendCalls = 0;
 
   @override
   Future<CashuPreparedSend> prepareSend({
@@ -190,6 +221,7 @@ final class _TokenSender implements CallPaymentTokenSender {
     required CashuAmount amount,
     String? memo,
   }) async {
+    prepareSendCalls += 1;
     return CashuPreparedSend(operationId: 'op-1', token: token, amount: amount);
   }
 }

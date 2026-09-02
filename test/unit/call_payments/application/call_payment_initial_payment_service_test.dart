@@ -85,6 +85,51 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
+
+  test('rejects duplicate initial payment before preparing tokens', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(_session());
+    final tokenSender = _TokenSender(token: 'cashuAey-duplicate');
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      tokenSender: tokenSender,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.prepareAndSend(_request()),
+      throwsA(isA<StateError>()),
+    );
+    expect(tokenSender.prepareSendCalls, 0);
+    expect(gateway.payloads, isEmpty);
+  });
+
+  test(
+    'rejects orphan duplicate initial installment before preparing tokens',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await installmentRepository.save(_installment());
+      final tokenSender = _TokenSender(token: 'cashuAey-duplicate');
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        tokenSender: tokenSender,
+        gateway: gateway,
+      );
+
+      await expectLater(
+        service.prepareAndSend(_request()),
+        throwsA(isA<StateError>()),
+      );
+      expect(tokenSender.prepareSendCalls, 0);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
@@ -125,10 +170,54 @@ CallPaymentInitialPaymentRequest _request({int maxSpendSats = 100}) {
   );
 }
 
+CallPaymentSession _session() {
+  final now = DateTime.utc(2026, 8, 14, 9);
+  return CallPaymentSession(
+    owner: _owner,
+    callId: 'call-1',
+    peerPubkey: 'b' * 64,
+    direction: CallPaymentCallDirection.outgoing,
+    role: CallPaymentRole.payer,
+    callType: CallPaymentCallType.audio,
+    status: CallPaymentSessionStatus.initialPaymentSent,
+    mintUrl: _mintUrl,
+    priceSatsPerMinute: 10,
+    billingPeriodSeconds: 60,
+    maxSpendSats: 100,
+    connectedDurationSeconds: 0,
+    chargedSats: 10,
+    refundedSats: 0,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+CallPaymentInstallment _installment() {
+  final now = DateTime.utc(2026, 8, 14, 9);
+  return CallPaymentInstallment(
+    owner: _owner,
+    callId: 'call-1',
+    paymentSessionId: 'call-1:payer',
+    sequence: 1,
+    purpose: CallPaymentPurpose.initial,
+    direction: CallPaymentTransferDirection.sent,
+    amountSats: 10,
+    mintUrl: _mintUrl,
+    walletOperationId: 'op-existing',
+    tokenHash: 'hash-existing',
+    status: CallPaymentInstallmentStatus.sent,
+    coversFromSecond: 0,
+    coversToSecond: 60,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
 final class _TokenSender implements CallPaymentTokenSender {
   _TokenSender({required this.token});
 
   final String token;
+  var prepareSendCalls = 0;
 
   @override
   Future<CashuPreparedSend> prepareSend({
@@ -136,6 +225,7 @@ final class _TokenSender implements CallPaymentTokenSender {
     required CashuAmount amount,
     String? memo,
   }) async {
+    prepareSendCalls += 1;
     return CashuPreparedSend(operationId: 'op-1', token: token, amount: amount);
   }
 }

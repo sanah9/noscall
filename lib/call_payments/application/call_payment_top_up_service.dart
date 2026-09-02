@@ -62,6 +62,9 @@ final class CallPaymentTopUpService {
     if (session.role != CallPaymentRole.payer) {
       throw StateError('Only payer sessions can send top-up payments');
     }
+    if (session.status != CallPaymentSessionStatus.connected) {
+      throw StateError('Only connected payment sessions can send top-ups');
+    }
 
     final amountSats = _periodAmountSats(session);
     if (session.chargedSats + amountSats > session.maxSpendSats) {

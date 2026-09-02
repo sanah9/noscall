@@ -83,6 +83,24 @@ final class CallPaymentInitialPaymentService {
     CallPaymentInitialPaymentRequest request,
   ) async {
     _validateRequest(request);
+    final existingSession = await _sessionRepository.find(
+      request.owner,
+      request.callId,
+    );
+    if (existingSession != null) {
+      throw StateError('Initial payment already exists for call');
+    }
+    final existingInitialInstallment = await _installmentRepository.find(
+      owner: request.owner,
+      callId: request.callId,
+      sequence: 1,
+      purpose: CallPaymentPurpose.initial,
+      direction: CallPaymentTransferDirection.sent,
+    );
+    if (existingInitialInstallment != null) {
+      throw StateError('Initial payment installment already exists for call');
+    }
+
     final now = _clock();
     final paymentSessionId = '${request.callId}:payer';
     final session = CallPaymentSession(
