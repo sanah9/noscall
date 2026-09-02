@@ -216,6 +216,7 @@ final class CallPaymentIncomingTransferService {
     CallPaymentIncomingTransferRequest request,
     CallPaymentInstallment installment,
   ) async {
+    _validateExistingTransfer(installment, request.payload);
     final session = await _sessionRepository.find(
       request.owner,
       request.payload.callId,
@@ -237,6 +238,20 @@ final class CallPaymentIncomingTransferService {
       installment: updatedInstallment,
       ackEvent: ackEvent,
     );
+  }
+
+  void _validateExistingTransfer(
+    CallPaymentInstallment installment,
+    CallPaymentEventPayload payload,
+  ) {
+    if (installment.paymentSessionId != payload.paymentSessionId ||
+        installment.amountSats != payload.amountSats ||
+        installment.mintUrl != payload.mintUrl ||
+        installment.tokenHash != payload.tokenHash ||
+        installment.coversFromSecond != payload.coversFromSecond ||
+        installment.coversToSecond != payload.coversToSecond) {
+      throw ArgumentError('Duplicate payment transfer does not match');
+    }
   }
 
   Future<OKEvent> _sendAck(CallPaymentIncomingTransferRequest request) {

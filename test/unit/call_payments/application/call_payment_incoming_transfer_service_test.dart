@@ -150,6 +150,34 @@ void main() {
     },
   );
 
+  test(
+    'rejects duplicate transfer payloads that do not match stored payment',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(_session());
+      await installmentRepository.save(_installment());
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        receiver: receiver,
+        gateway: gateway,
+      );
+
+      await expectLater(
+        service.receiveAndAck(
+          _request(payload: _payload(tokenHash: 'other-hash')),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
+
   test('rejects transfer payloads for another payee', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
@@ -292,6 +320,7 @@ CallPaymentEventPayload _payload({
   int coversFromSecond = 0,
   int coversToSecond = 60,
   String token = 'cashuAey-transfer',
+  String tokenHash = 'hash-1',
 }) {
   return CallPaymentEventPayload(
     type: CallPaymentEventType.transfer,
@@ -307,7 +336,7 @@ CallPaymentEventPayload _payload({
     billingPeriodSeconds: 60,
     coversFromSecond: coversFromSecond,
     coversToSecond: coversToSecond,
-    tokenHash: 'hash-1',
+    tokenHash: tokenHash,
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
     token: token,
