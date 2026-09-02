@@ -242,22 +242,11 @@ class CallKitManager with WidgetsBindingObserver {
       );
       if (!decision.allowed) {
         final reason = decision.rejectReason ?? 'payment_required_upgrade';
-        LogUtils.i(
-          () =>
-              'Reject incoming paid call offer: callId=${signaling.callId}, peer=${event.pubkey}, reason=$reason',
+        await _rejectIncomingCallPaymentOffer(
+          callId: signaling.callId,
+          peerPubkey: event.pubkey,
+          reason: reason,
         );
-        try {
-          await chat_core.Contacts.sharedInstance.sendReject(
-            signaling.callId,
-            event.pubkey,
-            reason,
-          );
-        } catch (e, stack) {
-          LogUtils.e(
-            () =>
-                'Failed to send paid call reject: callId=${signaling.callId}, peer=${event.pubkey}, reason=$reason, error=$e, stack=$stack',
-          );
-        }
       }
       return decision.allowed;
     } catch (e, stack) {
@@ -265,7 +254,35 @@ class CallKitManager with WidgetsBindingObserver {
         () =>
             'Failed to evaluate incoming call payment offer: callId=${signaling.callId}, peer=${event.pubkey}, error=$e, stack=$stack',
       );
-      return true;
+      await _rejectIncomingCallPaymentOffer(
+        callId: signaling.callId,
+        peerPubkey: event.pubkey,
+        reason: 'payment_required_upgrade',
+      );
+      return false;
+    }
+  }
+
+  Future<void> _rejectIncomingCallPaymentOffer({
+    required String callId,
+    required String peerPubkey,
+    required String reason,
+  }) async {
+    LogUtils.i(
+      () =>
+          'Reject incoming paid call offer: callId=$callId, peer=$peerPubkey, reason=$reason',
+    );
+    try {
+      await chat_core.Contacts.sharedInstance.sendReject(
+        callId,
+        peerPubkey,
+        reason,
+      );
+    } catch (e, stack) {
+      LogUtils.e(
+        () =>
+            'Failed to send paid call reject: callId=$callId, peer=$peerPubkey, reason=$reason, error=$e, stack=$stack',
+      );
     }
   }
 
