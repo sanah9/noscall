@@ -110,15 +110,17 @@ final class CallPaymentCoordinator
 
     _cancelTopUp();
     final now = _clock();
+    final connectedDurationSeconds = _connectedDurationSeconds(session, now);
     final status = await _endedStatus(
       session: session,
       reason: reason,
       hasConnected: hasConnected,
+      connectedDurationSeconds: connectedDurationSeconds,
     );
     final updatedSession = session.copyWith(
       status: status,
       endedAt: now,
-      connectedDurationSeconds: _connectedDurationSeconds(session, now),
+      connectedDurationSeconds: connectedDurationSeconds,
       updatedAt: now,
     );
     await _sessionRepository.save(updatedSession);
@@ -145,8 +147,15 @@ final class CallPaymentCoordinator
     required CallPaymentSession session,
     required CallEndReason reason,
     required bool hasConnected,
+    required int connectedDurationSeconds,
   }) async {
     if (hasConnected || session.connectedAt != null) {
+      if (await _hasUnusedClaimedPayment(
+        session,
+        connectedDurationSeconds: connectedDurationSeconds,
+      )) {
+        return CallPaymentSessionStatus.refundPending;
+      }
       return CallPaymentSessionStatus.completed;
     }
 
@@ -170,6 +179,26 @@ final class CallPaymentCoordinator
       CallEndReason.timeout => CallPaymentSessionStatus.timeout,
       _ => CallPaymentSessionStatus.completed,
     };
+  }
+
+  Future<bool> _hasUnusedClaimedPayment(
+    CallPaymentSession session, {
+    required int connectedDurationSeconds,
+  }) async {
+    final expectedDirection = session.role == CallPaymentRole.payer
+        ? CallPaymentTransferDirection.sent
+        : CallPaymentTransferDirection.received;
+    final installments = await _installmentRepository.listForCall(
+      owner: session.owner,
+      callId: session.callId,
+    );
+    return installments.any(
+      (installment) =>
+          installment.purpose != CallPaymentPurpose.refund &&
+          installment.direction == expectedDirection &&
+          installment.status == CallPaymentInstallmentStatus.claimed &&
+          connectedDurationSeconds < installment.coversFromSecond,
+    );
   }
 
   int _connectedDurationSeconds(CallPaymentSession session, DateTime endedAt) {

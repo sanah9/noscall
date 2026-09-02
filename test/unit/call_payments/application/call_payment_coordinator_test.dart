@@ -209,6 +209,92 @@ void main() {
     expect(session?.connectedDurationSeconds, 68);
   });
 
+  test('moves payer to refund pending when claimed top-up is unused', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(
+      _session(
+        status: CallPaymentSessionStatus.connected,
+        connectedAt: DateTime.utc(2026, 8, 14, 10),
+      ),
+    );
+    await installmentRepository.save(
+      _installment(
+        status: CallPaymentInstallmentStatus.claimed,
+        purpose: CallPaymentPurpose.topUp,
+        coversFromSecond: 60,
+        coversToSecond: 120,
+      ),
+    );
+    final coordinator = _coordinator(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      times: [DateTime.utc(2026, 8, 14, 10, 0, 55)],
+    );
+
+    await coordinator.onEnded(
+      callId: 'call-1',
+      peerPubkey: _peerPubkey,
+      role: CallingRole.caller,
+      reason: CallEndReason.disconnect,
+      hasConnected: true,
+    );
+
+    final session = await sessionRepository.find(_owner, 'call-1');
+    expect(session?.status, CallPaymentSessionStatus.refundPending);
+    expect(session?.connectedDurationSeconds, 55);
+  });
+
+  test(
+    'refunds unused claimed incoming top-up when connected call ends early',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          status: CallPaymentSessionStatus.connected,
+          direction: CallPaymentCallDirection.incoming,
+          role: CallPaymentRole.payee,
+          connectedAt: DateTime.utc(2026, 8, 14, 10),
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          status: CallPaymentInstallmentStatus.claimed,
+          direction: CallPaymentTransferDirection.received,
+          purpose: CallPaymentPurpose.topUp,
+          coversFromSecond: 60,
+          coversToSecond: 120,
+        ),
+      );
+      final refundRequests = <CallPaymentOutgoingRefundRequest>[];
+      final coordinator = _coordinator(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        prepareRefund: (request) async {
+          refundRequests.add(request);
+          return CallPaymentOutgoingRefundResult(
+            session: (await sessionRepository.find(_owner, request.callId))!,
+            installments: const [],
+          );
+        },
+        times: [DateTime.utc(2026, 8, 14, 10, 0, 55)],
+      );
+
+      await coordinator.onEnded(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        role: CallingRole.callee,
+        reason: CallEndReason.disconnect,
+        hasConnected: true,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(session?.status, CallPaymentSessionStatus.refundPending);
+      expect(refundRequests.single.callId, 'call-1');
+    },
+  );
+
   test(
     'marks unclaimed outgoing payments reclaim pending before connect',
     () async {
@@ -382,6 +468,9 @@ CallPaymentSession _session({
 CallPaymentInstallment _installment({
   required CallPaymentInstallmentStatus status,
   CallPaymentTransferDirection direction = CallPaymentTransferDirection.sent,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
+  int coversFromSecond = 0,
+  int coversToSecond = 60,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
@@ -389,15 +478,15 @@ CallPaymentInstallment _installment({
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
     sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    purpose: purpose,
     direction: direction,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'send-op-1',
     tokenHash: 'hash-1',
     status: status,
-    coversFromSecond: 0,
-    coversToSecond: 60,
+    coversFromSecond: coversFromSecond,
+    coversToSecond: coversToSecond,
     createdAt: now,
     updatedAt: now,
   );
