@@ -204,7 +204,7 @@ class CallKitManager with WidgetsBindingObserver {
     } catch (e, stack) {
       LogUtils.e(
         () =>
-            'Failed to handle call payment event: kind=${event.kind}, id=${event.id}, relay=$relay, error=$e, stack=$stack',
+            'Failed to handle call payment event: kind=${event.kind}, id=${event.id}, relay=$relay, errorType=${e.runtimeType}, stack=$stack',
       );
     } finally {
       await runtime?.dispose();
@@ -223,7 +223,8 @@ class CallKitManager with WidgetsBindingObserver {
       }
     } catch (e, stack) {
       LogUtils.e(
-        () => 'Failed to recover pending call payments: error=$e, stack=$stack',
+        () =>
+            'Failed to recover pending call payments: errorType=${e.runtimeType}, stack=$stack',
       );
     }
   }
@@ -252,7 +253,7 @@ class CallKitManager with WidgetsBindingObserver {
     } catch (e, stack) {
       LogUtils.e(
         () =>
-            'Failed to evaluate incoming call payment offer: callId=${signaling.callId}, peer=${event.pubkey}, error=$e, stack=$stack',
+            'Failed to evaluate incoming call payment offer: callId=${signaling.callId}, peer=${event.pubkey}, errorType=${e.runtimeType}, stack=$stack',
       );
       await _rejectIncomingCallPaymentOffer(
         callId: signaling.callId,
@@ -281,7 +282,7 @@ class CallKitManager with WidgetsBindingObserver {
     } catch (e, stack) {
       LogUtils.e(
         () =>
-            'Failed to send paid call reject: callId=$callId, peer=$peerPubkey, reason=$reason, error=$e, stack=$stack',
+            'Failed to send paid call reject: callId=$callId, peer=$peerPubkey, reason=$reason, errorType=${e.runtimeType}, stack=$stack',
       );
     }
   }

@@ -29,7 +29,7 @@ final class MobileCallPaymentRuntimeFactory {
     } catch (e, stack) {
       LogUtils.e(
         () =>
-            'Call payment runtime is unavailable; paid call precheck cannot run: error=$e, stack=$stack',
+            'Call payment runtime is unavailable; paid call precheck cannot run: errorType=${e.runtimeType}, stack=$stack',
       );
       return null;
     }
@@ -121,7 +121,7 @@ final class MobileCallPaymentRuntimeFactory {
         } catch (e, stack) {
           LogUtils.e(
             () =>
-                'Failed to refund stale incoming paid call: callId=${session.callId}, error=$e, stack=$stack',
+                'Failed to refund stale incoming paid call: callId=${session.callId}, errorType=${e.runtimeType}, stack=$stack',
           );
         }
       }
