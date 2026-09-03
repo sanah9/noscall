@@ -127,6 +127,32 @@ void main() {
     },
   );
 
+  test('rejects initial transfers for inactive existing sessions', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final receiver = _TokenReceiver();
+    final gateway = _Gateway(okStatus: true);
+    await sessionRepository.save(
+      _session(status: CallPaymentSessionStatus.completed),
+    );
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.receiveAndAck(_request()),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(receiver.tokens, isEmpty);
+    expect(gateway.payloads, isEmpty);
+    final savedSession = await sessionRepository.find(_owner, 'call-1');
+    expect(savedSession?.status, CallPaymentSessionStatus.completed);
+  });
+
   test(
     'rejects transfer coverage that does not match billing period',
     () async {
@@ -482,7 +508,10 @@ CallPaymentEventPayload _payload({
   );
 }
 
-CallPaymentSession _session({DateTime? connectedAt}) {
+CallPaymentSession _session({
+  DateTime? connectedAt,
+  CallPaymentSessionStatus status = CallPaymentSessionStatus.connected,
+}) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentSession(
     owner: _owner,
@@ -491,7 +520,7 @@ CallPaymentSession _session({DateTime? connectedAt}) {
     direction: CallPaymentCallDirection.incoming,
     role: CallPaymentRole.payee,
     callType: CallPaymentCallType.audio,
-    status: CallPaymentSessionStatus.connected,
+    status: status,
     mintUrl: _mintUrl,
     priceSatsPerMinute: 10,
     billingPeriodSeconds: 60,

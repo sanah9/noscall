@@ -216,7 +216,12 @@ final class CallPaymentIncomingTransferService {
       request.owner,
       payload.callId,
     );
-    if (payload.purpose == CallPaymentPurpose.initial) return existing;
+    if (payload.purpose == CallPaymentPurpose.initial) {
+      if (existing != null) {
+        _validateExistingInitialSession(existing, request);
+      }
+      return existing;
+    }
     if (existing == null) {
       throw StateError('Top-up payment requires an existing paid call');
     }
@@ -234,6 +239,25 @@ final class CallPaymentIncomingTransferService {
     );
     _validateTopUpCoverage(payload, installments);
     return existing;
+  }
+
+  void _validateExistingInitialSession(
+    CallPaymentSession existing,
+    CallPaymentIncomingTransferRequest request,
+  ) {
+    final payload = request.payload;
+    final activeStatus =
+        existing.status == CallPaymentSessionStatus.ringing ||
+        existing.status == CallPaymentSessionStatus.connected;
+    if (!activeStatus ||
+        existing.direction != CallPaymentCallDirection.incoming ||
+        existing.role != CallPaymentRole.payee ||
+        existing.peerPubkey != payload.payerPubkey ||
+        existing.callType != request.callType ||
+        existing.mintUrl != payload.mintUrl ||
+        existing.billingPeriodSeconds != payload.billingPeriodSeconds) {
+      throw StateError('Initial payment does not match existing paid call');
+    }
   }
 
   void _validateTopUpCoverage(
