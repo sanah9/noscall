@@ -1,4 +1,5 @@
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/utils/hash_util.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 
 import '../domain/call_payment_models.dart';
@@ -121,6 +122,9 @@ final class CallPaymentRefundService {
     }
     if (payload.token == null || payload.token!.isEmpty) {
       throw ArgumentError('Payment refund must include a token');
+    }
+    if (HashUtil.sha256String(payload.token!) != payload.tokenHash) {
+      throw ArgumentError('Payment refund token hash does not match');
     }
     if (payload.amountSats <= 0) {
       throw ArgumentError('Payment refund amount must be positive');

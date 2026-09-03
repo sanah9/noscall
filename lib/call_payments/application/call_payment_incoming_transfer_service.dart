@@ -1,5 +1,6 @@
 import 'package:nostr_core_dart/nostr.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/utils/hash_util.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
@@ -143,6 +144,9 @@ final class CallPaymentIncomingTransferService {
     }
     if (payload.token == null || payload.token!.isEmpty) {
       throw ArgumentError('Incoming payment transfer must include a token');
+    }
+    if (HashUtil.sha256String(payload.token!) != payload.tokenHash) {
+      throw ArgumentError('Incoming payment token hash does not match');
     }
     if (payload.amountSats <= 0 || payload.billingPeriodSeconds <= 0) {
       throw ArgumentError('Incoming payment transfer has invalid amounts');

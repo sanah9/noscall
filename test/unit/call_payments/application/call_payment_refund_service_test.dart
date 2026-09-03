@@ -4,6 +4,7 @@ import 'package:noscall/call_payments/application/call_payment_refund_service.da
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/utils/hash_util.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
@@ -103,6 +104,26 @@ void main() {
     );
   });
 
+  test('rejects refund token hash mismatches before receiving', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final receiver = _TokenReceiver();
+    await sessionRepository.save(_session());
+    await installmentRepository.save(_sentInstallment());
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+    );
+
+    await expectLater(
+      service.receive(_request(payload: _payload(tokenHash: 'bad-hash'))),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    expect(receiver.tokens, isEmpty);
+  });
+
   test('rejects refunds without a matching payer session', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
@@ -140,7 +161,12 @@ CallPaymentRefundRequest _request({CallPaymentEventPayload? payload}) {
   );
 }
 
-CallPaymentEventPayload _payload({String? payeePubkey, int amountSats = 10}) {
+CallPaymentEventPayload _payload({
+  String? payeePubkey,
+  int amountSats = 10,
+  String token = 'cashuRefund',
+  String? tokenHash,
+}) {
   return CallPaymentEventPayload(
     type: CallPaymentEventType.refund,
     callId: 'call-1',
@@ -155,10 +181,10 @@ CallPaymentEventPayload _payload({String? payeePubkey, int amountSats = 10}) {
     billingPeriodSeconds: 60,
     coversFromSecond: 0,
     coversToSecond: 60,
-    tokenHash: 'refund-hash-1',
+    tokenHash: tokenHash ?? HashUtil.sha256String(token),
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
-    token: 'cashuRefund',
+    token: token,
   );
 }
 
@@ -221,7 +247,7 @@ CallPaymentInstallment _refundInstallment() {
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'receive-refund-op-1',
-    tokenHash: 'refund-hash-1',
+    tokenHash: HashUtil.sha256String('cashuRefund'),
     status: CallPaymentInstallmentStatus.refunded,
     coversFromSecond: 0,
     coversToSecond: 60,

@@ -5,6 +5,7 @@ import 'package:noscall/call_payments/application/call_payment_initial_payment_s
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/utils/hash_util.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
 
@@ -284,6 +285,25 @@ void main() {
     );
   });
 
+  test('rejects transfer token hash mismatches before receiving', () async {
+    final receiver = _TokenReceiver();
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: _SessionRepository(),
+      installmentRepository: _InstallmentRepository(),
+      receiver: receiver,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.receiveAndAck(_request(payload: _payload(tokenHash: 'bad-hash'))),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    expect(receiver.tokens, isEmpty);
+    expect(gateway.payloads, isEmpty);
+  });
+
   test(
     'rejects paid transfer below local policy price before receiving',
     () async {
@@ -413,7 +433,7 @@ CallPaymentEventPayload _payload({
   int coversFromSecond = 0,
   int coversToSecond = 60,
   String token = 'cashuAey-transfer',
-  String tokenHash = 'hash-1',
+  String? tokenHash,
 }) {
   return CallPaymentEventPayload(
     type: CallPaymentEventType.transfer,
@@ -429,7 +449,7 @@ CallPaymentEventPayload _payload({
     billingPeriodSeconds: 60,
     coversFromSecond: coversFromSecond,
     coversToSecond: coversToSecond,
-    tokenHash: tokenHash,
+    tokenHash: tokenHash ?? HashUtil.sha256String(token),
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
     token: token,
@@ -471,7 +491,7 @@ CallPaymentInstallment _installment() {
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'receive-op-1',
-    tokenHash: 'hash-1',
+    tokenHash: HashUtil.sha256String('cashuAey-transfer'),
     status: CallPaymentInstallmentStatus.claimed,
     coversFromSecond: 0,
     coversToSecond: 60,

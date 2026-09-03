@@ -8,6 +8,7 @@ import 'package:noscall/call_payments/application/call_payment_start_guard.dart'
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/domain/call_payment_repositories.dart';
 import 'package:noscall/call_payments/infrastructure/call_payment_event_codec.dart';
+import 'package:noscall/utils/hash_util.dart';
 import 'package:noscall/wallet/domain/account_wallet.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 import 'package:noscall/wallet/domain/cashu_models.dart';
@@ -81,7 +82,7 @@ void main() {
           billingPeriodSeconds: 60,
           coversFromSecond: 0,
           coversToSecond: 60,
-          tokenHash: 'hash-1',
+          tokenHash: HashUtil.sha256String('cashuAey'),
           createdAt: DateTime.utc(2026, 8, 14, 10),
           expiresAt: DateTime.utc(2026, 8, 14, 10, 1),
           token: 'cashuAey',
