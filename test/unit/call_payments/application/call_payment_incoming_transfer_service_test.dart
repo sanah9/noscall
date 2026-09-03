@@ -304,6 +304,32 @@ void main() {
     expect(gateway.payloads, isEmpty);
   });
 
+  test('rejects transfer token amount mismatches before acking', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final receiver = _TokenReceiver(amountSats: 9);
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.receiveAndAck(_request()),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    expect(receiver.tokens, ['cashuAey-transfer']);
+    expect(gateway.payloads, isEmpty);
+    expect(await sessionRepository.find(_owner, 'call-1'), isNull);
+    expect(
+      await installmentRepository.listForCall(owner: _owner, callId: 'call-1'),
+      isEmpty,
+    );
+  });
+
   test(
     'rejects paid transfer below local policy price before receiving',
     () async {
@@ -502,6 +528,9 @@ CallPaymentInstallment _installment() {
 }
 
 final class _TokenReceiver implements CallPaymentTokenReceiver {
+  _TokenReceiver({this.amountSats = 10});
+
+  final int amountSats;
   final List<String> tokens = [];
 
   @override
@@ -509,7 +538,7 @@ final class _TokenReceiver implements CallPaymentTokenReceiver {
     tokens.add(encodedToken);
     return CashuReceiveResult(
       operationId: 'receive-op-1',
-      amount: CashuAmount.sats(10),
+      amount: CashuAmount.sats(amountSats),
     );
   }
 }

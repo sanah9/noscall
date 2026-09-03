@@ -89,6 +89,9 @@ final class CallPaymentIncomingTransferService {
     final existingSession = await _validateNewTransferSession(request);
     final token = payload.token!;
     final received = await _tokenReceiver.receive(token);
+    if (received.amount.value != payload.amountSats) {
+      throw ArgumentError('Incoming payment token amount does not match');
+    }
     final now = _clock();
     final session = await _upsertSession(
       request: request,

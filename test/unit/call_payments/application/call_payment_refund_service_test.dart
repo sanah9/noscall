@@ -124,6 +124,37 @@ void main() {
     expect(receiver.tokens, isEmpty);
   });
 
+  test('rejects refund token amount mismatches before recording', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final receiver = _TokenReceiver(amountSats: 9);
+    await sessionRepository.save(_session());
+    await installmentRepository.save(_sentInstallment());
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+    );
+
+    await expectLater(
+      service.receive(_request()),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    expect(receiver.tokens, ['cashuRefund']);
+    expect(
+      await installmentRepository.find(
+        owner: _owner,
+        callId: 'call-1',
+        sequence: 1,
+        purpose: CallPaymentPurpose.refund,
+        direction: CallPaymentTransferDirection.received,
+      ),
+      isNull,
+    );
+    expect((await sessionRepository.find(_owner, 'call-1'))?.refundedSats, 0);
+  });
+
   test('rejects refunds without a matching payer session', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
@@ -259,6 +290,9 @@ CallPaymentInstallment _refundInstallment() {
 }
 
 final class _TokenReceiver implements CallPaymentTokenReceiver {
+  _TokenReceiver({this.amountSats = 10});
+
+  final int amountSats;
   final List<String> tokens = [];
 
   @override
@@ -266,7 +300,7 @@ final class _TokenReceiver implements CallPaymentTokenReceiver {
     tokens.add(encodedToken);
     return CashuReceiveResult(
       operationId: 'receive-refund-op-1',
-      amount: CashuAmount.sats(10),
+      amount: CashuAmount.sats(amountSats),
     );
   }
 }

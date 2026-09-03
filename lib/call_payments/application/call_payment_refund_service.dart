@@ -70,6 +70,9 @@ final class CallPaymentRefundService {
     await _loadMatchingOriginalInstallment(session, payload);
 
     final received = await _tokenReceiver.receive(payload.token!);
+    if (received.amount.value != payload.amountSats) {
+      throw ArgumentError('Payment refund token amount does not match');
+    }
     final now = _clock();
     final installment = CallPaymentInstallment(
       owner: request.owner,
