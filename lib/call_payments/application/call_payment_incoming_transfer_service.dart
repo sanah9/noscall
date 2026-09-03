@@ -147,11 +147,23 @@ final class CallPaymentIncomingTransferService {
     if (payload.amountSats <= 0 || payload.billingPeriodSeconds <= 0) {
       throw ArgumentError('Incoming payment transfer has invalid amounts');
     }
+    if (payload.purpose != CallPaymentPurpose.initial &&
+        payload.purpose != CallPaymentPurpose.topUp) {
+      throw ArgumentError('Incoming payment transfer has invalid purpose');
+    }
+    if (payload.coversToSecond - payload.coversFromSecond !=
+        payload.billingPeriodSeconds) {
+      throw ArgumentError(
+        'Incoming payment coverage must match billing period',
+      );
+    }
     if (payload.callType != request.callType) {
       throw ArgumentError('Incoming payment call type does not match');
     }
     if (payload.purpose == CallPaymentPurpose.initial &&
-        (payload.sequence != 1 || payload.coversFromSecond != 0)) {
+        (payload.sequence != 1 ||
+            payload.coversFromSecond != 0 ||
+            payload.coversToSecond != payload.billingPeriodSeconds)) {
       throw ArgumentError('Initial payment transfer has invalid coverage');
     }
   }
@@ -209,7 +221,44 @@ final class CallPaymentIncomingTransferService {
         existing.mintUrl != payload.mintUrl) {
       throw StateError('Top-up payment does not match connected paid call');
     }
+    final installments = await _installmentRepository.listForCall(
+      owner: request.owner,
+      callId: payload.callId,
+    );
+    _validateTopUpCoverage(payload, installments);
     return existing;
+  }
+
+  void _validateTopUpCoverage(
+    CallPaymentEventPayload payload,
+    List<CallPaymentInstallment> installments,
+  ) {
+    final paidTransfers = installments
+        .where(
+          (installment) =>
+              installment.direction == CallPaymentTransferDirection.received &&
+              installment.purpose != CallPaymentPurpose.refund &&
+              installment.status == CallPaymentInstallmentStatus.claimed,
+        )
+        .toList(growable: false);
+    if (paidTransfers.isEmpty) {
+      throw StateError('Top-up payment requires an existing paid period');
+    }
+
+    final expectedSequence =
+        paidTransfers
+            .map((installment) => installment.sequence)
+            .reduce((a, b) => a > b ? a : b) +
+        1;
+    final expectedCoverageStart = paidTransfers
+        .map((installment) => installment.coversToSecond)
+        .reduce((a, b) => a > b ? a : b);
+    final paymentSessionId = paidTransfers.first.paymentSessionId;
+    if (payload.sequence != expectedSequence ||
+        payload.coversFromSecond != expectedCoverageStart ||
+        payload.paymentSessionId != paymentSessionId) {
+      throw ArgumentError('Top-up payment coverage is not contiguous');
+    }
   }
 
   Future<CallPaymentIncomingTransferResult> _ackExistingTransfer(

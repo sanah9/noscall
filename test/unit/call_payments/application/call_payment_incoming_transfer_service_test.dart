@@ -61,6 +61,7 @@ void main() {
     final installmentRepository = _InstallmentRepository();
     final connectedAt = DateTime.utc(2026, 8, 14, 9, 59);
     await sessionRepository.save(_session(connectedAt: connectedAt));
+    await installmentRepository.save(_installment());
     final receiver = _TokenReceiver();
     final gateway = _Gateway(okStatus: true);
     final service = _service(
@@ -124,6 +125,97 @@ void main() {
       expect(gateway.payloads, isEmpty);
     },
   );
+
+  test(
+    'rejects transfer coverage that does not match billing period',
+    () async {
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: _SessionRepository(),
+        installmentRepository: _InstallmentRepository(),
+        receiver: receiver,
+        gateway: gateway,
+      );
+
+      await expectLater(
+        service.receiveAndAck(
+          _request(payload: _payload(coversFromSecond: 0, coversToSecond: 30)),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
+
+  test('rejects top-up transfers that skip the next paid period', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(_session());
+    await installmentRepository.save(_installment());
+    final receiver = _TokenReceiver();
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.receiveAndAck(
+        _request(
+          payload: _payload(
+            purpose: CallPaymentPurpose.topUp,
+            sequence: 2,
+            coversFromSecond: 120,
+            coversToSecond: 180,
+            token: 'cashuAey-top-up',
+          ),
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    expect(receiver.tokens, isEmpty);
+    expect(gateway.payloads, isEmpty);
+  });
+
+  test('rejects top-up transfers for a different payment session', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(_session());
+    await installmentRepository.save(_installment());
+    final receiver = _TokenReceiver();
+    final gateway = _Gateway(okStatus: true);
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      receiver: receiver,
+      gateway: gateway,
+    );
+
+    await expectLater(
+      service.receiveAndAck(
+        _request(
+          payload: _payload(
+            paymentSessionId: 'other-payment-session',
+            purpose: CallPaymentPurpose.topUp,
+            sequence: 2,
+            coversFromSecond: 60,
+            coversToSecond: 120,
+            token: 'cashuAey-top-up',
+          ),
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    expect(receiver.tokens, isEmpty);
+    expect(gateway.payloads, isEmpty);
+  });
 
   test(
     'duplicate transfer resends ack without receiving token again',
@@ -314,6 +406,7 @@ CallPaymentPolicy _policy({
 }
 
 CallPaymentEventPayload _payload({
+  String paymentSessionId = 'payment-session-1',
   String? payeePubkey,
   CallPaymentPurpose purpose = CallPaymentPurpose.initial,
   int sequence = 1,
@@ -325,7 +418,7 @@ CallPaymentEventPayload _payload({
   return CallPaymentEventPayload(
     type: CallPaymentEventType.transfer,
     callId: 'call-1',
-    paymentSessionId: 'payment-session-1',
+    paymentSessionId: paymentSessionId,
     sequence: sequence,
     purpose: purpose,
     callType: CallPaymentCallType.audio,
