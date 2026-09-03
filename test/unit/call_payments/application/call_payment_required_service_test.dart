@@ -68,6 +68,37 @@ void main() {
     );
   });
 
+  test(
+    'rejects required payloads for a different initial payment quote',
+    () async {
+      final sessionRepository = _SessionRepository();
+      await sessionRepository.save(_session());
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: _InstallmentRepository(),
+      );
+
+      await expectLater(
+        service.apply(_request(payload: _payload(amountSats: 20))),
+        throwsA(isA<StateError>()),
+      );
+      await expectLater(
+        service.apply(
+          _request(
+            payload: _payload(
+              mintUrl: CashuMintUrl.parse('https://other-mint.example'),
+            ),
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      await expectLater(
+        service.apply(_request(payload: _payload(coversFromSecond: 60))),
+        throwsA(isA<ArgumentError>()),
+      );
+    },
+  );
+
   test('rejects required events without matching payer session', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
@@ -102,7 +133,13 @@ CallPaymentRequiredRequest _request({CallPaymentEventPayload? payload}) {
   );
 }
 
-CallPaymentEventPayload _payload({String? payeePubkey}) {
+CallPaymentEventPayload _payload({
+  String? payeePubkey,
+  CashuMintUrl? mintUrl,
+  int amountSats = 10,
+  int coversFromSecond = 0,
+  int coversToSecond = 60,
+}) {
   return CallPaymentEventPayload(
     type: CallPaymentEventType.required,
     callId: 'call-1',
@@ -112,11 +149,11 @@ CallPaymentEventPayload _payload({String? payeePubkey}) {
     callType: CallPaymentCallType.audio,
     payerPubkey: _owner.value,
     payeePubkey: payeePubkey ?? _peerPubkey,
-    mintUrl: _mintUrl,
-    amountSats: 10,
+    mintUrl: mintUrl ?? _mintUrl,
+    amountSats: amountSats,
     billingPeriodSeconds: 60,
-    coversFromSecond: 0,
-    coversToSecond: 60,
+    coversFromSecond: coversFromSecond,
+    coversToSecond: coversToSecond,
     tokenHash: 'required-hash-1',
     createdAt: DateTime.utc(2026, 8, 14, 10),
     expiresAt: DateTime.utc(2026, 8, 14, 10, 1),

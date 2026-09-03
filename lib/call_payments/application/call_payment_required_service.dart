@@ -80,6 +80,12 @@ final class CallPaymentRequiredService {
     if (payload.amountSats <= 0 || payload.billingPeriodSeconds <= 0) {
       throw ArgumentError('Payment required payload has invalid amounts');
     }
+    if (payload.sequence != 1 ||
+        payload.purpose != CallPaymentPurpose.initial ||
+        payload.coversFromSecond != 0 ||
+        payload.coversToSecond != payload.billingPeriodSeconds) {
+      throw ArgumentError('Payment required payload must match initial period');
+    }
   }
 
   void _validateSession(
@@ -88,10 +94,19 @@ final class CallPaymentRequiredService {
   ) {
     final payload = request.payload;
     if (session.role != CallPaymentRole.payer ||
+        session.direction != CallPaymentCallDirection.outgoing ||
         session.peerPubkey != request.senderPubkey ||
-        session.callType != payload.callType) {
+        session.callType != payload.callType ||
+        session.mintUrl != payload.mintUrl ||
+        session.billingPeriodSeconds != payload.billingPeriodSeconds ||
+        _periodAmountSats(session) != payload.amountSats) {
       throw StateError('Payment required event does not match payer session');
     }
+  }
+
+  int _periodAmountSats(CallPaymentSession session) {
+    return (session.priceSatsPerMinute * session.billingPeriodSeconds / 60)
+        .ceil();
   }
 
   CallPaymentSessionStatus _statusAfterRequired(
