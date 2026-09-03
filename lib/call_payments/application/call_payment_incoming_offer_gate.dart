@@ -77,7 +77,13 @@ final class CallPaymentIncomingOfferGate {
 
     final session = await _waitForIncomingPaymentSession(callId);
     if (session != null &&
-        _isValidPaidIncomingSession(session, peerPubkey, callType, quote)) {
+        _isValidPaidIncomingSession(
+          session,
+          peerPubkey,
+          callType,
+          policy,
+          quote,
+        )) {
       return const CallPaymentIncomingOfferDecision.allow();
     }
     await _sendRequiredIfConfigured(
@@ -151,6 +157,7 @@ final class CallPaymentIncomingOfferGate {
     CallPaymentSession session,
     String peerPubkey,
     CallPaymentCallType callType,
+    CallPaymentPolicy policy,
     CallPaymentPricingQuote quote,
   ) {
     return session.owner == _owner &&
@@ -159,6 +166,9 @@ final class CallPaymentIncomingOfferGate {
         session.role == CallPaymentRole.payee &&
         session.callType == callType &&
         session.status == CallPaymentSessionStatus.ringing &&
+        policy.acceptedMintUrls.contains(session.mintUrl) &&
+        session.billingPeriodSeconds == quote.billingPeriodSeconds &&
+        session.priceSatsPerMinute == quote.priceSatsPerMinute &&
         session.chargedSats >= quote.periodAmountSats;
   }
 }

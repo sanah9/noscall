@@ -179,6 +179,54 @@ void main() {
       expect(decision.rejectReason, 'payment_required_upgrade');
     },
   );
+
+  test(
+    'rejects paid incoming offer when session mint is no longer accepted',
+    () async {
+      final sessionRepository = _SessionRepository()
+        ..sessions['${_owner.value}|call-1'] = _session(
+          chargedSats: 10,
+          mintUrl: CashuMintUrl.parse('https://old.example'),
+        );
+      final gate = _gate(
+        policyRepository: _PolicyRepository()..policy = _policy(),
+        sessionRepository: sessionRepository,
+      );
+
+      final decision = await gate.evaluate(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        callType: CallPaymentCallType.audio,
+      );
+
+      expect(decision.allowed, isFalse);
+      expect(decision.rejectReason, 'payment_required_upgrade');
+    },
+  );
+
+  test(
+    'rejects paid incoming offer when session billing period mismatches',
+    () async {
+      final sessionRepository = _SessionRepository()
+        ..sessions['${_owner.value}|call-1'] = _session(
+          chargedSats: 10,
+          billingPeriodSeconds: 30,
+        );
+      final gate = _gate(
+        policyRepository: _PolicyRepository()..policy = _policy(),
+        sessionRepository: sessionRepository,
+      );
+
+      final decision = await gate.evaluate(
+        callId: 'call-1',
+        peerPubkey: _peerPubkey,
+        callType: CallPaymentCallType.audio,
+      );
+
+      expect(decision.allowed, isFalse);
+      expect(decision.rejectReason, 'payment_required_upgrade');
+    },
+  );
 }
 
 final _owner = CashuAccountId.fromNostrPubkey('a' * 64);
@@ -227,6 +275,8 @@ CallPaymentPolicy _policy({
 CallPaymentSession _session({
   CallPaymentCallType callType = CallPaymentCallType.audio,
   int chargedSats = 10,
+  CashuMintUrl? mintUrl,
+  int billingPeriodSeconds = 60,
 }) {
   return CallPaymentSession(
     owner: _owner,
@@ -236,9 +286,9 @@ CallPaymentSession _session({
     role: CallPaymentRole.payee,
     callType: callType,
     status: CallPaymentSessionStatus.ringing,
-    mintUrl: _mintUrl,
+    mintUrl: mintUrl ?? _mintUrl,
     priceSatsPerMinute: callType == CallPaymentCallType.video ? 30 : 10,
-    billingPeriodSeconds: 60,
+    billingPeriodSeconds: billingPeriodSeconds,
     maxSpendSats: 100,
     connectedDurationSeconds: 0,
     chargedSats: chargedSats,
