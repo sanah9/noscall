@@ -56,6 +56,29 @@ void main() {
     expect(result.session.status, CallPaymentSessionStatus.paymentFailed);
   });
 
+  test(
+    'ignores refund installments when deciding required recovery status',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(_session());
+      await installmentRepository.save(
+        _installment(
+          status: CallPaymentInstallmentStatus.sent,
+          purpose: CallPaymentPurpose.refund,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+      );
+
+      final result = await service.apply(_request());
+
+      expect(result.session.status, CallPaymentSessionStatus.paymentFailed);
+    },
+  );
+
   test('rejects required payloads from another payee', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
@@ -184,6 +207,7 @@ CallPaymentSession _session() {
 
 CallPaymentInstallment _installment({
   required CallPaymentInstallmentStatus status,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
@@ -191,7 +215,7 @@ CallPaymentInstallment _installment({
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
     sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    purpose: purpose,
     direction: CallPaymentTransferDirection.sent,
     amountSats: 10,
     mintUrl: _mintUrl,

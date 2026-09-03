@@ -114,7 +114,8 @@ final class CallPaymentRequiredService {
   ) {
     final sentInstallments = installments.where(
       (installment) =>
-          installment.direction == CallPaymentTransferDirection.sent,
+          installment.direction == CallPaymentTransferDirection.sent &&
+          installment.purpose != CallPaymentPurpose.refund,
     );
     if (sentInstallments.any(
       (installment) =>
