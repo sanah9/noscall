@@ -154,6 +154,33 @@ void main() {
   });
 
   test(
+    'rejects initial transfers when existing session is already charged',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      await sessionRepository.save(_session(chargedSats: 10));
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        receiver: receiver,
+        gateway: gateway,
+      );
+
+      await expectLater(
+        service.receiveAndAck(_request()),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+      final savedSession = await sessionRepository.find(_owner, 'call-1');
+      expect(savedSession?.chargedSats, 10);
+    },
+  );
+
+  test(
     'rejects transfer coverage that does not match billing period',
     () async {
       final receiver = _TokenReceiver();
@@ -511,6 +538,7 @@ CallPaymentEventPayload _payload({
 CallPaymentSession _session({
   DateTime? connectedAt,
   CallPaymentSessionStatus status = CallPaymentSessionStatus.connected,
+  int chargedSats = 10,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentSession(
@@ -527,7 +555,7 @@ CallPaymentSession _session({
     maxSpendSats: 10,
     connectedAt: connectedAt,
     connectedDurationSeconds: 0,
-    chargedSats: 10,
+    chargedSats: chargedSats,
     refundedSats: 0,
     createdAt: now,
     updatedAt: now,

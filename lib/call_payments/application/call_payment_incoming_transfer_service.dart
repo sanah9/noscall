@@ -255,7 +255,8 @@ final class CallPaymentIncomingTransferService {
         existing.peerPubkey != payload.payerPubkey ||
         existing.callType != request.callType ||
         existing.mintUrl != payload.mintUrl ||
-        existing.billingPeriodSeconds != payload.billingPeriodSeconds) {
+        existing.billingPeriodSeconds != payload.billingPeriodSeconds ||
+        existing.chargedSats > 0) {
       throw StateError('Initial payment does not match existing paid call');
     }
   }
