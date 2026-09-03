@@ -39,6 +39,24 @@ void main() {
     },
   );
 
+  test('caps refunded sats when reclaiming sent installments', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    await sessionRepository.save(_session(chargedSats: 10, refundedSats: 8));
+    await installmentRepository.save(_installment());
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      recoverer: _Recoverer(state: CashuSendState.recoverable),
+    );
+
+    await service.recover(_owner);
+
+    final session = await sessionRepository.find(_owner, 'call-1');
+    expect(session?.refundedSats, 10);
+    expect(session?.netSats, 0);
+  });
+
   test('moves claimed sent installments to refund pending', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
@@ -307,6 +325,8 @@ CallPaymentSession _session({
   CallPaymentSessionStatus status = CallPaymentSessionStatus.reclaimPending,
   CallPaymentCallDirection direction = CallPaymentCallDirection.outgoing,
   CallPaymentRole role = CallPaymentRole.payer,
+  int chargedSats = 10,
+  int refundedSats = 0,
   DateTime? updatedAt,
 }) {
   final now = DateTime.utc(2026, 8, 14, 9);
@@ -323,8 +343,8 @@ CallPaymentSession _session({
     billingPeriodSeconds: 60,
     maxSpendSats: 100,
     connectedDurationSeconds: 0,
-    chargedSats: 10,
-    refundedSats: 0,
+    chargedSats: chargedSats,
+    refundedSats: refundedSats,
     createdAt: now,
     updatedAt: updatedAt ?? now,
   );

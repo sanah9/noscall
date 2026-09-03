@@ -248,9 +248,16 @@ final class CallPaymentRecoveryService {
     return _sessionRepository.save(
       session.copyWith(
         status: status,
-        refundedSats: session.refundedSats + reclaimedSats,
+        refundedSats: _refundedSatsAfter(session, reclaimedSats),
         updatedAt: _clock(),
       ),
     );
+  }
+
+  int _refundedSatsAfter(CallPaymentSession session, int amountSats) {
+    final refundedSats = session.refundedSats + amountSats;
+    return refundedSats > session.chargedSats
+        ? session.chargedSats
+        : refundedSats;
   }
 }
