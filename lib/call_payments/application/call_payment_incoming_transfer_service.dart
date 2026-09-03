@@ -276,6 +276,12 @@ final class CallPaymentIncomingTransferService {
     if (paidTransfers.isEmpty) {
       throw StateError('Top-up payment requires an existing paid period');
     }
+    final paymentSessionIds = paidTransfers
+        .map((installment) => installment.paymentSessionId)
+        .toSet();
+    if (paymentSessionIds.length != 1) {
+      throw StateError('Paid call has inconsistent payment session ids');
+    }
 
     final expectedSequence =
         paidTransfers
@@ -285,7 +291,7 @@ final class CallPaymentIncomingTransferService {
     final expectedCoverageStart = paidTransfers
         .map((installment) => installment.coversToSecond)
         .reduce((a, b) => a > b ? a : b);
-    final paymentSessionId = paidTransfers.first.paymentSessionId;
+    final paymentSessionId = paymentSessionIds.single;
     if (payload.sequence != expectedSequence ||
         payload.coversFromSecond != expectedCoverageStart ||
         payload.paymentSessionId != paymentSessionId) {

@@ -272,6 +272,51 @@ void main() {
   });
 
   test(
+    'rejects top-up transfers when stored payment sessions are inconsistent',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(_session(chargedSats: 20));
+      await installmentRepository.save(_installment());
+      await installmentRepository.save(
+        _installment(
+          paymentSessionId: 'other-payment-session',
+          sequence: 2,
+          purpose: CallPaymentPurpose.topUp,
+          coversFromSecond: 60,
+          coversToSecond: 120,
+        ),
+      );
+      final receiver = _TokenReceiver();
+      final gateway = _Gateway(okStatus: true);
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        receiver: receiver,
+        gateway: gateway,
+      );
+
+      await expectLater(
+        service.receiveAndAck(
+          _request(
+            payload: _payload(
+              purpose: CallPaymentPurpose.topUp,
+              sequence: 3,
+              coversFromSecond: 120,
+              coversToSecond: 180,
+              token: 'cashuAey-top-up',
+            ),
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(receiver.tokens, isEmpty);
+      expect(gateway.payloads, isEmpty);
+    },
+  );
+
+  test(
     'duplicate transfer resends ack without receiving token again',
     () async {
       final sessionRepository = _SessionRepository();
@@ -562,22 +607,28 @@ CallPaymentSession _session({
   );
 }
 
-CallPaymentInstallment _installment() {
+CallPaymentInstallment _installment({
+  String paymentSessionId = 'payment-session-1',
+  int sequence = 1,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
+  int coversFromSecond = 0,
+  int coversToSecond = 60,
+}) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
     owner: _owner,
     callId: 'call-1',
-    paymentSessionId: 'payment-session-1',
-    sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    paymentSessionId: paymentSessionId,
+    sequence: sequence,
+    purpose: purpose,
     direction: CallPaymentTransferDirection.received,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'receive-op-1',
     tokenHash: HashUtil.sha256String('cashuAey-transfer'),
     status: CallPaymentInstallmentStatus.claimed,
-    coversFromSecond: 0,
-    coversToSecond: 60,
+    coversFromSecond: coversFromSecond,
+    coversToSecond: coversToSecond,
     createdAt: now,
     claimedAt: now,
     updatedAt: now,
