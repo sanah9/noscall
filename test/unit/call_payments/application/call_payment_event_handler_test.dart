@@ -188,6 +188,33 @@ void main() {
       expect(result.ignoredReason, 'policy_response_waiter_not_configured');
     },
   );
+
+  test(
+    'ignores payment events when outer kind does not match payload type',
+    () async {
+      final handler = CallPaymentEventHandler(
+        owner: _owner,
+        receiveTransfer: (_) async =>
+            throw StateError('transfer should not be called'),
+        applyAck: (_) async => throw StateError('ack should not be called'),
+        receiveRefund: (_) async =>
+            throw StateError('refund should not be called'),
+        applyRequired: (_) async =>
+            throw StateError('required should not be called'),
+      );
+
+      final result = await handler.handle(
+        await _event(
+          _payload(type: CallPaymentEventType.ack),
+          kind: CallPaymentEventType.transfer.kind,
+        ),
+      );
+
+      expect(result.handled, isFalse);
+      expect(result.type, CallPaymentEventType.ack);
+      expect(result.ignoredReason, 'payment_event_kind_mismatch');
+    },
+  );
 }
 
 const _senderPrivkey =
@@ -197,9 +224,9 @@ const _senderPubkey =
 final _owner = CashuAccountId.fromNostrPubkey('b' * 64);
 final _mintUrl = CashuMintUrl.parse('https://mint.example');
 
-Future<Event> _event(CallPaymentEventPayload payload) {
+Future<Event> _event(CallPaymentEventPayload payload, {int? kind}) {
   return Event.from(
-    kind: payload.type.kind,
+    kind: kind ?? payload.type.kind,
     tags: [
       ['p', _owner.value],
       ['call-id', payload.callId],

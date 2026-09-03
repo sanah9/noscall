@@ -88,6 +88,12 @@ final class CallPaymentEventHandler {
     }
 
     final payload = _codec.decode(event.content);
+    if (event.kind != payload.type.kind) {
+      return CallPaymentEventHandleResult.ignored(
+        payload.type,
+        'payment_event_kind_mismatch',
+      );
+    }
     switch (payload.type) {
       case CallPaymentEventType.transfer:
         await _receiveTransfer(
