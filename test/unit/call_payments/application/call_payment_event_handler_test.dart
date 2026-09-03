@@ -215,6 +215,39 @@ void main() {
       expect(result.ignoredReason, 'payment_event_kind_mismatch');
     },
   );
+
+  test(
+    'ignores payment events when routing tags do not match payload',
+    () async {
+      final payload = _payload(type: CallPaymentEventType.transfer);
+      final handler = CallPaymentEventHandler(
+        owner: _owner,
+        receiveTransfer: (_) async =>
+            throw StateError('transfer should not be called'),
+        applyAck: (_) async => throw StateError('ack should not be called'),
+        receiveRefund: (_) async =>
+            throw StateError('refund should not be called'),
+        applyRequired: (_) async =>
+            throw StateError('required should not be called'),
+      );
+
+      final result = await handler.handle(
+        await _event(
+          payload,
+          tags: [
+            ['p', _owner.value],
+            ['call-id', 'other-call'],
+            ['payment-session-id', payload.paymentSessionId],
+            ['payment-type', payload.type.value],
+          ],
+        ),
+      );
+
+      expect(result.handled, isFalse);
+      expect(result.type, CallPaymentEventType.transfer);
+      expect(result.ignoredReason, 'payment_event_tag_mismatch');
+    },
+  );
 }
 
 const _senderPrivkey =
@@ -224,15 +257,21 @@ const _senderPubkey =
 final _owner = CashuAccountId.fromNostrPubkey('b' * 64);
 final _mintUrl = CashuMintUrl.parse('https://mint.example');
 
-Future<Event> _event(CallPaymentEventPayload payload, {int? kind}) {
+Future<Event> _event(
+  CallPaymentEventPayload payload, {
+  int? kind,
+  List<List<String>>? tags,
+}) {
   return Event.from(
     kind: kind ?? payload.type.kind,
-    tags: [
-      ['p', _owner.value],
-      ['call-id', payload.callId],
-      ['payment-session-id', payload.paymentSessionId],
-      ['payment-type', payload.type.value],
-    ],
+    tags:
+        tags ??
+        [
+          ['p', _owner.value],
+          ['call-id', payload.callId],
+          ['payment-session-id', payload.paymentSessionId],
+          ['payment-type', payload.type.value],
+        ],
     content: const CallPaymentEventCodec().encode(payload),
     pubkey: _senderPubkey,
     privkey: _senderPrivkey,

@@ -94,6 +94,12 @@ final class CallPaymentEventHandler {
         'payment_event_kind_mismatch',
       );
     }
+    if (!_matchesPaymentTags(event, payload)) {
+      return CallPaymentEventHandleResult.ignored(
+        payload.type,
+        'payment_event_tag_mismatch',
+      );
+    }
     switch (payload.type) {
       case CallPaymentEventType.transfer:
         await _receiveTransfer(
@@ -134,5 +140,17 @@ final class CallPaymentEventHandler {
         );
         return CallPaymentEventHandleResult.handled(payload.type);
     }
+  }
+
+  bool _matchesPaymentTags(Event event, CallPaymentEventPayload payload) {
+    return _hasTag(event, 'call-id', payload.callId) &&
+        _hasTag(event, 'payment-session-id', payload.paymentSessionId) &&
+        _hasTag(event, 'payment-type', payload.type.value);
+  }
+
+  bool _hasTag(Event event, String name, String value) {
+    return event.tags.any(
+      (tag) => tag.length >= 2 && tag[0] == name && tag[1] == value,
+    );
   }
 }
