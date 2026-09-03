@@ -59,6 +59,7 @@ final class CallPaymentRefundService {
     );
     if (existingInstallment != null) {
       final session = await _loadSession(request);
+      _validateExistingRefund(existingInstallment, payload);
       return CallPaymentRefundResult(
         session: session,
         installment: existingInstallment,
@@ -197,6 +198,22 @@ final class CallPaymentRefundService {
       throw StateError('Payment refund does not match a paid installment');
     }
     return matching.first;
+  }
+
+  void _validateExistingRefund(
+    CallPaymentInstallment installment,
+    CallPaymentEventPayload payload,
+  ) {
+    if (installment.paymentSessionId != payload.paymentSessionId ||
+        installment.amountSats != payload.amountSats ||
+        installment.mintUrl != payload.mintUrl ||
+        installment.tokenHash != payload.tokenHash ||
+        installment.coversFromSecond != payload.coversFromSecond ||
+        installment.coversToSecond != payload.coversToSecond) {
+      throw ArgumentError(
+        'Duplicate payment refund does not match stored refund',
+      );
+    }
   }
 
   int _refundedSatsAfter(CallPaymentSession session, int amountSats) {

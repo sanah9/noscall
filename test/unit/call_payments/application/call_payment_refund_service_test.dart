@@ -91,6 +91,29 @@ void main() {
     expect(result.session.refundedSats, 10);
   });
 
+  test(
+    'rejects duplicate refund payloads that do not match stored refund',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      final receiver = _TokenReceiver();
+      await sessionRepository.save(_session(refundedSats: 10));
+      await installmentRepository.save(_refundInstallment());
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        receiver: receiver,
+      );
+
+      await expectLater(
+        service.receive(_request(payload: _payload(amountSats: 9))),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      expect(receiver.tokens, isEmpty);
+    },
+  );
+
   test('rejects refund payloads from another payee', () async {
     final service = _service(
       sessionRepository: _SessionRepository(),
