@@ -70,6 +70,17 @@ void main() {
       ),
       throwsA(isA<ArgumentError>()),
     );
+    expect(
+      () => codec.encodeMap(
+        _payload(
+          type: CallPaymentEventType.transfer,
+          token: 'cashuAey...',
+          coversFromSecond: 0,
+          coversToSecond: 30,
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
   });
 
   test('rejects invalid decoded payloads', () {
@@ -95,10 +106,52 @@ void main() {
       throwsA(isA<ArgumentError>()),
     );
   });
+
+  test('validates purpose by payment event type', () {
+    expect(
+      () => codec.encodeMap(
+        _payload(
+          type: CallPaymentEventType.transfer,
+          purpose: CallPaymentPurpose.refund,
+          token: 'cashuAey...',
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => codec.encodeMap(
+        _payload(
+          type: CallPaymentEventType.ack,
+          purpose: CallPaymentPurpose.refund,
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => codec.encodeMap(
+        _payload(
+          type: CallPaymentEventType.required,
+          purpose: CallPaymentPurpose.topUp,
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => codec.encodeMap(
+        _payload(
+          type: CallPaymentEventType.refund,
+          purpose: CallPaymentPurpose.initial,
+          token: 'cashuAey...',
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
 }
 
 CallPaymentEventPayload _payload({
   required CallPaymentEventType type,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
   String? token,
   int coversFromSecond = 0,
   int coversToSecond = 60,
@@ -108,7 +161,7 @@ CallPaymentEventPayload _payload({
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
     sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    purpose: purpose,
     callType: CallPaymentCallType.audio,
     payerPubkey: 'a' * 64,
     payeePubkey: 'b' * 64,

@@ -146,14 +146,38 @@ final class CallPaymentEventCodec {
         payload.coversToSecond <= payload.coversFromSecond) {
       throw ArgumentError('Payment event coverage is invalid');
     }
+    if (payload.coversToSecond - payload.coversFromSecond !=
+        payload.billingPeriodSeconds) {
+      throw ArgumentError('Payment event coverage must match billing period');
+    }
     switch (payload.type) {
       case CallPaymentEventType.transfer:
+        if (payload.purpose == CallPaymentPurpose.refund) {
+          throw ArgumentError('Payment transfer purpose is invalid');
+        }
+        if (payload.token == null || payload.token!.isEmpty) {
+          throw ArgumentError('Payment transfer events require a token');
+        }
       case CallPaymentEventType.refund:
+        if (payload.purpose != CallPaymentPurpose.refund) {
+          throw ArgumentError('Payment refund purpose is invalid');
+        }
         if (payload.token == null || payload.token!.isEmpty) {
           throw ArgumentError('Payment transfer events require a token');
         }
       case CallPaymentEventType.ack:
+        if (payload.purpose == CallPaymentPurpose.refund) {
+          throw ArgumentError('Payment ack purpose is invalid');
+        }
+        if (payload.token != null) {
+          throw ArgumentError(
+            'Payment control events must not include a token',
+          );
+        }
       case CallPaymentEventType.required:
+        if (payload.purpose != CallPaymentPurpose.initial) {
+          throw ArgumentError('Payment required purpose is invalid');
+        }
         if (payload.token != null) {
           throw ArgumentError(
             'Payment control events must not include a token',

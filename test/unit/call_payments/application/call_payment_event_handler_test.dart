@@ -295,13 +295,19 @@ Future<Event> _policyEvent(CallPaymentPolicyEventPayload payload) {
 CallPaymentEventPayload _payload({
   required CallPaymentEventType type,
   CallPaymentCallType callType = CallPaymentCallType.audio,
+  CallPaymentPurpose? purpose,
 }) {
+  final resolvedPurpose =
+      purpose ??
+      (type == CallPaymentEventType.refund
+          ? CallPaymentPurpose.refund
+          : CallPaymentPurpose.initial);
   return CallPaymentEventPayload(
     type: type,
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
     sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    purpose: resolvedPurpose,
     callType: callType,
     payerPubkey: _senderPubkey,
     payeePubkey: _owner.value,
