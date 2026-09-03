@@ -75,10 +75,11 @@ final class CallPaymentTopUpService {
       owner: request.owner,
       callId: request.callId,
     );
+    final sentPaidInstallments = _sentPaidInstallments(installments);
     final nextSequence = _nextSequence(installments);
-    final coversFromSecond = _nextCoverageStart(installments);
+    final coversFromSecond = _nextCoverageStart(sentPaidInstallments);
     final coversToSecond = coversFromSecond + session.billingPeriodSeconds;
-    final paymentSessionId = _paymentSessionId(session, installments);
+    final paymentSessionId = _paymentSessionId(session, sentPaidInstallments);
     final now = _clock();
 
     await _sessionRepository.save(
@@ -194,6 +195,20 @@ final class CallPaymentTopUpService {
     return installments
         .map((installment) => installment.coversToSecond)
         .reduce((a, b) => a > b ? a : b);
+  }
+
+  List<CallPaymentInstallment> _sentPaidInstallments(
+    List<CallPaymentInstallment> installments,
+  ) {
+    return installments
+        .where(
+          (installment) =>
+              installment.direction == CallPaymentTransferDirection.sent &&
+              installment.purpose != CallPaymentPurpose.refund &&
+              (installment.status == CallPaymentInstallmentStatus.sent ||
+                  installment.status == CallPaymentInstallmentStatus.claimed),
+        )
+        .toList(growable: false);
   }
 
   String _paymentSessionId(

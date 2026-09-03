@@ -67,6 +67,37 @@ void main() {
     expect(result.installment.errorCode, 'payment_top_up_send_failed');
   });
 
+  test(
+    'ignores failed installments when choosing next paid coverage',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(_session());
+      await installmentRepository.save(_installment());
+      await installmentRepository.save(
+        _installment(
+          sequence: 2,
+          purpose: CallPaymentPurpose.topUp,
+          status: CallPaymentInstallmentStatus.failed,
+          coversFromSecond: 60,
+          coversToSecond: 120,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        tokenSender: _TokenSender(token: 'cashuAey-retry'),
+        gateway: _Gateway(okStatus: true),
+      );
+
+      final result = await service.prepareAndSend(_request());
+
+      expect(result.installment.sequence, 3);
+      expect(result.installment.coversFromSecond, 60);
+      expect(result.installment.coversToSecond, 120);
+    },
+  );
+
   test('rejects top-up when max spend is reached', () async {
     final sessionRepository = _SessionRepository();
     final installmentRepository = _InstallmentRepository();
@@ -188,22 +219,30 @@ CallPaymentSession _session({
   );
 }
 
-CallPaymentInstallment _installment() {
+CallPaymentInstallment _installment({
+  String paymentSessionId = 'payment-session-1',
+  int sequence = 1,
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
+  CallPaymentTransferDirection direction = CallPaymentTransferDirection.sent,
+  CallPaymentInstallmentStatus status = CallPaymentInstallmentStatus.claimed,
+  int coversFromSecond = 0,
+  int coversToSecond = 60,
+}) {
   final now = DateTime.utc(2026, 8, 14, 9);
   return CallPaymentInstallment(
     owner: _owner,
     callId: 'call-1',
-    paymentSessionId: 'payment-session-1',
-    sequence: 1,
-    purpose: CallPaymentPurpose.initial,
-    direction: CallPaymentTransferDirection.sent,
+    paymentSessionId: paymentSessionId,
+    sequence: sequence,
+    purpose: purpose,
+    direction: direction,
     amountSats: 10,
     mintUrl: _mintUrl,
     walletOperationId: 'send-op-0',
     tokenHash: 'hash-0',
-    status: CallPaymentInstallmentStatus.claimed,
-    coversFromSecond: 0,
-    coversToSecond: 60,
+    status: status,
+    coversFromSecond: coversFromSecond,
+    coversToSecond: coversToSecond,
     createdAt: now,
     updatedAt: now,
   );
