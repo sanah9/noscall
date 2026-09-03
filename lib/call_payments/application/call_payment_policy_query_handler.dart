@@ -65,6 +65,11 @@ final class CallPaymentPolicyQueryHandler {
         'policy_query_participants_mismatch',
       );
     }
+    if (!_matchesPolicyQueryTags(event, payload)) {
+      return const CallPaymentPolicyQueryResult.ignored(
+        'policy_query_tag_mismatch',
+      );
+    }
 
     final policy =
         await _policyRepository.find(_owner) ?? _disabledDefaultPolicy();
@@ -99,6 +104,21 @@ final class CallPaymentPolicyQueryHandler {
       acceptedMintUrls: const [],
       createdAt: now,
       updatedAt: now,
+    );
+  }
+
+  bool _matchesPolicyQueryTags(
+    Event event,
+    CallPaymentPolicyEventPayload payload,
+  ) {
+    return _hasTag(event, 'p', payload.responderPubkey) &&
+        _hasTag(event, 'payment-policy-request-id', payload.requestId) &&
+        _hasTag(event, 'payment-policy-type', payload.type.value);
+  }
+
+  bool _hasTag(Event event, String name, String value) {
+    return event.tags.any(
+      (tag) => tag.length >= 2 && tag[0] == name && tag[1] == value,
     );
   }
 }

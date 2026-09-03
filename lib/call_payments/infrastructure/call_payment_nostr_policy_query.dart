@@ -155,13 +155,29 @@ final class CallPaymentNostrPolicyQuery {
           payload.requestId != requestId ||
           payload.requesterPubkey != _pubkey ||
           payload.responderPubkey != peerPubkey ||
-          payload.policy?.owner.value != peerPubkey) {
+          payload.policy?.owner.value != peerPubkey ||
+          !_matchesPolicyResponseTags(innerEvent, payload)) {
         return null;
       }
       return payload.policy;
     } catch (_) {
       return null;
     }
+  }
+
+  bool _matchesPolicyResponseTags(
+    Event event,
+    CallPaymentPolicyEventPayload payload,
+  ) {
+    return _hasTag(event, 'p', payload.requesterPubkey) &&
+        _hasTag(event, 'payment-policy-request-id', payload.requestId) &&
+        _hasTag(event, 'payment-policy-type', payload.type.value);
+  }
+
+  bool _hasTag(Event event, String name, String value) {
+    return event.tags.any(
+      (tag) => tag.length >= 2 && tag[0] == name && tag[1] == value,
+    );
   }
 }
 

@@ -97,6 +97,64 @@ void main() {
     expect(policy, isNull);
     expect(subscriber.closedSubscriptionIds, ['policy-subscription-1']);
   });
+
+  test(
+    'ignores policy responses when routing tags do not match payload',
+    () async {
+      final relaySender = _FakePaymentRelaySender();
+      final gateway = CallPaymentNostrGateway(
+        pubkey: _requesterPubkey,
+        privkey: _requesterPrivkey,
+        relaySender: relaySender,
+      );
+      final subscriber = _FakePolicyResponseSubscriber();
+      final query = CallPaymentNostrPolicyQuery(
+        pubkey: _requesterPubkey,
+        privkey: _requesterPrivkey,
+        gateway: gateway,
+        subscriber: subscriber,
+        requestIdFactory: () => 'policy-request-1',
+        clock: () => DateTime.utc(2026, 8, 14, 10),
+        timeout: const Duration(seconds: 1),
+      );
+
+      final future = query.query(_responderPubkey);
+      await Future<void>.delayed(Duration.zero);
+
+      final malformedInner = await _responseInnerEvent(
+        requestId: 'policy-request-1',
+        tags: [
+          ['p', _requesterPubkey],
+          ['payment-policy-request-id', 'other-request'],
+          ['payment-policy-type', CallPaymentPolicyEventType.response.value],
+        ],
+      );
+      await subscriber.emit(
+        await NipAcProtocol.wrap(
+          malformedInner,
+          _requesterPubkey,
+          includeKindMarker: true,
+        ),
+        'wss://relay.example',
+      );
+
+      final matchingInner = await _responseInnerEvent(
+        requestId: 'policy-request-1',
+      );
+      await subscriber.emit(
+        await NipAcProtocol.wrap(
+          matchingInner,
+          _requesterPubkey,
+          includeKindMarker: true,
+        ),
+        'wss://relay.example',
+      );
+
+      final policy = await future;
+      expect(policy?.owner.value, _responderPubkey);
+      expect(subscriber.closedSubscriptionIds, ['policy-subscription-1']);
+    },
+  );
 }
 
 const _requesterPrivkey =
@@ -108,6 +166,33 @@ const _responderPrivkey =
 const _responderPubkey =
     'c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5';
 final _mintUrl = CashuMintUrl.parse('https://mint.example');
+
+Future<Event> _responseInnerEvent({
+  required String requestId,
+  List<List<String>>? tags,
+}) {
+  final payload = CallPaymentPolicyEventPayload(
+    type: CallPaymentPolicyEventType.response,
+    requestId: requestId,
+    requesterPubkey: _requesterPubkey,
+    responderPubkey: _responderPubkey,
+    policy: _policy(),
+    createdAt: DateTime.utc(2026, 8, 14, 10, 0, 1),
+  );
+  return Event.from(
+    kind: payload.type.kind,
+    tags:
+        tags ??
+        [
+          ['p', _requesterPubkey],
+          ['payment-policy-request-id', payload.requestId],
+          ['payment-policy-type', payload.type.value],
+        ],
+    content: const CallPaymentPolicyEventCodec().encode(payload),
+    pubkey: _responderPubkey,
+    privkey: _responderPrivkey,
+  );
+}
 
 CallPaymentPolicy _policy() {
   return CallPaymentPolicy(

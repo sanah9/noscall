@@ -59,6 +59,31 @@ void main() {
     expect(result.ignoredReason, 'policy_query_participants_mismatch');
     expect(sender.payloads, isEmpty);
   });
+
+  test(
+    'ignores policy queries when routing tags do not match payload',
+    () async {
+      final sender = _PolicyResponseSender();
+      final handler = _handler(
+        policyRepository: _PolicyRepository()..policy = _policy(),
+        sender: sender,
+      );
+
+      final result = await handler.handle(
+        await _queryEvent(
+          tags: [
+            ['p', _responderPubkey],
+            ['payment-policy-request-id', 'other-request'],
+            ['payment-policy-type', CallPaymentPolicyEventType.query.value],
+          ],
+        ),
+      );
+
+      expect(result.handled, isFalse);
+      expect(result.ignoredReason, 'policy_query_tag_mismatch');
+      expect(sender.payloads, isEmpty);
+    },
+  );
 }
 
 const _requesterPrivkey =
@@ -82,7 +107,7 @@ CallPaymentPolicyQueryHandler _handler({
   );
 }
 
-Future<Event> _queryEvent({String? responderPubkey}) {
+Future<Event> _queryEvent({String? responderPubkey, List<List<String>>? tags}) {
   final payload = CallPaymentPolicyEventPayload(
     type: CallPaymentPolicyEventType.query,
     requestId: 'policy-request-1',
@@ -92,11 +117,13 @@ Future<Event> _queryEvent({String? responderPubkey}) {
   );
   return Event.from(
     kind: payload.type.kind,
-    tags: [
-      ['p', payload.responderPubkey],
-      ['payment-policy-request-id', payload.requestId],
-      ['payment-policy-type', payload.type.value],
-    ],
+    tags:
+        tags ??
+        [
+          ['p', payload.responderPubkey],
+          ['payment-policy-request-id', payload.requestId],
+          ['payment-policy-type', payload.type.value],
+        ],
     content: const CallPaymentPolicyEventCodec().encode(payload),
     pubkey: _requesterPubkey,
     privkey: _requesterPrivkey,
