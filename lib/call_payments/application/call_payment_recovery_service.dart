@@ -91,6 +91,7 @@ final class CallPaymentRecoveryService {
       final hasClaimedIncomingPayment = installments.any(
         (installment) =>
             installment.direction == CallPaymentTransferDirection.received &&
+            installment.purpose != CallPaymentPurpose.refund &&
             installment.status == CallPaymentInstallmentStatus.claimed,
       );
       if (!hasClaimedIncomingPayment) continue;
@@ -203,6 +204,7 @@ final class CallPaymentRecoveryService {
 
   bool _shouldRecoverInstallment(CallPaymentInstallment installment) {
     return installment.direction == CallPaymentTransferDirection.sent &&
+        installment.purpose != CallPaymentPurpose.refund &&
         installment.walletOperationId != null &&
         switch (installment.status) {
           CallPaymentInstallmentStatus.prepared ||

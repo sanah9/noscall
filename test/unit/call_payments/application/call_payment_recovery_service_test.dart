@@ -116,6 +116,27 @@ void main() {
     },
   );
 
+  test('does not recover refund installments', () async {
+    final sessionRepository = _SessionRepository();
+    final installmentRepository = _InstallmentRepository();
+    final recoverer = _Recoverer(state: CashuSendState.recoverable);
+    await sessionRepository.save(_session());
+    await installmentRepository.save(
+      _installment(purpose: CallPaymentPurpose.refund),
+    );
+    final service = _service(
+      sessionRepository: sessionRepository,
+      installmentRepository: installmentRepository,
+      recoverer: recoverer,
+    );
+
+    final report = await service.recover(_owner);
+
+    expect(report.scannedSessions, 1);
+    expect(report.reclaimedInstallments, 0);
+    expect(recoverer.checkedOperationIds, isEmpty);
+  });
+
   test(
     'expires stale incoming ringing sessions with claimed received payment',
     () async {
@@ -151,6 +172,43 @@ void main() {
       expect(session?.status, CallPaymentSessionStatus.refundPending);
       expect(session?.endedAt, DateTime.utc(2026, 8, 14, 10));
       expect(session?.updatedAt, DateTime.utc(2026, 8, 14, 10));
+    },
+  );
+
+  test(
+    'keeps stale incoming ringing sessions with only refund installments',
+    () async {
+      final sessionRepository = _SessionRepository();
+      final installmentRepository = _InstallmentRepository();
+      await sessionRepository.save(
+        _session(
+          direction: CallPaymentCallDirection.incoming,
+          role: CallPaymentRole.payee,
+          status: CallPaymentSessionStatus.ringing,
+          updatedAt: DateTime.utc(2026, 8, 14, 9, 58, 59),
+        ),
+      );
+      await installmentRepository.save(
+        _installment(
+          purpose: CallPaymentPurpose.refund,
+          direction: CallPaymentTransferDirection.received,
+          status: CallPaymentInstallmentStatus.claimed,
+        ),
+      );
+      final service = _service(
+        sessionRepository: sessionRepository,
+        installmentRepository: installmentRepository,
+        recoverer: _Recoverer(state: CashuSendState.recoverable),
+      );
+
+      final expiredSessions = await service.expireStaleIncomingRingingSessions(
+        _owner,
+      );
+
+      final session = await sessionRepository.find(_owner, 'call-1');
+      expect(expiredSessions, isEmpty);
+      expect(session?.status, CallPaymentSessionStatus.ringing);
+      expect(session?.endedAt, isNull);
     },
   );
 
@@ -273,6 +331,7 @@ CallPaymentSession _session({
 }
 
 CallPaymentInstallment _installment({
+  CallPaymentPurpose purpose = CallPaymentPurpose.initial,
   CallPaymentTransferDirection direction = CallPaymentTransferDirection.sent,
   CallPaymentInstallmentStatus status = CallPaymentInstallmentStatus.sent,
 }) {
@@ -282,7 +341,7 @@ CallPaymentInstallment _installment({
     callId: 'call-1',
     paymentSessionId: 'payment-session-1',
     sequence: 1,
-    purpose: CallPaymentPurpose.initial,
+    purpose: purpose,
     direction: direction,
     amountSats: 10,
     mintUrl: _mintUrl,
