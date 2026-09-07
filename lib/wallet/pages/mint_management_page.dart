@@ -8,7 +8,7 @@ import '../domain/cashu_models.dart';
 import '../domain/mint_configuration.dart';
 import '../domain/wallet_configuration.dart';
 import '../domain/wallet_errors.dart';
-import '../infrastructure/mobile/mobile_mint_management_controller_factory.dart';
+import '../infrastructure/default_mint_management_controller_factory.dart';
 
 final class MintManagementPage extends StatefulWidget {
   const MintManagementPage({super.key, this.controllerFactory});
@@ -44,7 +44,7 @@ final class _MintManagementPageState extends State<MintManagementPage> {
     try {
       final factory =
           widget.controllerFactory ??
-          () => MobileMintManagementControllerFactory.create();
+          () => DefaultMintManagementControllerFactory.create();
       candidate = await factory();
       final snapshot = await candidate.load();
       if (!mounted) {

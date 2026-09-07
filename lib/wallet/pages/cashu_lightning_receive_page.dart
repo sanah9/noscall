@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../application/cashu_lightning_receive_controller.dart';
 import '../domain/cashu_models.dart';
 import '../domain/wallet_errors.dart';
-import '../infrastructure/mobile/mobile_cashu_lightning_receive_controller_factory.dart';
+import '../infrastructure/default_cashu_lightning_receive_controller_factory.dart';
 
 final class CashuLightningReceivePage extends StatefulWidget {
   const CashuLightningReceivePage({
@@ -59,7 +59,7 @@ final class _CashuLightningReceivePageState
     try {
       final factory =
           widget.controllerFactory ??
-          MobileCashuLightningReceiveControllerFactory.create;
+          DefaultCashuLightningReceiveControllerFactory.create;
       final controller = await factory();
       final options = await controller.loadReceiveOptions();
       final records = await controller.loadQuoteRecords();

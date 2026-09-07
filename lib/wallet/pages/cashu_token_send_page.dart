@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../application/cashu_token_controller.dart';
 import '../domain/cashu_models.dart';
 import '../domain/wallet_errors.dart';
-import '../infrastructure/mobile/mobile_cashu_token_controller_factory.dart';
+import '../infrastructure/default_cashu_token_controller_factory.dart';
 
 final class CashuTokenSendPage extends StatefulWidget {
   const CashuTokenSendPage({super.key, this.controllerFactory});
@@ -45,7 +45,7 @@ final class _CashuTokenSendPageState extends State<CashuTokenSendPage> {
   Future<void> _initialize() async {
     try {
       final factory =
-          widget.controllerFactory ?? MobileCashuTokenControllerFactory.create;
+          widget.controllerFactory ?? DefaultCashuTokenControllerFactory.create;
       final controller = await factory();
       final options = await controller.loadSendOptions();
       final records = await controller.loadSendRecords();

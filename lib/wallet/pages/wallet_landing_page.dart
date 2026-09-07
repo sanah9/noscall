@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../application/wallet_landing_controller.dart';
 import '../domain/wallet_configuration.dart';
-import '../infrastructure/mobile/mobile_wallet_controller_factory.dart';
+import '../infrastructure/default_wallet_controller_factory.dart';
 import 'wallet_backup_page.dart';
 
 final class WalletLandingPage extends StatefulWidget {
@@ -41,7 +41,7 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
     WalletLandingController? candidate;
     try {
       final factory =
-          widget.controllerFactory ?? MobileWalletControllerFactory.create;
+          widget.controllerFactory ?? DefaultWalletControllerFactory.create;
       candidate = await factory();
       final snapshot = await candidate.load();
       if (!mounted) {

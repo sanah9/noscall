@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../application/cashu_lightning_pay_controller.dart';
 import '../domain/cashu_models.dart';
 import '../domain/wallet_errors.dart';
-import '../infrastructure/mobile/mobile_cashu_lightning_pay_controller_factory.dart';
+import '../infrastructure/default_cashu_lightning_pay_controller_factory.dart';
 
 final class CashuLightningPayPage extends StatefulWidget {
   const CashuLightningPayPage({super.key, this.controllerFactory});
@@ -42,7 +42,7 @@ final class _CashuLightningPayPageState extends State<CashuLightningPayPage> {
     try {
       final factory =
           widget.controllerFactory ??
-          MobileCashuLightningPayControllerFactory.create;
+          DefaultCashuLightningPayControllerFactory.create;
       final controller = await factory();
       final options = await controller.loadPayOptions();
       final records = await controller.loadQuoteRecords();
