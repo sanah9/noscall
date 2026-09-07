@@ -7,7 +7,7 @@ import '../../application/wallet_landing_controller.dart';
 import '../../application/wallet_session_manager.dart';
 import '../../domain/cashu_account_id.dart';
 import '../database/isar_wallet_configuration_repository.dart';
-import 'mobile_account_wallet_factory.dart';
+import '../default_account_wallet_factory.dart';
 
 typedef WalletLandingControllerFactory =
     Future<WalletLandingController> Function();
@@ -19,7 +19,7 @@ final class MobileWalletControllerFactory {
     final accountId = CashuAccountId.fromNostrPubkey(
       Account.sharedInstance.currentPubkey,
     );
-    final walletFactory = await MobileAccountWalletFactory.create();
+    final walletFactory = await DefaultAccountWalletFactory.create();
     final sessionManager = WalletSessionManager(factory: walletFactory);
     final configurationService = WalletConfigurationService(
       repository: IsarWalletConfigurationRepository(DBISAR.sharedInstance.isar),

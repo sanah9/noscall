@@ -92,10 +92,7 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                 navigator.pop();
                 await _logout();
               },
-              child: Text(
-                'Logout',
-                style: TextStyle(color: colorScheme.error),
-              ),
+              child: Text('Logout', style: TextStyle(color: colorScheme.error)),
             ),
           ],
         );
@@ -237,10 +234,7 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                           width: 2,
                         ),
                       ),
-                      child: UserAvatar(
-                        user: user,
-                        size: 100,
-                      ),
+                      child: UserAvatar(user: user, size: 100),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -260,7 +254,9 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
               child: IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white),
                 onPressed: () {
-                  AppNavigatorScope.requireOf(context).pushProfileSettings(context);
+                  AppNavigatorScope.requireOf(
+                    context,
+                  ).pushProfileSettings(context);
                 },
                 tooltip: 'Edit Profile',
               ),
@@ -283,6 +279,23 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
             children: [
               _buildSettingItem(
                 context: context,
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Wallet',
+                onTap: () =>
+                    AppNavigatorScope.requireOf(context).pushWallet(context),
+              ),
+              _buildDivider(colorScheme),
+              _buildSettingItem(
+                context: context,
+                icon: Icons.paid_outlined,
+                title: 'Paid Calls',
+                onTap: () => AppNavigatorScope.requireOf(
+                  context,
+                ).pushCallPaymentSettings(context),
+              ),
+              _buildDivider(colorScheme),
+              _buildSettingItem(
+                context: context,
                 icon: Icons.key,
                 title: 'Keys',
                 onTap: () => KeysDialog.show(context),
@@ -292,21 +305,27 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                 context: context,
                 icon: Icons.cloud_outlined,
                 title: 'Relays',
-                onTap: () => AppNavigatorScope.requireOf(context).pushRelayManagement(context),
+                onTap: () => AppNavigatorScope.requireOf(
+                  context,
+                ).pushRelayManagement(context),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
                 icon: Icons.settings_ethernet,
                 title: 'ICE Servers',
-                onTap: () => AppNavigatorScope.requireOf(context).pushIceServerManagement(context),
+                onTap: () => AppNavigatorScope.requireOf(
+                  context,
+                ).pushIceServerManagement(context),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
                 icon: Icons.palette,
                 title: 'Theme',
-                onTap: () => AppNavigatorScope.requireOf(context).pushThemeSettings(context),
+                onTap: () => AppNavigatorScope.requireOf(
+                  context,
+                ).pushThemeSettings(context),
               ),
               _buildDivider(colorScheme),
               _buildSettingItem(
@@ -358,11 +377,7 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
                     : colorScheme.primaryContainer.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                icon,
-                color: effectiveTextColor,
-                size: 20,
-              ),
+              child: Icon(icon, color: effectiveTextColor, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(

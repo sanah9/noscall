@@ -7,7 +7,7 @@ import 'package:noscall/call_payments/application/call_payment_initial_payment_s
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
 import 'package:noscall/call_payments/application/call_payment_start_guard.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
-import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_runtime_factory.dart';
 import 'package:noscall/call_payments/pages/call_payment_confirm_page.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
@@ -59,8 +59,9 @@ class StartCallHelper {
     try {
       final effectivePaymentRuntimeFactory =
           paymentRuntimeFactory ??
-          () =>
-              MobileCallPaymentRuntimeFactory.tryCreate(stopCall: stopPaidCall);
+          () => DefaultCallPaymentRuntimeFactory.tryCreate(
+            stopCall: stopPaidCall,
+          );
       if (paymentGuard == null ||
           paymentOwner == null ||
           prepareInitialPayment == null) {

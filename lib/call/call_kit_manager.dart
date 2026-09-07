@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/application/call_payment_runtime.dart';
-import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_runtime_factory.dart';
 import 'package:noscall/call_history/constants/call_enums.dart';
 import 'package:noscall/call_history/controller/call_history_manager.dart';
 import 'package:noscall/core/call/nip_ac_protocol.dart';
@@ -193,7 +193,7 @@ class CallKitManager with WidgetsBindingObserver {
   Future<void> _handleCallPaymentEvent(Event event, String relay) async {
     CallPaymentRuntime? runtime;
     try {
-      runtime = await MobileCallPaymentRuntimeFactory.create();
+      runtime = await DefaultCallPaymentRuntimeFactory.create();
       final result = await runtime.eventHandler().handle(event);
       if (!result.handled) {
         LogUtils.v(
@@ -214,7 +214,7 @@ class CallKitManager with WidgetsBindingObserver {
   Future<void> _recoverPendingCallPayments() async {
     try {
       final report =
-          await MobileCallPaymentRuntimeFactory.recoverPendingPayments();
+          await DefaultCallPaymentRuntimeFactory.recoverPendingPayments();
       if (report.scannedSessions > 0 || report.expiredIncomingSessions > 0) {
         LogUtils.i(
           () =>
@@ -235,7 +235,7 @@ class CallKitManager with WidgetsBindingObserver {
   ) async {
     try {
       final gate =
-          await MobileCallPaymentRuntimeFactory.createIncomingOfferGate();
+          await DefaultCallPaymentRuntimeFactory.createIncomingOfferGate();
       final decision = await gate.evaluate(
         callId: signaling.callId,
         peerPubkey: event.pubkey,

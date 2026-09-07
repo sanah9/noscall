@@ -10,7 +10,7 @@ import '../../domain/cashu_account_id.dart';
 import '../../domain/mint_configuration.dart';
 import '../cdk/cdk_protocol_adapter.dart';
 import '../database/isar_wallet_configuration_repository.dart';
-import 'mobile_account_wallet_factory.dart';
+import '../default_account_wallet_factory.dart';
 
 typedef MintManagementControllerFactory =
     Future<MintManagementController> Function();
@@ -24,7 +24,7 @@ final class MobileMintManagementControllerFactory {
     final accountId = CashuAccountId.fromNostrPubkey(
       Account.sharedInstance.currentPubkey,
     );
-    final walletFactory = await MobileAccountWalletFactory.create();
+    final walletFactory = await DefaultAccountWalletFactory.create();
     final balanceService = AccountWalletBalanceService(
       accountId: accountId,
       sessionManager: WalletSessionManager(factory: walletFactory),

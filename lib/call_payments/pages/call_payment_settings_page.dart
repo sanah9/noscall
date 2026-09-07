@@ -4,7 +4,7 @@ import 'package:noscall/call_payments/application/call_payment_recovery_service.
 import 'package:noscall/call_payments/domain/call_payment_errors.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
 import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
-import 'package:noscall/call_payments/infrastructure/mobile/mobile_call_payment_runtime_factory.dart';
+import 'package:noscall/call_payments/infrastructure/call_payment_runtime_factory.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/utils/toast.dart';
@@ -364,7 +364,7 @@ final class _CallPaymentSettingsPageState
     try {
       final runner =
           widget.recoveryRunner ??
-          MobileCallPaymentRuntimeFactory.recoverPendingPayments;
+          DefaultCallPaymentRuntimeFactory.recoverPendingPayments;
       final report = await runner();
       if (!mounted) return;
       AppToast.showSuccess(context, _recoveryMessage(report));
