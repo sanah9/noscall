@@ -16,6 +16,7 @@ import 'package:noscall/call/nostr_relay_push_service.dart';
 import 'package:noscall/contacts/services/favorite_contacts_service.dart';
 import 'package:noscall/contacts/services/contact_remark_service.dart';
 import 'package:noscall/core/ui/status_bar_style.dart';
+import 'package:noscall/onboarding/onboarding_service.dart';
 import 'package:noscall/setting/services/theme_service.dart';
 import 'package:noscall/setting/services/notification_settings_service.dart';
 import 'package:noscall/setting/services/accessibility_service.dart';
@@ -33,8 +34,7 @@ Future<void> main() async {
 }
 
 void _configureOrientation() {
-  final view =
-      WidgetsBinding.instance.platformDispatcher.views.first;
+  final view = WidgetsBinding.instance.platformDispatcher.views.first;
   final shortestSide = view.physicalSize.shortestSide / view.devicePixelRatio;
   // Phones (shortest side < 600dp) are locked to portrait.
   // Tablets and desktops keep all orientations enabled.
@@ -68,6 +68,7 @@ Future<void> _initializeServices() async {
     'AccessibilityService',
     AccessibilityService().initialize,
   );
+  await _initializeService('OnboardingService', OnboardingService().initialize);
   await _initializeService('AuthService', AuthService().initialize);
   await _initializeService(
     'LocalNotificationService',
@@ -152,8 +153,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
             return ValueListenableBuilder<double?>(
               valueListenable: AccessibilityService().textScaleFactorNotifier,
               builder: (context, textScale, ___) {
-                final themeMode =
-                    themeService.toFlutterThemeMode(themeModeOption);
+                final themeMode = themeService.toFlutterThemeMode(
+                  themeModeOption,
+                );
                 final seedColor = Color(seedColorValue);
 
                 return MaterialApp.router(
@@ -165,8 +167,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                     ),
                     useMaterial3: true,
                     appBarTheme: AppBarTheme(
-                      systemOverlayStyle:
-                          StatusBarStyle.forBrightness(Brightness.light),
+                      systemOverlayStyle: StatusBarStyle.forBrightness(
+                        Brightness.light,
+                      ),
                     ),
                   ),
                   darkTheme: ThemeData(
@@ -176,8 +179,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                     ),
                     useMaterial3: true,
                     appBarTheme: AppBarTheme(
-                      systemOverlayStyle:
-                          StatusBarStyle.forBrightness(Brightness.dark),
+                      systemOverlayStyle: StatusBarStyle.forBrightness(
+                        Brightness.dark,
+                      ),
                     ),
                   ),
                   themeMode: themeMode,
@@ -187,9 +191,9 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
                     Widget w = EasyLoading.init()(context, child);
                     if (textScale != null) {
                       w = MediaQuery(
-                        data: MediaQuery.of(context).copyWith(
-                          textScaler: TextScaler.linear(textScale),
-                        ),
+                        data: MediaQuery.of(
+                          context,
+                        ).copyWith(textScaler: TextScaler.linear(textScale)),
                         child: w,
                       );
                     }
