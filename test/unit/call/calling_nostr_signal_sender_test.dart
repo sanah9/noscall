@@ -74,7 +74,7 @@ class _FakeWebRTCSession implements CallingControllerWebRTCSession {
   final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
 
   @override
-  Future<RTCSessionDescription> createOffer() async {
+  Future<RTCSessionDescription> createOffer({bool iceRestart = false}) async {
     createOfferCalls += 1;
     return RTCSessionDescription('offer-sdp', 'offer');
   }

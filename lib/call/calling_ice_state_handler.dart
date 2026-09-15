@@ -17,6 +17,7 @@ class CallingIceStateHandler {
   }) async {
     switch (connectionState) {
       case RTCIceConnectionState.RTCIceConnectionStateConnected:
+      case RTCIceConnectionState.RTCIceConnectionStateCompleted:
         await onConnected();
         break;
       case RTCIceConnectionState.RTCIceConnectionStateFailed:

@@ -12,11 +12,7 @@ import 'package:noscall/call/pip_manager.dart';
 import 'calling_controls_bar.dart';
 
 class CallingPage extends StatefulWidget {
-
-  const CallingPage({
-    super.key,
-    required this.controller,
-  });
+  const CallingPage({super.key, required this.controller});
 
   final CallingController controller;
 
@@ -27,10 +23,10 @@ class CallingPage extends StatefulWidget {
 }
 
 class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
-
   CallingController get controller => widget.controller;
   final GlobalKey<OverlayState> overlayKey = GlobalKey<OverlayState>();
-  final GlobalKey<CallingControlsBarState> controlsBarKey = GlobalKey<CallingControlsBarState>();
+  final GlobalKey<CallingControlsBarState> controlsBarKey =
+      GlobalKey<CallingControlsBarState>();
 
   double _cameraPosTopRatio = 0.15;
   double _cameraPosLeftRatio = 0.05;
@@ -138,7 +134,9 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
 
     if (!mounted) return;
 
-    final appStateBackground = state == AppLifecycleState.paused || state == AppLifecycleState.inactive;
+    final appStateBackground =
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive;
     if (_isVideoConnected && appStateBackground) {
       if (appStateBackground && _showControls) {
         setState(() {
@@ -174,11 +172,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
         extendBodyBehindAppBar: true,
         body: Overlay(
           key: overlayKey,
-          initialEntries: [
-            OverlayEntry(
-              builder: (_) => _buildContent(),
-            ),
-          ],
+          initialEntries: [OverlayEntry(builder: (_) => _buildContent())],
         ),
       ),
     );
@@ -187,14 +181,19 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
   Widget _buildContent() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final screenWidth = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+        final screenWidth =
+            constraints.maxWidth.isFinite && constraints.maxWidth > 0
             ? constraints.maxWidth
             : MediaQuery.of(context).size.width;
-        final screenHeight = constraints.maxHeight.isFinite && constraints.maxHeight > 0
+        final screenHeight =
+            constraints.maxHeight.isFinite && constraints.maxHeight > 0
             ? constraints.maxHeight
             : MediaQuery.of(context).size.height;
 
-        if (screenWidth <= 0 || screenHeight <= 0 || !screenWidth.isFinite || !screenHeight.isFinite) {
+        if (screenWidth <= 0 ||
+            screenHeight <= 0 ||
+            !screenWidth.isFinite ||
+            !screenHeight.isFinite) {
           return _buildBackgroundView();
         }
 
@@ -213,17 +212,25 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
             : cameraHeight;
 
         // Validate calculated dimensions
-        final safeCameraWidth = finalCameraWidth.isFinite && finalCameraWidth > 0
+        final safeCameraWidth =
+            finalCameraWidth.isFinite && finalCameraWidth > 0
             ? finalCameraWidth.clamp(0.0, screenWidth)
             : 90.0;
-        final safeCameraHeight = finalCameraHeight.isFinite && finalCameraHeight > 0
+        final safeCameraHeight =
+            finalCameraHeight.isFinite && finalCameraHeight > 0
             ? finalCameraHeight.clamp(0.0, screenHeight)
             : 120.0;
 
         // Calculate absolute position from relative ratios
         // This ensures camera window scales properly with screen size
-        final localCameraPosTop = (screenHeight * _cameraPosTopRatio).clamp(0.0, screenHeight);
-        final localCameraPosLeft = (screenWidth * _cameraPosLeftRatio).clamp(0.0, screenWidth);
+        final localCameraPosTop = (screenHeight * _cameraPosTopRatio).clamp(
+          0.0,
+          screenHeight,
+        );
+        final localCameraPosLeft = (screenWidth * _cameraPosLeftRatio).clamp(
+          0.0,
+          screenWidth,
+        );
 
         return Stack(
           children: [
@@ -296,9 +303,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
           // Show black background while waiting for renderer to be ready
           // This prevents white background flash on iOS when renderer is not initialized yet
           if (!_isVideoViewReady && !hasConnected) {
-            return Container(
-              color: Colors.black,
-            );
+            return Container(color: Colors.black);
           }
 
           return Container(
@@ -402,10 +407,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
   }
 
   Widget _buildHeadImage() {
-    return UserAvatar(
-      user: controller.user,
-      size: 240,
-    );
+    return UserAvatar(user: controller.user, size: 240);
   }
 
   Widget _buildHeadName() {
@@ -432,12 +434,15 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
         final state = controller.state.value;
         final duration = controller.connectedDuration.value;
         String showHint = 'Calling...';
-        if (state == CallingState.ringing && controller.role == CallingRole.callee) {
+        if (state == CallingState.ringing &&
+            controller.role == CallingRole.callee) {
           showHint = controller.callType == CallType.audio
               ? 'Invites you to a call...'
               : 'Invites you to a video call...';
         } else if (state == CallingState.connecting) {
           showHint = 'Connecting...';
+        } else if (state == CallingState.reconnecting) {
+          showHint = 'Reconnecting (up to 15s)...';
         } else if (state == CallingState.connected) {
           String twoDigits(int n) => n.toString().padLeft(2, "0");
           String twoDigitMinutes = twoDigits(duration.inMinutes);
@@ -446,10 +451,7 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
         }
         return Text(
           showHint,
-          style: TextStyle(
-            color: onSurface,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: onSurface, fontSize: 14),
           maxLines: 1,
           textAlign: TextAlign.center,
         );
@@ -467,15 +469,17 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
   }
 
   void _handleCameraPanUpdate(
-      DragUpdateDetails details,
-      double screenWidth,
-      double screenHeight,
-      double width,
-      double height,
-      ) {
+    DragUpdateDetails details,
+    double screenWidth,
+    double screenHeight,
+    double width,
+    double height,
+  ) {
     // Validate screen dimensions
-    if (screenWidth <= 0 || screenHeight <= 0 ||
-        !screenWidth.isFinite || !screenHeight.isFinite) {
+    if (screenWidth <= 0 ||
+        screenHeight <= 0 ||
+        !screenWidth.isFinite ||
+        !screenHeight.isFinite) {
       return;
     }
 

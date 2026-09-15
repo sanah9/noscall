@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:nostr_core_dart/nostr.dart';
@@ -17,6 +18,7 @@ class FakeCallingControllerWebRTCSession
   @override
   final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
   int createOfferCalls = 0;
+  bool lastIceRestart = false;
   int createAnswerCalls = 0;
   int closeCalls = 0;
   int disposeCalls = 0;
@@ -45,8 +47,9 @@ class FakeCallingControllerWebRTCSession
   }
 
   @override
-  Future<RTCSessionDescription> createOffer() async {
+  Future<RTCSessionDescription> createOffer({bool iceRestart = false}) async {
     createOfferCalls += 1;
+    lastIceRestart = iceRestart;
     return RTCSessionDescription('offer-sdp', 'offer');
   }
 
@@ -522,6 +525,74 @@ void main() {
       expect(lifecycleObserver.connected.single['callId'], 'call-123');
       expect(lifecycleObserver.connected.single['role'], CallingRole.caller);
     });
+
+    test('caller restarts ICE then ends once at the recovery deadline', () {
+      fakeAsync((time) {
+        late CallingController controller;
+        createController(
+          role: CallingRole.caller,
+          state: CallingState.connected,
+        ).then((value) => controller = value);
+        time.flushMicrotasks();
+        connectivityWatcher.triggerDisconnected();
+        time.elapse(const Duration(seconds: 2));
+        expect(webRTCSession.lastIceRestart, isTrue);
+        expect(signalingGateway.offers, hasLength(1));
+        connectivityWatcher.triggerDisconnected();
+        time.elapse(const Duration(seconds: 13));
+        time.flushMicrotasks();
+        expect(controller.state.value, CallingState.ended);
+        expect(signalingGateway.hangups, hasLength(1));
+        expect(lifecycleObserver.ended, hasLength(1));
+        expect(lifecycleObserver.connected, isEmpty);
+      });
+    });
+
+    test('established call recovers without a second billing start', () async {
+      final controller = await createController(role: CallingRole.caller);
+      controller.onIceConnectionStateHandler(
+        RTCIceConnectionState.RTCIceConnectionStateConnected,
+      );
+      await flushControllerTasks();
+      connectivityWatcher.triggerDisconnected();
+      expect(controller.state.value, CallingState.reconnecting);
+      expect(signalingGateway.hangups, isEmpty);
+      controller.onIceConnectionStateHandler(
+        RTCIceConnectionState.RTCIceConnectionStateCompleted,
+      );
+      await flushControllerTasks();
+      expect(controller.state.value, CallingState.connected);
+      expect(lifecycleObserver.connected, hasLength(1));
+      await controller.hangup(CallEndReason.hangup);
+      controller.onIceConnectionStateHandler(
+        RTCIceConnectionState.RTCIceConnectionStateConnected,
+      );
+      await flushControllerTasks();
+      expect(controller.state.value, CallingState.ended);
+      expect(lifecycleObserver.connected, hasLength(1));
+    });
+
+    test(
+      'callee answers restart offer once without accepting a second call',
+      () async {
+        final controller = await createController(
+          role: CallingRole.callee,
+          state: CallingState.connected,
+        );
+        await controller.signalingOfferCallbackHandler(
+          remoteSdp: 'restart-sdp',
+          remoteType: 'offer',
+        );
+        expect(controller.state.value, CallingState.reconnecting);
+        expect(webRTCSession.createAnswerCalls, 1);
+        await controller.signalingOfferCallbackHandler(
+          remoteSdp: 'restart-sdp',
+          remoteType: 'offer',
+        );
+        expect(webRTCSession.createAnswerCalls, 1);
+        await controller.hangup(CallEndReason.hangup);
+      },
+    );
 
     test('lifecycle observer is notified when call ends', () async {
       final controller = await createController(

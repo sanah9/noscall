@@ -13,7 +13,7 @@ import 'package:noscall/core/core.dart';
 abstract class CallingControllerWebRTCSession {
   RTCVideoRenderer get localRenderer;
   RTCVideoRenderer get remoteRenderer;
-  Future<RTCSessionDescription> createOffer();
+  Future<RTCSessionDescription> createOffer({bool iceRestart = false});
   Future<RTCSessionDescription> createAnswer();
   Future<void> setRemoteDescription({
     required String? remoteSdp,

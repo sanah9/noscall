@@ -13,6 +13,7 @@ import 'calling_call_history_recorder.dart';
 import 'calling_ice_state_handler.dart';
 import 'calling_nostr_signal_sender.dart';
 import 'call_duration_tracker.dart';
+import 'call_recovery_window.dart';
 import 'call_invite_timeout.dart';
 import 'constant/call_type.dart';
 
@@ -90,6 +91,8 @@ class CallingController {
 
   late final CallDurationTracker _durationTracker;
   late final CallInviteTimeout _inviteTimeout;
+  final CallRecoveryWindow _recovery = CallRecoveryWindow();
+  String? _lastRemoteOfferSdp;
   late final CallingControllerConnectivityWatcher _connectivityListener;
   final CallingCallHistoryRecorder _callHistoryRecorder =
       const CallingCallHistoryRecorder();
@@ -176,9 +179,9 @@ class CallingController {
         LogUtils.info(
           className: 'CallingController',
           funcName: 'create',
-          message: 'Network disconnected, hanging up call',
+          message: 'Network disconnected',
         );
-        controller.hangup(CallEndReason.networkDisconnected);
+        controller._handleInterruption(CallEndReason.networkDisconnected);
       },
       onError: (error) {
         LogUtils.error(
@@ -193,11 +196,46 @@ class CallingController {
   }
 
   void _dispose() async {
+    _recovery.cancel();
     _inviteTimeout.dispose();
     _durationTracker.dispose();
     _connectivityListener.dispose();
     webRTCHandler.dispose();
     disposeCallback?.call(await offerId);
+  }
+
+  void _handleInterruption(CallEndReason reason) {
+    if (state.value == CallingState.ended || isHangingUp.value) return;
+    if (!hasConnected.value) {
+      unawaited(hangup(reason));
+      return;
+    }
+    state.value = CallingState.reconnecting;
+    _recovery.start(
+      onTimeout: () => unawaited(hangup(reason)),
+      onRetry: () => unawaited(_restartIce()),
+    );
+  }
+
+  Future<void> _restartIce() async {
+    // Only the original caller creates offers, avoiding simultaneous renegotiation.
+    if (role != CallingRole.caller || !_recovery.active || isHangingUp.value) {
+      return;
+    }
+    try {
+      _sentCandidateKeys.clear();
+      localCandidateSet.clear();
+      final description = await webRTCHandler.createOffer(iceRestart: true);
+      if (!_recovery.active || isHangingUp.value) return;
+      await dependencies.signalingGateway.sendOffer(
+        peerId,
+        await callId,
+        callType.value,
+        description.sdp!,
+      );
+    } catch (e) {
+      LogUtils.w(() => 'ICE restart did not complete: ${e.runtimeType}');
+    }
   }
 
   Future<void> _recordCallHistory(String reason) async {
@@ -336,6 +374,7 @@ extension CallingControllerSignalingEx on CallingController {
     if (isHangingUp.value) return;
 
     isHangingUp.value = true;
+    _recovery.cancel();
 
     // Determine the appropriate reason based on call state using Dart 3.0 switch
     final finalReason = switch (reason) {
@@ -462,7 +501,10 @@ extension CallingControllerNostrSignalingEx on CallingController {
   }) async {
     switch (nostrState) {
       case SignalingState.offer:
-        signalingOfferCallbackHandler(remoteSdp: content, remoteType: 'offer');
+        await signalingOfferCallbackHandler(
+          remoteSdp: content,
+          remoteType: 'offer',
+        );
         break;
       case SignalingState.answer:
         signalingAnswerCallbackHandler(
@@ -500,20 +542,30 @@ extension CallingControllerNostrSignalingEx on CallingController {
     );
   }
 
-  void signalingOfferCallbackHandler({
+  Future<void> signalingOfferCallbackHandler({
     required String? remoteSdp,
     required String? remoteType,
-  }) {
+  }) async {
+    if (state.value == CallingState.ended || isHangingUp.value) return;
+    if (remoteSdp == null || remoteSdp == _lastRemoteOfferSdp) return;
+    if (hasConnected.value && role != CallingRole.callee) return;
     LogUtils.info(
       className: 'CallingController',
       funcName: 'signalingOfferCallbackHandler',
       message:
-          '[receive offer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
+          '[receive offer] remoteSdp.length: ${remoteSdp.length}, remoteType: $remoteType',
     );
-    webRTCHandler.setRemoteDescription(
+    await webRTCHandler.setRemoteDescription(
       remoteSdp: remoteSdp,
       remoteType: remoteType,
     );
+    _lastRemoteOfferSdp = remoteSdp;
+    if (hasConnected.value &&
+        state.value != CallingState.ended &&
+        !isHangingUp.value) {
+      _handleInterruption(CallEndReason.iceDisconnected);
+      await _sendAnswer();
+    }
   }
 
   void signalingCandidateCallbackHandler({
@@ -544,7 +596,8 @@ extension CallingControllerNostrSignalingEx on CallingController {
       message:
           '[receive answer] remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
     );
-    state.value = CallingState.connecting;
+    if (state.value == CallingState.ended || isHangingUp.value) return;
+    if (!hasConnected.value) state.value = CallingState.connecting;
     webRTCHandler.setRemoteDescription(
       remoteSdp: remoteSdp,
       remoteType: remoteType,
@@ -562,6 +615,10 @@ extension CallingControllerNostrSignalingEx on CallingController {
       message: '[receive disconnect] reason=${reason.value}',
     );
     if (state.value == CallingState.ended) return;
+
+    if (isHangingUp.value) return;
+    isHangingUp.value = true;
+    _recovery.cancel();
 
     _durationTracker.stop();
     await _recordCallHistory(reason.value);
@@ -606,13 +663,16 @@ extension CallingControllerWebRTCSignalingEx on CallingController {
     await _iceStateHandler.handle(
       connectionState,
       onConnected: () async {
+        if (state.value == CallingState.ended || isHangingUp.value) return;
+        final firstConnection = !hasConnected.value;
+        _recovery.cancel();
         hasConnected.value = true;
         state.value = CallingState.connected;
         _durationTracker.start();
         await webRTCHandler.setSpeakerType(speakerType.value);
-        await _notifyConnected();
+        if (firstConnection) await _notifyConnected();
       },
-      onHangup: hangup,
+      onHangup: _handleInterruption,
     );
   }
 }

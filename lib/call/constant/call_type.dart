@@ -33,6 +33,7 @@ enum CallingState {
   ringing, // Waiting for answer or received invitation
   connecting, // Both parties answered, establishing connection
   connected, // Call established, audio/video channels stable
+  reconnecting, // Established call recovering within a bounded grace period
   ended, // Call ended (normal hangup or failed)
 }
 

@@ -87,8 +87,12 @@ class WebRTCHandler implements CallingControllerWebRTCSession {
   }
 
   @override
-  Future<RTCSessionDescription> createOffer() =>
-      WebRTCHelper.createOffer(peerConnection, callType.isVideo);
+  Future<RTCSessionDescription> createOffer({bool iceRestart = false}) =>
+      WebRTCHelper.createOffer(
+        peerConnection,
+        callType.isVideo,
+        iceRestart: iceRestart,
+      );
 
   @override
   Future<RTCSessionDescription> createAnswer() =>
@@ -105,8 +109,9 @@ class WebRTCHandler implements CallingControllerWebRTCSession {
       message:
           'remoteSdp.length: ${remoteSdp?.length}, remoteType: $remoteType',
     );
-    await peerConnection
-        .setRemoteDescription(RTCSessionDescription(remoteSdp, remoteType));
+    await peerConnection.setRemoteDescription(
+      RTCSessionDescription(remoteSdp, remoteType),
+    );
     for (final candidate in _pendingCandidates) {
       try {
         LogUtils.info(
@@ -129,11 +134,7 @@ class WebRTCHandler implements CallingControllerWebRTCSession {
     required int? sdpMLineIndex,
   }) async {
     try {
-      final candidateEntry = RTCIceCandidate(
-        candidate,
-        sdpMid,
-        sdpMLineIndex,
-      );
+      final candidateEntry = RTCIceCandidate(candidate, sdpMid, sdpMLineIndex);
       if (await peerConnection.getRemoteDescription() == null) {
         _pendingCandidates.add(candidateEntry);
       } else {
@@ -371,7 +372,8 @@ class WebRTCHelper {
       final hasVideoInput = devices.any((d) => d.kind == 'videoinput');
 
       LogUtils.i(
-        () => 'Desktop media devices detected: total=${devices.length}, '
+        () =>
+            'Desktop media devices detected: total=${devices.length}, '
             'audioInput=$hasAudioInput, videoInput=$hasVideoInput',
       );
 
@@ -380,7 +382,8 @@ class WebRTCHelper {
       }
       if (expectVideo && !hasVideoInput) {
         throw StateError(
-            'Video call requested but no video input device found');
+          'Video call requested but no video input device found',
+        );
       }
     } catch (e, stack) {
       LogUtils.e(() => 'Desktop media device preflight failed: $e, $stack');
@@ -403,10 +406,8 @@ class WebRTCHelper {
     Map<String, dynamic> constraints = {
       'mandatory': {},
       'optional': [
-        {
-          'DtlsSrtpKeyAgreement': true,
-        },
-      ]
+        {'DtlsSrtpKeyAgreement': true},
+      ],
     };
 
     return createPeerConnection(configuration, constraints);
@@ -416,9 +417,7 @@ class WebRTCHelper {
     required bool isAudio,
     required bool isVideo,
   }) {
-    final videoConstraints = {
-      'facingMode': 'user',
-    };
+    final videoConstraints = {'facingMode': 'user'};
     final Map<String, dynamic> mediaConstraints = {
       'audio': isAudio,
       'video': isVideo ? videoConstraints : false,
@@ -427,8 +426,12 @@ class WebRTCHelper {
   }
 
   static Future<RTCSessionDescription> createOffer(
-      RTCPeerConnection connection, bool isVideo) async {
+    RTCPeerConnection connection,
+    bool isVideo, {
+    bool iceRestart = false,
+  }) async {
     final description = await connection.createOffer({
+      'iceRestart': iceRestart,
       'mandatory': {
         'OfferToReceiveAudio': true,
         'OfferToReceiveVideo': isVideo,
@@ -436,8 +439,10 @@ class WebRTCHelper {
     });
 
     final sdp = description.sdp;
-    description.sdp =
-        sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
+    description.sdp = sdp?.replaceAll(
+      'profile-level-id=640c1f',
+      'profile-level-id=42e032',
+    );
 
     LogUtils.info(
       className: 'WebRTCHandler',
@@ -450,7 +455,9 @@ class WebRTCHelper {
   }
 
   static Future<RTCSessionDescription> createAnswer(
-      RTCPeerConnection connection, bool isVideo) async {
+    RTCPeerConnection connection,
+    bool isVideo,
+  ) async {
     final description = await connection.createAnswer({
       'mandatory': {
         'OfferToReceiveAudio': true,
@@ -459,8 +466,10 @@ class WebRTCHelper {
     });
 
     final sdp = description.sdp;
-    description.sdp =
-        sdp?.replaceAll('profile-level-id=640c1f', 'profile-level-id=42e032');
+    description.sdp = sdp?.replaceAll(
+      'profile-level-id=640c1f',
+      'profile-level-id=42e032',
+    );
 
     LogUtils.info(
       className: 'WebRTCHandler',
@@ -473,19 +482,23 @@ class WebRTCHelper {
   }
 
   static Future addStreamToRenderer(
-      MediaStream stream, RTCVideoRenderer renderer) async {
+    MediaStream stream,
+    RTCVideoRenderer renderer,
+  ) async {
     if (renderer.textureId == null) await renderer.initialize();
     renderer.srcObject = stream;
   }
 
   static Future<List<RTCRtpSender>> getVideoSender(
-      RTCPeerConnection connection) async {
+    RTCPeerConnection connection,
+  ) async {
     final senders = await connection.getSenders();
     return senders.where((e) => e.track?.kind == 'video').toList();
   }
 
   static Future<List<RTCRtpSender>> getAudioSender(
-      RTCPeerConnection connection) async {
+    RTCPeerConnection connection,
+  ) async {
     final senders = await connection.getSenders();
     return senders.where((e) => e.track?.kind == 'audio').toList();
   }

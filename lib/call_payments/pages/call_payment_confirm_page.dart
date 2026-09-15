@@ -88,6 +88,14 @@ final class _CallPaymentConfirmPageState extends State<CallPaymentConfirmPage> {
     final args = widget.arguments;
     return Scaffold(
       appBar: AppBar(title: const Text('Paid Call')),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: FilledButton.icon(
+          onPressed: _confirm,
+          icon: const Icon(Icons.call_outlined),
+          label: const Text('Confirm and call'),
+        ),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -101,15 +109,9 @@ final class _CallPaymentConfirmPageState extends State<CallPaymentConfirmPage> {
                 leading: Icon(Icons.info_outline),
                 title: Text('Ordinary token payment'),
                 subtitle: Text(
-                  'This first release uses encrypted ordinary Cashu tokens. Tokens are not locked to the receiver and refunds depend on the other client.',
+                  'This first release uses encrypted ordinary Cashu tokens. Tokens are not locked to the receiver and refunds depend on the other client. Billing continues during network recovery (up to 15 seconds per interruption) until the call ends, within your spending limit.',
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _confirm,
-              icon: const Icon(Icons.call_outlined),
-              label: const Text('Confirm and call'),
             ),
           ],
         ),

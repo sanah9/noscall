@@ -233,6 +233,23 @@ class CallKitManager with WidgetsBindingObserver {
     Event event,
     NipAcSignaling signaling,
   ) async {
+    final active = await activeController;
+    if (active != null &&
+        active.hasConnected.value &&
+        active.state.value != CallingState.ended &&
+        active.peerId == event.pubkey &&
+        await active.callId == signaling.callId) {
+      // Restart offers reuse the call id and must bypass duplicate-invite storage.
+      try {
+        await active.signalingOfferCallbackHandler(
+          remoteSdp: signaling.content,
+          remoteType: 'offer',
+        );
+      } catch (e) {
+        LogUtils.w(() => 'Restart offer failed: ${e.runtimeType}');
+      }
+      return false;
+    }
     try {
       final gate =
           await DefaultCallPaymentRuntimeFactory.createIncomingOfferGate();
@@ -427,6 +444,7 @@ class CallKitManager with WidgetsBindingObserver {
           _bufferGlobalCandidate(offerId, data);
         }
       } else {
+        if (activeController.peerId != friend) return;
         activeController.signalingCallbackHandler(
           nostrState: state,
           content: data,
