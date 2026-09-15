@@ -8,7 +8,7 @@ import 'package:noscall/core/call/contacts/contacts_calling.dart';
 import 'package:noscall/core/call/messages/messages.dart';
 import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
-import 'package:noscall/utils/file_upload_manager.dart';
+import 'voice_attachment_upload.dart';
 import 'package:noscall/utils/microphone_permission_service.dart';
 import 'package:noscall/utils/toast.dart';
 import 'package:path_provider/path_provider.dart';
@@ -174,26 +174,24 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
 
     setState(() => _isSending = true);
 
-    String? url;
+    late final String url;
+    late final Map<String, dynamic> encryption;
     try {
-      url = await FileUploadManager.uploadFile(file, onProgress: (_) {});
+      final attachment = await VoiceAttachmentUpload.upload(file);
+      url = attachment.url;
+      encryption = attachment.encryption;
     } catch (e) {
       if (mounted) AppToast.showError(context, 'Upload failed');
       setState(() => _isSending = false);
       return;
     }
-    if (url == null || url.isEmpty) {
-      if (mounted) AppToast.showError(context, 'Upload failed');
-      setState(() => _isSending = false);
-      return;
-    }
-
     final waveformPeaks = _generateWaveformPeaks(durationSeconds);
     final content = {
       'contentType': 'voice',
       'url': url,
       'durationSeconds': durationSeconds,
       'mimeType': 'audio/mp4',
+      'encryption': encryption,
       'waveformPeaks': waveformPeaks,
     };
     final plainContent = jsonEncode(content);
@@ -215,6 +213,7 @@ class _SendVoiceMessagePageState extends State<SendVoiceMessagePage> {
       messageId: eventId,
       url: url,
       localFilePath: path,
+      encrypted: true,
     );
 
     final myPubkey = Account.sharedInstance.currentPubkey;

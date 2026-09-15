@@ -8,6 +8,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:noscall/core/call/messages/model/message_db_isar.dart';
 import 'package:noscall/core/call/messages/voice_cache_manager.dart';
+import 'package:noscall/core/call/messages/voice_attachment_cipher.dart';
 
 /// Fake that only records [removeFile] calls. Used to test "deleteCacheForMessage calls removeFile"
 /// without needing path_provider/sqflite.
@@ -48,8 +49,11 @@ class FakeVoiceCacheManager implements BaseCacheManager {
   Future<void> dispose() async {}
 
   @override
-  Future<File> getSingleFile(String url,
-      {String key = '', Map<String, String> headers = const {}}) async {
+  Future<File> getSingleFile(
+    String url, {
+    String key = '',
+    Map<String, String> headers = const {},
+  }) async {
     final cacheKey = key.isNotEmpty ? key : url;
     final file = _filesByKey[cacheKey];
     if (file == null || !await file.exists()) {
@@ -59,8 +63,10 @@ class FakeVoiceCacheManager implements BaseCacheManager {
   }
 
   @override
-  Future<FileInfo?> getFileFromCache(String key,
-      {bool ignoreMemCache = false}) async {
+  Future<FileInfo?> getFileFromCache(
+    String key, {
+    bool ignoreMemCache = false,
+  }) async {
     final file = _filesByKey[key];
     if (file == null || !await file.exists()) return null;
     return FileInfo(
@@ -77,25 +83,34 @@ class FakeVoiceCacheManager implements BaseCacheManager {
   }
 
   @override
-  Future<FileInfo> downloadFile(String url,
-      {String? key,
-      Map<String, String>? authHeaders,
-      bool force = false}) async {
+  Future<FileInfo> downloadFile(
+    String url, {
+    String? key,
+    Map<String, String>? authHeaders,
+    bool force = false,
+  }) async {
     throw UnimplementedError();
   }
 
   @override
-  Stream<FileResponse> getFileStream(String url,
-      {String? key, Map<String, String>? headers, bool withProgress = false}) {
+  Stream<FileResponse> getFileStream(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool withProgress = false,
+  }) {
     throw UnimplementedError();
   }
 
   @override
-  Future<File> putFile(String url, Uint8List fileBytes,
-      {String? key,
-      String? eTag,
-      Duration? maxAge,
-      String fileExtension = 'file'}) async {
+  Future<File> putFile(
+    String url,
+    Uint8List fileBytes, {
+    String? key,
+    String? eTag,
+    Duration? maxAge,
+    String fileExtension = 'file',
+  }) async {
     final cacheKey = key ?? url;
     final file = _fs.file(_pathForKey(cacheKey, fileExtension));
     await file.parent.create(recursive: true);
@@ -105,17 +120,23 @@ class FakeVoiceCacheManager implements BaseCacheManager {
   }
 
   @override
-  Future<File> putFileStream(String url, Stream<List<int>> source,
-      {String? key,
-      String? eTag,
-      Duration? maxAge,
-      String fileExtension = 'file'}) async {
+  Future<File> putFileStream(
+    String url,
+    Stream<List<int>> source, {
+    String? key,
+    String? eTag,
+    Duration? maxAge,
+    String fileExtension = 'file',
+  }) async {
     throw UnimplementedError();
   }
 
   @override
-  Stream<FileInfo> getFile(String url,
-      {String? key, Map<String, String>? headers}) {
+  Stream<FileInfo> getFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+  }) {
     throw UnimplementedError();
   }
 }
@@ -165,11 +186,13 @@ void main() {
       final msg = voiceMessage(messageId: '', url: 'https://example.com/a.m4a');
       expect(
         VoiceCacheManager.instance.getOrDownload(msg),
-        throwsA(isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          contains('messageId'),
-        )),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('messageId'),
+          ),
+        ),
       );
     });
 
@@ -184,11 +207,13 @@ void main() {
       );
       expect(
         VoiceCacheManager.instance.getOrDownload(msg),
-        throwsA(isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          contains('url'),
-        )),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('url'),
+          ),
+        ),
       );
     });
 
@@ -200,20 +225,20 @@ void main() {
       );
       expect(
         VoiceCacheManager.instance.getOrDownload(msg),
-        throwsA(isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          contains('url'),
-        )),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('url'),
+          ),
+        ),
       );
     });
   });
 
   group('VoiceCacheManager.bindLocalFile', () {
     test('copies local file to cache then getOrDownload returns it', () async {
-      VoiceCacheManager.setTestOverrides(
-        cacheManager: fakeCacheManager,
-      );
+      VoiceCacheManager.setTestOverrides(cacheManager: fakeCacheManager);
       final source = io.File('${tempDir.path}/source.m4a');
       await source.writeAsBytes([10, 20, 30]);
 
@@ -252,18 +277,13 @@ void main() {
         localFilePath: '${tempDir.path}/nonexistent.m4a',
       );
       // Should not throw
-      expect(
-        await fakeCacheManager.getFileFromCache('ev_nosource'),
-        isNull,
-      );
+      expect(await fakeCacheManager.getFileFromCache('ev_nosource'), isNull);
     });
   });
 
   group('VoiceCacheManager.deleteCacheForMessage', () {
     test('removes cached file', () async {
-      VoiceCacheManager.setTestOverrides(
-        cacheManager: fakeCacheManager,
-      );
+      VoiceCacheManager.setTestOverrides(cacheManager: fakeCacheManager);
       final source = io.File('${tempDir.path}/to_delete.m4a');
       await source.writeAsBytes([1, 2, 3]);
       await VoiceCacheManager.instance.bindLocalFile(
@@ -281,7 +301,10 @@ void main() {
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_delete');
       expect(await file.exists(), isFalse);
-      expect(fakeCacheManager.removeFileCalls, ['ev_delete']);
+      expect(fakeCacheManager.removeFileCalls, [
+        'ev_delete',
+        'ev_delete_decrypted',
+      ]);
     });
 
     test('calls removeFile on underlying manager', () async {
@@ -290,7 +313,7 @@ void main() {
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_xyz');
 
-      expect(fake.removeFileCalls, ['ev_xyz']);
+      expect(fake.removeFileCalls, ['ev_xyz', 'ev_xyz_decrypted']);
     });
 
     test('no-op when messageId is empty', () async {
@@ -304,19 +327,90 @@ void main() {
 
       await VoiceCacheManager.instance.deleteCacheForMessage('ev_never_cached');
 
-      expect(fake.removeFileCalls, ['ev_never_cached']);
+      expect(fake.removeFileCalls, [
+        'ev_never_cached',
+        'ev_never_cached_decrypted',
+      ]);
     });
   });
 
   group('VoiceCacheManager cache maintenance', () {
+    test('decrypts an encrypted download and caches playable audio', () async {
+      VoiceCacheManager.setTestOverrides(cacheManager: fakeCacheManager);
+      final audio = Uint8List.fromList([10, 20, 30]);
+      final encrypted = VoiceAttachmentCipher.encrypt(audio);
+      await fakeCacheManager.putFile(
+        'https://example.com/audio.bin',
+        encrypted.bytes,
+        key: 'encrypted',
+      );
+      final message = voiceMessage(
+        messageId: 'encrypted',
+        url: 'https://example.com/audio.bin',
+        decryptContent: jsonEncode({
+          'contentType': 'voice',
+          'url': 'https://example.com/audio.bin',
+          'encryption': encrypted.encryption,
+        }),
+      );
+      final results = await Future.wait([
+        VoiceCacheManager.instance.getOrDownload(message),
+        VoiceCacheManager.instance.getOrDownload(message),
+      ]);
+      expect(await results.first.readAsBytes(), audio);
+      expect(results.first.path, results.last.path);
+      await VoiceCacheManager.instance.deleteCacheForMessage('encrypted');
+      expect(await results.first.exists(), isFalse);
+      expect(await fakeCacheManager.getFileFromCache('encrypted'), isNull);
+    });
+
+    test('does not cache plaintext when authentication fails', () async {
+      VoiceCacheManager.setTestOverrides(cacheManager: fakeCacheManager);
+      final encrypted = VoiceAttachmentCipher.encrypt(
+        Uint8List.fromList([1, 2]),
+      );
+      encrypted.bytes[0] ^= 1;
+      await fakeCacheManager.putFile(
+        'https://example.com/bad.bin',
+        encrypted.bytes,
+        key: 'corrupt',
+      );
+      final message = voiceMessage(
+        messageId: 'corrupt',
+        url: 'https://example.com/bad.bin',
+        decryptContent: jsonEncode({
+          'contentType': 'voice',
+          'url': 'https://example.com/bad.bin',
+          'encryption': encrypted.encryption,
+        }),
+      );
+      await expectLater(
+        VoiceCacheManager.instance.getOrDownload(message),
+        throwsFormatException,
+      );
+      expect(
+        await fakeCacheManager.getFileFromCache('corrupt_decrypted'),
+        isNull,
+      );
+      expect(await fakeCacheManager.getFileFromCache('corrupt'), isNull);
+    });
+
     test('deleteCacheForMessages removes each non-empty key', () async {
       final fake = FakeVoiceCacheManager(tempDir);
       VoiceCacheManager.setTestOverrides(cacheManager: fake);
 
-      await VoiceCacheManager.instance
-          .deleteCacheForMessages(['ev_a', '', 'ev_b']);
+      await VoiceCacheManager.instance.deleteCacheForMessages([
+        'ev_a',
+        '',
+        'ev_b',
+      ]);
 
-      expect(fake.removeFileCalls, ['ev_a', 'ev_b']);
+      expect(fake.removeFileCalls, [
+        'ev_a',
+        'ev_a_decrypted',
+        'ev_b',
+        'ev_b_decrypted',
+      ]);
     });
 
     test('clearAllCache calls emptyCache on underlying manager', () async {
