@@ -279,6 +279,13 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
             children: [
               _buildSettingItem(
                 context: context,
+                icon: Icons.checklist,
+                title: 'Account setup',
+                onTap: () => context.push('/account-setup'),
+              ),
+              _buildDivider(colorScheme),
+              _buildSettingItem(
+                context: context,
                 icon: Icons.account_balance_wallet_outlined,
                 title: 'Wallet',
                 onTap: () =>

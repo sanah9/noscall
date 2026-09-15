@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 import 'package:noscall/setting/widgets/keys_dialog.dart';
 
@@ -23,13 +24,17 @@ class AccountSettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          _SettingsTile(
+            icon: Icons.checklist,
+            title: 'Account setup',
+            onTap: () => context.push('/account-setup'),
+          ),
           _SettingsTile(
             icon: Icons.key,
             title: 'Keys',
@@ -58,10 +63,7 @@ class _SettingsTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return ListTile(
-      leading: Icon(
-        icon,
-        color: colorScheme.primary,
-      ),
+      leading: Icon(icon, color: colorScheme.primary),
       title: Text(
         title,
         style: theme.textTheme.titleMedium?.copyWith(
@@ -69,10 +71,7 @@ class _SettingsTile extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
       onTap: onTap,
     );
   }
