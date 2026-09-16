@@ -34,7 +34,8 @@ class LocalNotificationService {
       if (Platform.isAndroid) {
         final androidPlugin = _plugin
             .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>();
+              AndroidFlutterLocalNotificationsPlugin
+            >();
         await androidPlugin?.createNotificationChannel(
           const AndroidNotificationChannel(
             _voiceChannelId,
@@ -88,9 +89,41 @@ class LocalNotificationService {
         ),
       );
     } catch (e) {
-      LogUtils.w(
-          () => 'LocalNotificationService: showVoiceMessage failed: $e');
+      LogUtils.w(() => 'LocalNotificationService: showVoiceMessage failed: $e');
     }
+  }
+
+  /// Confirms submission to the OS, not display or remote push delivery.
+  Future<void> showDiagnosticNotification() async {
+    if (!Platform.isIOS && !Platform.isAndroid) {
+      throw UnsupportedError('Local notification test is mobile-only');
+    }
+    await initialize();
+    if (!_initialized) {
+      throw StateError('Notifications could not be initialized');
+    }
+    final settings = NotificationSettingsService();
+    if (!settings.notificationsEnabled || settings.doNotDisturb) {
+      throw StateError('Notifications are muted');
+    }
+    await _plugin.show(
+      100001,
+      'NosCall notification test',
+      'Local notification only. Remote call delivery has not been tested.',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _voiceChannelId,
+          _voiceChannelName,
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: settings.notificationSound,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: settings.notificationSound,
+        ),
+      ),
+    );
   }
 
   /// Minimal notification shown from a background isolate (no app context).
@@ -105,7 +138,8 @@ class LocalNotificationService {
       );
       await plugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(
             const AndroidNotificationChannel(
               _callChannelId,

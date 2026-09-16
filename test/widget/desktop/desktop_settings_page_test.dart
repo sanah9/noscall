@@ -53,7 +53,11 @@ void main() {
     expect(find.text('Wallet'), findsOneWidget);
     expect(find.text('Paid Calls'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Wallet'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Wallet'));
+    await tester.ensureVisible(find.text('Paid Calls'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Paid Calls'));
 
     expect(navigator.walletPushes, 1);

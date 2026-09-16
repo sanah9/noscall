@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/call/unified_push_distributor_service.dart';
 import 'package:noscall/call/widgets/push_distributor_picker.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
@@ -28,13 +29,18 @@ class NotificationSettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          ListTile(
+            leading: const Icon(Icons.network_check),
+            title: const Text('Call diagnostics'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/call-diagnostics'),
+          ),
           ValueListenableBuilder<bool>(
             valueListenable: service.notificationsEnabledNotifier,
             builder: (context, enabled, _) {
@@ -64,10 +70,7 @@ class NotificationSettingsPage extends StatelessWidget {
             valueListenable: service.notificationSoundNotifier,
             builder: (context, sound, _) {
               return SwitchListTile(
-                secondary: Icon(
-                  Icons.volume_up,
-                  color: colorScheme.primary,
-                ),
+                secondary: Icon(Icons.volume_up, color: colorScheme.primary),
                 title: Text(
                   'Notification sound',
                   style: theme.textTheme.titleMedium?.copyWith(

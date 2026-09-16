@@ -286,6 +286,13 @@ class _DesktopSettingsPageState extends State<DesktopSettingsPage> {
               _buildDivider(colorScheme),
               _buildSettingItem(
                 context: context,
+                icon: Icons.network_check,
+                title: 'Call diagnostics',
+                onTap: () => context.push('/call-diagnostics'),
+              ),
+              _buildDivider(colorScheme),
+              _buildSettingItem(
+                context: context,
                 icon: Icons.account_balance_wallet_outlined,
                 title: 'Wallet',
                 onTap: () =>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 class ConnectionSettingsPage extends StatelessWidget {
@@ -22,13 +23,17 @@ class ConnectionSettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          _SettingsTile(
+            icon: Icons.network_check,
+            title: 'Call diagnostics',
+            onTap: () => context.push('/call-diagnostics'),
+          ),
           _SettingsTile(
             icon: Icons.cloud_circle,
             title: 'Relays',
@@ -40,7 +45,9 @@ class ConnectionSettingsPage extends StatelessWidget {
             icon: Icons.settings_ethernet,
             title: 'ICE Servers',
             onTap: () {
-              AppNavigatorScope.requireOf(context).pushIceServerManagement(context);
+              AppNavigatorScope.requireOf(
+                context,
+              ).pushIceServerManagement(context);
             },
           ),
         ],

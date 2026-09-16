@@ -28,12 +28,12 @@ class RelayPushSubscriptionRecord {
   final int createdAt;
 
   Map<String, dynamic> toJson() => {
-        'relay': relay,
-        'd': d,
-        'eventId': eventId,
-        'callbackUrl': callbackUrl,
-        'createdAt': createdAt,
-      };
+    'relay': relay,
+    'd': d,
+    'eventId': eventId,
+    'callbackUrl': callbackUrl,
+    'createdAt': createdAt,
+  };
 
   static RelayPushSubscriptionRecord? fromJson(Map<String, dynamic> json) {
     final relay = json['relay']?.toString() ?? '';
@@ -78,8 +78,9 @@ class DefaultNostrRelayPushEventSender implements NostrRelayPushEventSender {
     final completer = Completer<OKEvent>();
     Timer? timeout;
     try {
-      await Connect.sharedInstance
-          .connectRelays([relay], relayKind: RelayKind.notification);
+      await Connect.sharedInstance.connectRelays([
+        relay,
+      ], relayKind: RelayKind.notification);
       timeout = Timer(const Duration(seconds: Connect.timeout + 2), () {
         if (!completer.isCompleted) {
           completer.complete(OKEvent(event.id, false, 'Time Out'));
@@ -230,12 +231,16 @@ class NostrRelayPushService {
           );
           final ok = await _eventSender.send(event, record.relay);
           if (!ok.status) {
-            LogUtils.w(() =>
-                'NostrRelayPushService: delete failed on ${record.relay}: ${ok.message}');
+            LogUtils.w(
+              () =>
+                  'NostrRelayPushService: delete failed on ${record.relay}: ${ok.message}',
+            );
           }
         } catch (e, stack) {
-          LogUtils.e(() =>
-              'NostrRelayPushService: delete error for ${record.relay}: $e, $stack');
+          LogUtils.e(
+            () =>
+                'NostrRelayPushService: delete error for ${record.relay}: $e, $stack',
+          );
         }
       }
       await _clearRecords(pubkey);
@@ -260,8 +265,10 @@ class NostrRelayPushService {
 
     final registration = await PushTokenService().getCurrentRegistration();
     if (registration == null || registration.callbackUrl.isEmpty) {
-      LogUtils.v(() =>
-          'NostrRelayPushService: skip sync, callback registration unavailable');
+      LogUtils.v(
+        () =>
+            'NostrRelayPushService: skip sync, callback registration unavailable',
+      );
       return;
     }
 
@@ -278,8 +285,9 @@ class NostrRelayPushService {
           final relayInfo = await _relayInfoProvider.getRelayDetails(relay);
           return (relay: relay, supported: relayInfo?.supportsNip9a == true);
         } catch (e) {
-          LogUtils.w(() =>
-              'NostrRelayPushService: failed to load relay info $relay: $e');
+          LogUtils.w(
+            () => 'NostrRelayPushService: failed to load relay info $relay: $e',
+          );
           return (relay: relay, supported: null);
         }
       }),
@@ -300,8 +308,10 @@ class NostrRelayPushService {
     if (supportedRelays.isEmpty &&
         relayInfoFailures == candidateRelays.length &&
         candidateRelays.isNotEmpty) {
-      LogUtils.w(() =>
-          'NostrRelayPushService: all $relayInfoFailures relay info lookups failed — aborting sync to preserve existing subscriptions');
+      LogUtils.w(
+        () =>
+            'NostrRelayPushService: all $relayInfoFailures relay info lookups failed — aborting sync to preserve existing subscriptions',
+      );
       return;
     }
 
@@ -332,11 +342,15 @@ class NostrRelayPushService {
               ),
             );
           }
-          LogUtils.w(() =>
-              'NostrRelayPushService: subscription rejected by $relay: ${ok.message}');
+          LogUtils.w(
+            () =>
+                'NostrRelayPushService: subscription rejected by $relay: ${ok.message}',
+          );
         } catch (e, stack) {
-          LogUtils.e(() =>
-              'NostrRelayPushService: subscription error for $relay: $e, $stack');
+          LogUtils.e(
+            () =>
+                'NostrRelayPushService: subscription error for $relay: $e, $stack',
+          );
         }
         // On rejection or error, retain the previous record if one exists.
         return previous == null ? null : MapEntry(relay, previous);
@@ -364,8 +378,10 @@ class NostrRelayPushService {
           );
           await _eventSender.send(event, relay);
         } catch (e) {
-          LogUtils.w(() =>
-              'NostrRelayPushService: failed to delete stale subscription $relay: $e');
+          LogUtils.w(
+            () =>
+                'NostrRelayPushService: failed to delete stale subscription $relay: $e',
+          );
         }
       }),
     );
@@ -382,20 +398,45 @@ class NostrRelayPushService {
     final relays = <String>{};
     relays.addAll((me?.relayList ?? const <String>[]).map(normalizeRelayUrl));
     relays.addAll(
-        (me?.inboxRelayList ?? const <String>[]).map(normalizeRelayUrl));
+      (me?.inboxRelayList ?? const <String>[]).map(normalizeRelayUrl),
+    );
     relays.addAll((me?.dmRelayList ?? const <String>[]).map(normalizeRelayUrl));
     if (relays.isEmpty) {
       relays.addAll(
-          Relays.sharedInstance.recommendGeneralRelays.map(normalizeRelayUrl));
+        Relays.sharedInstance.recommendGeneralRelays.map(normalizeRelayUrl),
+      );
     }
-    relays.removeWhere((relay) =>
-        relay.isEmpty ||
-        (!relay.startsWith('ws://') && !relay.startsWith('wss://')));
+    relays.removeWhere(
+      (relay) =>
+          relay.isEmpty ||
+          (!relay.startsWith('ws://') && !relay.startsWith('wss://')),
+    );
     return relays;
   }
 
+  /// Local evidence only: accepted subscriptions for this account and callback.
+  /// Never exposes tokens, device ids, or callback URLs to the diagnostics UI.
+  Future<Map<String, DateTime?>> subscriptionDiagnostics() async {
+    final pubkey = Account.sharedInstance.currentPubkey;
+    if (pubkey.isEmpty) return {};
+    final registration = await PushTokenService().getCurrentRegistration();
+    final records = await _loadRecords(pubkey);
+    return {
+      for (final relay in _candidateRelays())
+        relay:
+            registration != null &&
+                records[relay]?.callbackUrl == registration.callbackUrl &&
+                (records[relay]?.createdAt ?? 0) > 0
+            ? DateTime.fromMillisecondsSinceEpoch(
+                records[relay]!.createdAt * 1000,
+              )
+            : null,
+    };
+  }
+
   Future<Map<String, RelayPushSubscriptionRecord>> _loadRecords(
-      String pubkey) async {
+    String pubkey,
+  ) async {
     final raw = await _prefs.getString(_subscriptionsKey(pubkey));
     if (raw == null || raw.isEmpty) return {};
     try {

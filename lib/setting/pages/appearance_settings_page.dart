@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
-import 'package:noscall/utils/snackbar_helper.dart';
 
 class AppearanceSettingsPage extends StatelessWidget {
   const AppearanceSettingsPage({super.key});
@@ -24,8 +23,7 @@ class AppearanceSettingsPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () =>
-              AppNavigatorScope.requireOf(context).pop(context),
+          onPressed: () => AppNavigatorScope.requireOf(context).pop(context),
         ),
       ),
       body: ListView(
@@ -46,7 +44,7 @@ class AppearanceSettingsPage extends StatelessWidget {
           _SettingsTile(
             icon: Icons.notifications,
             title: 'Notification',
-            onTap: () => AppSnackBar.info(context, 'Coming soon'),
+            onTap: () => context.push('/notification-settings'),
           ),
         ],
       ),
