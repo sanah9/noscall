@@ -74,6 +74,59 @@ final class IsarMintConfigurationRepository
   }
 }
 
+final class IsarCashuTokenReceiveRepository
+    implements CashuTokenReceiveRepository {
+  const IsarCashuTokenReceiveRepository(this._isar);
+  final Isar _isar;
+
+  @override
+  Future<CashuTokenReceiveRecord?> find(
+    CashuAccountId owner,
+    String receiptId,
+  ) async {
+    final record = await _isar.cashuTokenReceiveOperationRecords
+        .where()
+        .ownerPubkeyReceiptIdEqualTo(owner.value, receiptId)
+        .findFirst();
+    return record == null ? null : _fromRecord(record);
+  }
+
+  @override
+  Future<List<CashuTokenReceiveRecord>> list(CashuAccountId owner) async {
+    final records = await _isar.cashuTokenReceiveOperationRecords
+        .filter()
+        .ownerPubkeyEqualTo(owner.value)
+        .findAll();
+    return records.map(_fromRecord).toList(growable: false);
+  }
+
+  @override
+  Future<void> save(CashuTokenReceiveRecord record) async {
+    final row = CashuTokenReceiveOperationRecord()
+      ..ownerPubkey = record.owner.value
+      ..receiptId = record.receiptId
+      ..mintUrl = record.mintUrl.toString()
+      ..amountSats = record.amount.value
+      ..state = record.state.name
+      ..createdAt = record.createdAt.millisecondsSinceEpoch
+      ..operationId = record.operationId;
+    await _isar.writeTxn(
+      () => _isar.cashuTokenReceiveOperationRecords.put(row),
+    );
+  }
+
+  CashuTokenReceiveRecord _fromRecord(CashuTokenReceiveOperationRecord row) =>
+      CashuTokenReceiveRecord(
+        owner: CashuAccountId.fromNostrPubkey(row.ownerPubkey),
+        receiptId: row.receiptId,
+        mintUrl: CashuMintUrl.parse(row.mintUrl),
+        amount: CashuAmount.sats(row.amountSats),
+        state: CashuReceiveState.values.byName(row.state),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
+        operationId: row.operationId,
+      );
+}
+
 final class IsarCashuTokenSendRepository implements CashuTokenSendRepository {
   const IsarCashuTokenSendRepository(this._isar);
 

@@ -154,7 +154,13 @@ final class _CashuTokenReceivePageState extends State<CashuTokenReceivePage> {
       final result = await _controller!.receive(_tokenController.text);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Received ${result.amount.value} sat.')),
+        SnackBar(
+          content: Text(
+            result.historySaved
+                ? 'Received ${result.amount.value} sat.'
+                : 'Received ${result.amount.value} sat. Local activity could not be updated; do not receive this token again.',
+          ),
+        ),
       );
       Navigator.of(context).pop(true);
     } catch (error) {

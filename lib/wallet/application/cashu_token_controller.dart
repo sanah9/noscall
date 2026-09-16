@@ -1,3 +1,5 @@
+import 'package:noscall/utils/hash_util.dart';
+
 import '../domain/account_wallet.dart';
 import '../domain/cashu_account_id.dart';
 import '../domain/cashu_engine.dart';
@@ -46,12 +48,14 @@ final class AccountCashuTokenController implements CashuTokenController {
     required MintConfigurationRepository mintRepository,
     required CashuTokenSendRepository sendRepository,
     required CashuTokenCodec tokenCodec,
+    CashuTokenReceiveRepository? receiveRepository,
     DateTime Function()? clock,
   }) : _accountId = accountId,
        _sessionManager = sessionManager,
        _mintRepository = mintRepository,
        _sendRepository = sendRepository,
        _tokenCodec = tokenCodec,
+       _receiveRepository = receiveRepository,
        _clock = clock ?? DateTime.now;
 
   final CashuAccountId _accountId;
@@ -59,6 +63,7 @@ final class AccountCashuTokenController implements CashuTokenController {
   final MintConfigurationRepository _mintRepository;
   final CashuTokenSendRepository _sendRepository;
   final CashuTokenCodec _tokenCodec;
+  final CashuTokenReceiveRepository? _receiveRepository;
   final DateTime Function() _clock;
 
   @override
@@ -93,9 +98,47 @@ final class AccountCashuTokenController implements CashuTokenController {
   Future<CashuReceiveResult> receive(String encodedToken) async {
     final summary = await previewReceive(encodedToken);
     final wallet = await _requireWallet();
-    return wallet.receive(
+    final receiptId = HashUtil.sha256String(summary.encodedToken);
+    final existing = await _receiveRepository?.find(_accountId, receiptId);
+    if (existing?.state == CashuReceiveState.received) {
+      throw StateError('This token has already been received.');
+    }
+    final createdAt = existing?.createdAt ?? _clock();
+    // Write a non-secret pending receipt before consuming the token.
+    await _receiveRepository?.save(
+      CashuTokenReceiveRecord(
+        owner: _accountId,
+        receiptId: receiptId,
+        mintUrl: summary.mintUrl,
+        amount: summary.amount,
+        state: CashuReceiveState.pending,
+        createdAt: createdAt,
+      ),
+    );
+    final result = await wallet.receive(
       CashuReceiveRequest(encodedToken: summary.encodedToken),
     );
+    try {
+      await _receiveRepository?.save(
+        CashuTokenReceiveRecord(
+          owner: _accountId,
+          receiptId: receiptId,
+          mintUrl: summary.mintUrl,
+          amount: result.amount,
+          state: CashuReceiveState.received,
+          createdAt: createdAt,
+          operationId: result.operationId,
+        ),
+      );
+      return result;
+    } catch (_) {
+      // Successful receipt must never be presented as a retryable payment failure.
+      return CashuReceiveResult(
+        operationId: result.operationId,
+        amount: result.amount,
+        historySaved: false,
+      );
+    }
   }
 
   @override

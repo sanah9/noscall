@@ -82,7 +82,16 @@ final class _WalletLandingPageState extends State<WalletLandingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Wallet')),
+      appBar: AppBar(
+        title: const Text('Wallet'),
+        actions: [
+          IconButton(
+            tooltip: 'Wallet activity',
+            icon: const Icon(Icons.receipt_long_outlined),
+            onPressed: () => _openWalletOperation('/wallet/activity'),
+          ),
+        ],
+      ),
       body: SafeArea(child: _buildBody(context)),
     );
   }

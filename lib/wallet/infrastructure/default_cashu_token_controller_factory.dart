@@ -24,6 +24,9 @@ final class DefaultCashuTokenControllerFactory {
         DBISAR.sharedInstance.isar,
       ),
       sendRepository: IsarCashuTokenSendRepository(DBISAR.sharedInstance.isar),
+      receiveRepository: IsarCashuTokenReceiveRepository(
+        DBISAR.sharedInstance.isar,
+      ),
       tokenCodec: const CdkTokenCodec(),
     );
   }

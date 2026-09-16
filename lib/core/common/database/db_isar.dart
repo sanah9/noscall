@@ -41,6 +41,7 @@ class DBISAR {
     CashuWalletConfigurationRecordSchema,
     CashuMintConfigurationRecordSchema,
     CashuTokenSendOperationRecordSchema,
+    CashuTokenReceiveOperationRecordSchema,
     CashuLightningReceiveQuoteOperationRecordSchema,
     CashuLightningPayQuoteOperationRecordSchema,
     CallPaymentPolicyRecordSchema,

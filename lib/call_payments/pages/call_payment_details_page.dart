@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/call_payments/domain/call_payment_models.dart';
-import 'package:noscall/call_payments/infrastructure/isar_call_payment_repository.dart';
+import 'package:noscall/call_payments/application/call_payment_details.dart';
+import 'package:noscall/call_payments/domain/call_payment_summary.dart';
 import 'package:noscall/core/account/account.dart';
-import 'package:noscall/core/common/database/db_isar.dart';
 import 'package:noscall/wallet/domain/cashu_account_id.dart';
 
-typedef CallPaymentDetailsLoader =
-    Future<CallPaymentDetailsData?> Function(
-      CashuAccountId owner,
-      String callId,
-    );
+export 'package:noscall/call_payments/application/call_payment_details.dart';
 
 final class CallPaymentDetailsArguments {
   const CallPaymentDetailsArguments({
@@ -21,16 +18,6 @@ final class CallPaymentDetailsArguments {
   final String callId;
   final CashuAccountId? accountId;
   final String? peerDisplayName;
-}
-
-final class CallPaymentDetailsData {
-  const CallPaymentDetailsData({
-    required this.session,
-    required this.installments,
-  });
-
-  final CallPaymentSession session;
-  final List<CallPaymentInstallment> installments;
 }
 
 final class CallPaymentDetailsPage extends StatefulWidget {
@@ -56,34 +43,29 @@ final class _CallPaymentDetailsPageState extends State<CallPaymentDetailsPage> {
     _future = _load();
   }
 
-  Future<CallPaymentDetailsData?> _load() {
+  Future<CallPaymentDetailsData?> _load() async {
     final owner =
         widget.arguments.accountId ??
         CashuAccountId.fromNostrPubkey(Account.sharedInstance.currentPubkey);
-    final loader = widget.loader ?? _defaultLoad;
+    final loader = widget.loader ?? CallPaymentDetailsData.load;
     return loader(owner, widget.arguments.callId);
-  }
-
-  Future<CallPaymentDetailsData?> _defaultLoad(
-    CashuAccountId owner,
-    String callId,
-  ) async {
-    final isar = DBISAR.sharedInstance.isar;
-    final sessionRepository = IsarCallPaymentSessionRepository(isar);
-    final installmentRepository = IsarCallPaymentInstallmentRepository(isar);
-    final session = await sessionRepository.find(owner, callId);
-    if (session == null) return null;
-    final installments = await installmentRepository.listForCall(
-      owner: owner,
-      callId: callId,
-    );
-    return CallPaymentDetailsData(session: session, installments: installments);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Paid Call Details')),
+      appBar: AppBar(
+        title: const Text('Paid Call Details'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh payment details',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => setState(() {
+              _future = _load();
+            }),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: FutureBuilder<CallPaymentDetailsData?>(
           future: _future,
@@ -106,7 +88,17 @@ final class _CallPaymentDetailsPageState extends State<CallPaymentDetailsPage> {
                 subtitle: 'This call may have been free or not yet synced.',
               );
             }
-            return _DetailsList(data: data);
+            return _DetailsList(
+              data: data,
+              onRecovery: () async {
+                await context.push('/call-payments/settings');
+                if (mounted) {
+                  setState(() {
+                    _future = _load();
+                  });
+                }
+              },
+            );
           },
         ),
       ),
@@ -115,18 +107,42 @@ final class _CallPaymentDetailsPageState extends State<CallPaymentDetailsPage> {
 }
 
 final class _DetailsList extends StatelessWidget {
-  const _DetailsList({required this.data});
+  const _DetailsList({required this.data, required this.onRecovery});
 
   final CallPaymentDetailsData data;
+  final VoidCallback onRecovery;
 
   @override
   Widget build(BuildContext context) {
     final session = data.session;
-    final summary = _PaymentSummary.fromInstallments(data.installments);
+    final summary = data.summary;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
+        if (session.status == CallPaymentSessionStatus.refundPending)
+          const ListTile(
+            leading: Icon(Icons.hourglass_bottom),
+            title: Text('Refund not complete'),
+            subtitle: Text(
+              'Pending refunds are not available balance. Completion depends on the peer and Mint.',
+            ),
+          ),
+        if (session.status == CallPaymentSessionStatus.reclaimPending)
+          const ListTile(
+            leading: Icon(Icons.sync),
+            title: Text('Reclaim not complete'),
+            subtitle: Text(
+              'Unclaimed tokens are checked during payment recovery. Refresh to see the latest saved status.',
+            ),
+          ),
         _SummaryCard(session: session, summary: summary),
+        if (session.status == CallPaymentSessionStatus.reclaimPending ||
+            session.status == CallPaymentSessionStatus.refundPending)
+          TextButton.icon(
+            onPressed: onRecovery,
+            icon: const Icon(Icons.sync),
+            label: const Text('Payment recovery'),
+          ),
         const SizedBox(height: 12),
         _InstallmentsCard(installments: data.installments),
         const SizedBox(height: 12),
@@ -148,7 +164,7 @@ final class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.session, required this.summary});
 
   final CallPaymentSession session;
-  final _PaymentSummary summary;
+  final CallPaymentSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +174,7 @@ final class _SummaryCard extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.paid_outlined),
             title: Text('${summary.netSats} sat net'),
-            subtitle: Text(_sessionStatusLabel(session.status)),
+            subtitle: Text(callPaymentStatusLabel(session.status)),
           ),
           const Divider(height: 1),
           _DetailRow(
@@ -173,9 +189,24 @@ final class _SummaryCard extends StatelessWidget {
           ),
           _DetailRow(
             icon: Icons.undo_outlined,
-            label: 'Refunded',
+            label: session.role == CallPaymentRole.payee
+                ? 'Refund sent'
+                : 'Refunded',
             value: '${summary.refundedSats} sat',
           ),
+          if (summary.refundSentSats > 0)
+            const ListTile(
+              title: Text('Peer receipt not confirmed'),
+              subtitle: Text(
+                'A relay accepted the refund; this does not confirm the peer has received it.',
+              ),
+            ),
+          if (summary.reservedSats > 0)
+            _DetailRow(
+              icon: Icons.hourglass_bottom,
+              label: 'Reserved / unresolved',
+              value: '${summary.reservedSats} sat',
+            ),
           _DetailRow(
             icon: Icons.account_balance_wallet_outlined,
             label: 'Max spend',
@@ -195,70 +226,6 @@ final class _SummaryCard extends StatelessWidget {
       ),
     );
   }
-}
-
-final class _PaymentSummary {
-  const _PaymentSummary({
-    required this.chargedSats,
-    required this.refundedSats,
-  });
-
-  factory _PaymentSummary.fromInstallments(
-    List<CallPaymentInstallment> installments,
-  ) {
-    var chargedSats = 0;
-    var refundedSats = 0;
-    for (final installment in installments) {
-      if (installment.purpose == CallPaymentPurpose.refund) {
-        if (_countsAsRefunded(installment)) {
-          refundedSats += installment.amountSats;
-        }
-      } else {
-        if (_countsAsCharged(installment)) {
-          chargedSats += installment.amountSats;
-        }
-        if (installment.status == CallPaymentInstallmentStatus.reclaimed) {
-          refundedSats += installment.amountSats;
-        }
-      }
-    }
-    if (refundedSats > chargedSats) {
-      refundedSats = chargedSats;
-    }
-    return _PaymentSummary(
-      chargedSats: chargedSats,
-      refundedSats: refundedSats,
-    );
-  }
-
-  final int chargedSats;
-  final int refundedSats;
-
-  int get netSats => chargedSats - refundedSats;
-}
-
-bool _countsAsCharged(CallPaymentInstallment installment) {
-  return switch (installment.status) {
-    CallPaymentInstallmentStatus.sent ||
-    CallPaymentInstallmentStatus.received ||
-    CallPaymentInstallmentStatus.claimed ||
-    CallPaymentInstallmentStatus.reclaimable ||
-    CallPaymentInstallmentStatus.reclaimed ||
-    CallPaymentInstallmentStatus.unknown => true,
-    CallPaymentInstallmentStatus.created ||
-    CallPaymentInstallmentStatus.prepared ||
-    CallPaymentInstallmentStatus.refunded ||
-    CallPaymentInstallmentStatus.failed => false,
-  };
-}
-
-bool _countsAsRefunded(CallPaymentInstallment installment) {
-  return installment.refundedAt != null ||
-      switch (installment.status) {
-        CallPaymentInstallmentStatus.sent ||
-        CallPaymentInstallmentStatus.refunded => true,
-        _ => false,
-      };
 }
 
 final class _InstallmentsCard extends StatelessWidget {
@@ -375,21 +342,6 @@ String _callTypeLabel(CallPaymentCallType type) {
   return switch (type) {
     CallPaymentCallType.audio => 'Audio',
     CallPaymentCallType.video => 'Video',
-  };
-}
-
-String _sessionStatusLabel(CallPaymentSessionStatus status) {
-  return switch (status) {
-    CallPaymentSessionStatus.reclaimPending => 'Reclaim pending',
-    CallPaymentSessionStatus.refundPending => 'Refund pending',
-    CallPaymentSessionStatus.completed => 'Completed',
-    CallPaymentSessionStatus.paymentFailed => 'Payment failed',
-    CallPaymentSessionStatus.insufficientBalance => 'Insufficient balance',
-    CallPaymentSessionStatus.noCommonMint => 'No shared Mint',
-    CallPaymentSessionStatus.rejected => 'Rejected',
-    CallPaymentSessionStatus.timeout => 'Timed out',
-    CallPaymentSessionStatus.disputed => 'Disputed',
-    _ => status.name,
   };
 }
 

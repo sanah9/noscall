@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:noscall/contacts/user_avatar.dart';
+import 'package:noscall/call_payments/pages/call_payment_live_status.dart';
 import 'package:noscall/core/navigation/app_navigator_scope.dart';
 
 import 'package:noscall/call/constant/call_type.dart';
@@ -170,6 +171,15 @@ class CallingPageState extends State<CallingPage> with WidgetsBindingObserver {
           ),
         ),
         extendBodyBehindAppBar: true,
+        bottomNavigationBar: FutureBuilder<String>(
+          future: controller.callId,
+          builder: (context, snapshot) => snapshot.hasData
+              ? CallPaymentLiveStatus(
+                  key: ValueKey(snapshot.data),
+                  callId: snapshot.data!,
+                )
+              : const SizedBox.shrink(),
+        ),
         body: Overlay(
           key: overlayKey,
           initialEntries: [OverlayEntry(builder: (_) => _buildContent())],

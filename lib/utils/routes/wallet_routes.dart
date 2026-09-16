@@ -7,10 +7,16 @@ import '../../wallet/pages/wallet_backup_page.dart';
 import '../../wallet/pages/cashu_token_receive_page.dart';
 import '../../wallet/pages/cashu_token_send_page.dart';
 import '../../wallet/pages/wallet_landing_page.dart';
+import '../../wallet/pages/wallet_activity_page.dart';
 import '../../wallet/pages/mint_management_page.dart';
 import '../../wallet/pages/wallet_recovery_page.dart';
 
 List<RouteBase> get walletRoutes => [
+  GoRoute(
+    path: '/wallet/activity',
+    name: 'wallet-activity',
+    builder: (context, state) => const WalletActivityPage(),
+  ),
   GoRoute(
     path: '/wallet',
     name: 'wallet',

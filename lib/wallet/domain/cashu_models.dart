@@ -165,10 +165,42 @@ final class CashuReceiveRequest {
 }
 
 final class CashuReceiveResult {
-  const CashuReceiveResult({required this.operationId, required this.amount});
+  const CashuReceiveResult({
+    required this.operationId,
+    required this.amount,
+    this.historySaved = true,
+  });
 
   final String operationId;
   final CashuAmount amount;
+  final bool historySaved;
+}
+
+enum CashuReceiveState { pending, received }
+
+final class CashuTokenReceiveRecord {
+  const CashuTokenReceiveRecord({
+    required this.owner,
+    required this.receiptId,
+    required this.mintUrl,
+    required this.amount,
+    required this.state,
+    required this.createdAt,
+    this.operationId,
+  });
+  final CashuAccountId owner;
+  final String receiptId;
+  final CashuMintUrl mintUrl;
+  final CashuAmount amount;
+  final CashuReceiveState state;
+  final DateTime createdAt;
+  final String? operationId;
+}
+
+abstract interface class CashuTokenReceiveRepository {
+  Future<CashuTokenReceiveRecord?> find(CashuAccountId owner, String receiptId);
+  Future<List<CashuTokenReceiveRecord>> list(CashuAccountId owner);
+  Future<void> save(CashuTokenReceiveRecord record);
 }
 
 final class CashuSendRequest {

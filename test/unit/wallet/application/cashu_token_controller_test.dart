@@ -14,6 +14,7 @@ void main() {
   late _TokenCodec codec;
   late _MintRepository mintRepository;
   late _SendRepository sendRepository;
+  late _ReceiveRepository receiveRepository;
   late _Wallet wallet;
   late AccountCashuTokenController controller;
 
@@ -23,12 +24,14 @@ void main() {
     codec = _TokenCodec(mintUrl);
     mintRepository = _MintRepository();
     sendRepository = _SendRepository();
+    receiveRepository = _ReceiveRepository();
     wallet = _Wallet(account, balances: {mintUrl: 100});
     controller = AccountCashuTokenController(
       accountId: account,
       sessionManager: WalletSessionManager(factory: _WalletFactory(wallet)),
       mintRepository: mintRepository,
       sendRepository: sendRepository,
+      receiveRepository: receiveRepository,
       tokenCodec: codec,
       clock: () => DateTime.utc(2026, 6, 29, 12),
     );
@@ -64,7 +67,34 @@ void main() {
 
     expect(result.amount, CashuAmount.sats(21));
     expect(wallet.receivedTokens, ['cashu-token']);
+    expect(receiveRepository.value!.state, CashuReceiveState.received);
+    expect(receiveRepository.value!.receiptId, isNot(contains('cashu-token')));
+    await expectLater(controller.receive('cashu-token'), throwsStateError);
+    expect(wallet.receivedTokens, hasLength(1));
   });
+
+  test(
+    'receipt save failure after successful receive is not a payment failure',
+    () async {
+      mintRepository.put(_mint(account, mintUrl));
+      receiveRepository.failCompleted = true;
+      final result = await controller.receive('cashu-token');
+      expect(result.historySaved, isFalse);
+      expect(result.amount.value, 21);
+      expect(receiveRepository.value!.state, CashuReceiveState.pending);
+      expect(wallet.receivedTokens, hasLength(1));
+    },
+  );
+
+  test(
+    'does not consume token when pending receipt cannot be persisted',
+    () async {
+      mintRepository.put(_mint(account, mintUrl));
+      receiveRepository.failAll = true;
+      await expectLater(controller.receive('cashu-token'), throwsStateError);
+      expect(wallet.receivedTokens, isEmpty);
+    },
+  );
 
   test('rejects sends that exceed the selected Mint balance', () async {
     mintRepository.put(_mint(account, mintUrl));
@@ -219,6 +249,28 @@ final class _SendRepository implements CashuTokenSendRepository {
   @override
   Future<void> save(CashuTokenSendRecord record) async {
     values[_key(record.owner, record.operationId)] = record;
+  }
+}
+
+final class _ReceiveRepository implements CashuTokenReceiveRepository {
+  CashuTokenReceiveRecord? value;
+  bool failCompleted = false;
+  bool failAll = false;
+  @override
+  Future<CashuTokenReceiveRecord?> find(
+    CashuAccountId owner,
+    String receiptId,
+  ) async => value;
+  @override
+  Future<List<CashuTokenReceiveRecord>> list(CashuAccountId owner) async =>
+      value == null ? [] : [value!];
+  @override
+  Future<void> save(CashuTokenReceiveRecord record) async {
+    if (failAll ||
+        (failCompleted && record.state == CashuReceiveState.received)) {
+      throw StateError('disk');
+    }
+    value = record;
   }
 }
 

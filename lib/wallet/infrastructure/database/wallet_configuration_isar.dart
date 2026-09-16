@@ -39,6 +39,19 @@ class CashuMintConfigurationRecord {
 }
 
 @collection
+class CashuTokenReceiveOperationRecord {
+  Id id = Isar.autoIncrement;
+  @Index(composite: [CompositeIndex('receiptId')], unique: true, replace: true)
+  String ownerPubkey = '';
+  String receiptId = '';
+  String mintUrl = '';
+  int amountSats = 0;
+  String state = '';
+  int createdAt = 0;
+  String? operationId;
+}
+
+@collection
 class CashuTokenSendOperationRecord {
   Id id = Isar.autoIncrement;
 

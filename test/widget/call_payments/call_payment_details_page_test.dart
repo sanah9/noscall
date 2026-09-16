@@ -33,6 +33,7 @@ void main() {
     expect(find.text('Initial #1'), findsOneWidget);
     expect(find.text('Top up #2'), findsOneWidget);
     expect(find.text('Refund #1'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Ordinary token payment'), 150);
     expect(find.text('Ordinary token payment'), findsOneWidget);
   });
 
@@ -51,6 +52,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No paid call payment found'), findsOneWidget);
+  });
+
+  testWidgets('refreshes payment details after an error', (tester) async {
+    var reads = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CallPaymentDetailsPage(
+          arguments: CallPaymentDetailsArguments(
+            callId: 'call-1',
+            accountId: _owner,
+          ),
+          loader: (_, _) async {
+            if (++reads == 1) throw StateError('database');
+            return _details();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Payment details unavailable'), findsOneWidget);
+    await tester.tap(find.byTooltip('Refresh payment details'));
+    await tester.pumpAndSettle();
+    expect(find.text('Refund not complete'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -27,6 +27,7 @@ void main() {
         CashuWalletConfigurationRecordSchema,
         CashuMintConfigurationRecordSchema,
         CashuTokenSendOperationRecordSchema,
+        CashuTokenReceiveOperationRecordSchema,
         CashuLightningReceiveQuoteOperationRecordSchema,
         CashuLightningPayQuoteOperationRecordSchema,
       ],
@@ -73,6 +74,39 @@ void main() {
     expect(stored?.backupStatus, WalletBackupStatus.confirmed);
     expect(await isar!.cashuWalletConfigurationRecords.count(), 1);
   });
+
+  test(
+    'token receipts upsert per account without storing token contents',
+    () async {
+      final repository = IsarCashuTokenReceiveRepository(isar!);
+      final owner = _account('a');
+      final other = _account('b');
+      CashuTokenReceiveRecord receipt(
+        CashuAccountId account,
+        CashuReceiveState state,
+      ) => CashuTokenReceiveRecord(
+        owner: account,
+        receiptId: 'hash',
+        mintUrl: CashuMintUrl.parse('https://mint.example'),
+        amount: CashuAmount.sats(21),
+        state: state,
+        createdAt: DateTime.utc(2026, 9, 16),
+      );
+      await repository.save(receipt(owner, CashuReceiveState.pending));
+      await repository.save(receipt(other, CashuReceiveState.pending));
+      await repository.save(receipt(owner, CashuReceiveState.received));
+      expect(
+        (await repository.find(owner, 'hash'))!.state,
+        CashuReceiveState.received,
+      );
+      expect(
+        (await repository.find(other, 'hash'))!.state,
+        CashuReceiveState.pending,
+      );
+      expect(await repository.list(owner), hasLength(1));
+      expect(await isar!.cashuTokenReceiveOperationRecords.count(), 2);
+    },
+  );
 
   test('isolates equal Mint URLs between Nostr accounts', () async {
     final ownerA = _account('a');
