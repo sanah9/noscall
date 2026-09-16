@@ -11,6 +11,7 @@ import '../../common/network/connect.dart';
 import '../messages/messages.dart';
 import '../messages/model/message_db_isar.dart';
 import 'contacts.dart';
+import 'prepared_direct_message.dart';
 
 extension Calling on Contacts {
   Future<OKEvent> sendHangup(
@@ -316,6 +317,20 @@ extension Calling on Contacts {
     String plainContent, {
     String? replyToMessageId,
   }) async {
+    final prepared = await prepareEncryptedDM(
+      toPubkey,
+      plainContent,
+      replyToMessageId: replyToMessageId,
+    );
+    return await publishPreparedDM(prepared) ? prepared.messageId : null;
+  }
+
+  /// Prepare once and persist before publishing so retries retain the event id.
+  Future<PreparedDirectMessage> prepareEncryptedDM(
+    String toPubkey,
+    String plainContent, {
+    String? replyToMessageId,
+  }) async {
     final encrypted = await Account.sharedInstance.encryptNip04(
       plainContent,
       toPubkey,
@@ -340,22 +355,36 @@ extension Calling on Contacts {
       event,
       toPubkey,
       kind: 4,
-      expiration: now + 86400,
       createAt: now,
     );
     final sealed = await sealedFuture;
-    if (sealed == null) return null;
-    final completer = Completer<String?>();
-    Connect.sharedInstance.sendEvent(
-      sealed,
-      relayKinds: [RelayKind.general],
-      sendCallBack: (ok, relay) {
-        if (!completer.isCompleted) {
-          completer.complete(ok.status ? event.id : null);
-        }
-      },
+    if (sealed == null) throw StateError('Message encryption failed');
+    return PreparedDirectMessage(
+      messageId: event.id,
+      eventJson: jsonEncode(sealed.toJson()),
+      createdAt: now,
     );
-    return completer.future;
+  }
+
+  Future<bool> publishPreparedDM(PreparedDirectMessage prepared) async {
+    final sealed = await Event.fromJson(jsonDecode(prepared.eventJson));
+    final completer = Completer<bool>();
+    final timer = Timer(const Duration(seconds: 15), () {
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    try {
+      Connect.sharedInstance.sendEvent(
+        sealed,
+        relayKinds: [RelayKind.general],
+        sendCallBack: (ok, relay) {
+          // One relay rejecting must not mask a later acceptance by another.
+          if (ok.status && !completer.isCompleted) completer.complete(true);
+        },
+      );
+      return await completer.future;
+    } finally {
+      timer.cancel();
+    }
   }
 
   MessageDBISAR callMessageToDB(CallMessage callMessage) {

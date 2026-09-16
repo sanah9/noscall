@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:noscall/contacts/user_avatar.dart';
 import 'package:noscall/core/account/account.dart';
 import 'package:noscall/core/account/model/user_db_isar.dart';
@@ -93,8 +94,9 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
         setState(() => _hasMore = false);
         return;
       }
-      final newOldest =
-          list.map((m) => m.createTime).reduce((a, b) => a < b ? a : b);
+      final newOldest = list
+          .map((m) => m.createTime)
+          .reduce((a, b) => a < b ? a : b);
       if (!mounted) return;
       setState(() {
         _messages.addAll(list);
@@ -126,8 +128,8 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
         .toList();
     Map<String, MessageDBISAR> targets = {};
     if (replyIds.isNotEmpty) {
-      final targetMessages =
-          await Messages.sharedInstance.loadMessageDBFromDBWithMsgIds(replyIds);
+      final targetMessages = await Messages.sharedInstance
+          .loadMessageDBFromDBWithMsgIds(replyIds);
       targets = {for (final m in targetMessages) m.messageId: m};
     }
     if (!mounted) return;
@@ -168,14 +170,14 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
   }
 
   Future<void> _onTapSendVoice() async {
-    final selected =
-        await AppNavigatorScope.requireOf(context).pushContactSelect(context);
+    final selected = await AppNavigatorScope.requireOf(
+      context,
+    ).pushContactSelect(context);
     if (selected == null || selected.isEmpty || !mounted) return;
     final receiverPubkey = selected.first;
-    AppNavigatorScope.requireOf(context).pushSendVoiceMessage(
+    AppNavigatorScope.requireOf(
       context,
-      receiverPubkey,
-    );
+    ).pushSendVoiceMessage(context, receiverPubkey);
   }
 
   @override
@@ -195,6 +197,11 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.drafts_outlined),
+            tooltip: 'Saved voice drafts',
+            onPressed: () => context.push('/voice-drafts'),
+          ),
+          IconButton(
             icon: const Icon(Icons.mic_none),
             onPressed: _onTapSendVoice,
             tooltip: 'Send voice message',
@@ -204,75 +211,81 @@ class _VoiceMessagesPageState extends State<VoiceMessagesPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _messages.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.mic_none,
-                          size: 64,
-                          color: onSurfaceVariant.withValues(alpha: 0.5)),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No voice messages yet',
-                        style: theme.textTheme.bodyLarge
-                            ?.copyWith(color: onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap the mic above to send one',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: onSurfaceVariant.withValues(alpha: 0.7),
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.mic_none,
+                    size: 64,
+                    color: onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No voice messages yet',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap the mic above to send one',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadMessages,
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount:
+                    _messages.length + (_hasMore && _loadingMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index >= _messages.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadMessages,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount:
-                        _messages.length + (_hasMore && _loadingMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index >= _messages.length) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                              child: SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2))),
+                    );
+                  }
+                  final msg = _messages[index];
+                  return _VoiceMessageListItem(
+                    message: msg,
+                    replyCount: _replyCounts[msg.messageId] ?? 0,
+                    replyTarget: msg.replyId.isEmpty
+                        ? null
+                        : _replyTargets[msg.replyId],
+                    onTap: () async {
+                      final myPubkey = Account.sharedInstance.currentPubkey;
+                      final isIncoming = msg.receiver == myPubkey;
+                      if (isIncoming && !msg.read) {
+                        await Messages.markVoiceMessageRead(msg.messageId);
+                        if (!mounted) return;
+                        setState(() {
+                          _messages[index] = msg.copyWith(read: true);
+                        });
+                        await VoiceUnreadManager.instance.removeUnread(
+                          msg.messageId,
                         );
                       }
-                      final msg = _messages[index];
-                      return _VoiceMessageListItem(
-                        message: msg,
-                        replyCount: _replyCounts[msg.messageId] ?? 0,
-                        replyTarget: msg.replyId.isEmpty
-                            ? null
-                            : _replyTargets[msg.replyId],
-                        onTap: () async {
-                          final myPubkey = Account.sharedInstance.currentPubkey;
-                          final isIncoming = msg.receiver == myPubkey;
-                          if (isIncoming && !msg.read) {
-                            await Messages.markVoiceMessageRead(msg.messageId);
-                            if (!mounted) return;
-                            setState(() {
-                              _messages[index] = msg.copyWith(read: true);
-                            });
-                            await VoiceUnreadManager.instance
-                                .removeUnread(msg.messageId);
-                          }
-                          if (!context.mounted) return;
-                          AppNavigatorScope.requireOf(context)
-                              .pushVoiceMessageDetail(context, msg);
-                        },
-                      );
+                      if (!context.mounted) return;
+                      AppNavigatorScope.requireOf(
+                        context,
+                      ).pushVoiceMessageDetail(context, msg);
                     },
-                  ),
-                ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -295,8 +308,9 @@ class _VoiceMessageListItem extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final myPubkey = Account.sharedInstance.currentPubkey;
-    final otherPubkey =
-        message.sender == myPubkey ? message.receiver : message.sender;
+    final otherPubkey = message.sender == myPubkey
+        ? message.receiver
+        : message.sender;
     final userNotifier = Account.sharedInstance.getUserNotifier(otherPubkey);
 
     return ValueListenableBuilder<UserDBISAR>(
@@ -318,7 +332,7 @@ class _VoiceMessageListItem extends StatelessWidget {
         isIncoming && VoiceUnreadManager.instance.isUnread(message.messageId);
     final voicePayload =
         MessageDBISAR.parseVoiceContent(message.decryptContent) ??
-            MessageDBISAR.parseVoiceContent(message.content);
+        MessageDBISAR.parseVoiceContent(message.content);
     final durationSec =
         (voicePayload?['durationSeconds'] as num?)?.toInt() ?? 0;
     final peaks = ((voicePayload?['waveformPeaks'] as List?) ?? const [])
@@ -348,8 +362,9 @@ class _VoiceMessageListItem extends StatelessWidget {
                     Text(
                       user.displayName(),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight:
-                            isUnread ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isUnread
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         color: colorScheme.onSurface,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -379,8 +394,9 @@ class _VoiceMessageListItem extends StatelessWidget {
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: isUnread
                                 ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.8),
+                                : colorScheme.onSurfaceVariant.withValues(
+                                    alpha: 0.8,
+                                  ),
                           ),
                         ),
                       ],
@@ -414,8 +430,10 @@ class _VoiceMessageListItem extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.chevron_right,
-                        color: colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.chevron_right,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ],
                 )
               else
@@ -428,8 +446,9 @@ class _VoiceMessageListItem extends StatelessWidget {
   }
 
   Widget _buildThreadMeta(ThemeData theme, ColorScheme colorScheme) {
-    final textStyle = theme.textTheme.bodySmall
-        ?.copyWith(color: colorScheme.onSurfaceVariant);
+    final textStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+    );
     final targetPreview = replyTarget == null
         ? 'Reply target unavailable'
         : MessageDBISAR.getContent(
